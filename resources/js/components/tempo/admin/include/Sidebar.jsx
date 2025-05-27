@@ -65,7 +65,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         {
             title: "Services",
             icon: <Layers className="h-5 w-5" />,
-            route: "admin.services*",
+            route: "admin.services*", // FOR ACTIVE NAV
             path: route("admin.services.overview"),
             id: "appointments",
             roles: ["Admin", "Doctor"],
@@ -78,14 +78,6 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             id: "programs",
             roles: ["Admin", "Doctor"],
         },
-        // {
-        //     title: "Inventory",
-        //     icon: <Package className="h-5 w-5" />,
-        //     route: "admin.inventory",
-        //     path: "/admin/inventory",
-        //     id: "inventory",
-        //     roles: ["Admin", "Pharmacist"],
-        // },
         {
             title: "Reports",
             icon: <BarChart3 className="h-5 w-5" />,
@@ -97,7 +89,8 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         {
             title: "Settings",
             icon: <Settings className="h-5 w-5" />,
-            path: "/settings",
+            route: "admin.settings*", // FOR ACTIVE NAV
+            path: route("admin.settings.index"),
             id: "settings",
             roles: ["Admin"],
         },

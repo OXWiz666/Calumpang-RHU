@@ -6,6 +6,10 @@ use App\Models\program_schedules;
 use App\Models\program_participants;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class ProgramParticipantController extends Controller
@@ -13,6 +17,60 @@ class ProgramParticipantController extends Controller
     /**
      * Register a user for a program
      */
+    public function registerProgram(Request $request)
+{
+    $validated = $request->validate([
+        'program_id' => [
+            'required',
+            'exists:program_schedules,id',
+        ],
+        'user_id' => [
+            'required',
+            'exists:users,id'
+        ]
+    ]);
+
+    try {
+        DB::transaction(function() use ($validated) {
+            $schedule = program_schedules::findOrFail($validated['program_id']);
+
+            if ($schedule->available_slots < 1) {
+                throw new \Exception('No available slots for this program');
+            }
+
+            if (program_participants::where([
+                'program_schedule_id' => $schedule->id,
+                'user_id' => Auth::id()
+            ])->exists()) {
+                throw new \Exception('You are already registered for this program');
+            }
+
+            $schedule->decrement('available_slots');
+
+            program_participants::create([
+                'program_schedule_id' => $schedule->id,
+                'user_id' => Auth::id()
+            ]);
+        });
+
+        return back()->with([
+            'flash' => [
+                'icon' => 'success',
+                'message' => 'Successfully registered to the program',
+                'title' => 'Success!'
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return back()->with([
+            'flash' => [
+                'icon' => 'error',
+                'message' => 'Error occured: ' . $e->getMessage(),
+                'title' => 'Error!'
+            ]
+        ]);
+    }
+}
     public function register(Request $request)
     {
         $request->validate([
@@ -33,7 +91,7 @@ class ProgramParticipantController extends Controller
 
         // Check if there are available slots
         $program = program_schedules::findOrFail($request->program_id);
-        
+
         if ($program->available_slots <= 0) {
             return response()->json([
                 'message' => 'No available slots for this program.'

@@ -84,12 +84,13 @@ const alert_toast = (title, message, type) => {
 export default function ServicesLayout({ children }) {
     const { flash } = usePage().props;
     const [isModalOpen, setIsModalOpen] = useState(false);
-    
+
     // Form state for creating a new service
-    const { data, setData, post, processing, errors, clearErrors, reset } = useForm({
-        servicename: "",
-        status: 1, // Active by default
-    });
+    const { data, setData, post, processing, errors, clearErrors, reset } =
+        useForm({
+            service_name: "",
+            status: 1, // Active by default
+        });
 
     // Handle flash messages from the server
     useEffect(() => {
@@ -144,36 +145,61 @@ export default function ServicesLayout({ children }) {
     const [selectedPosition, setSelectedPosition] = useState("");
     const [selectedQuestion, setSelectedQuestion] = useState("");
 
+    // const {
+    //     data: formData,
+    //     setData: setDataForm,
+    //     post: postForm,
+    //     errors: errorsForm,
+    //     recentlySuccessful: recentlySuccessfulForm,
+    //     processing: processingForm,
+    // } = useForm({
+    //     ...data,
+    //     description: "", // Add empty description
+    // });
+
+    useEffect(() => {}, [data]);
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        
+
         // Add an empty description field to the data to satisfy the backend
-        const formData = {
-            ...data,
-            description: '' // Add empty description
-        };
-        
-        axios.post('/admin/services/create', formData)
-            .then(response => {
-                setIsModalOpen(false);
-                clearErrors();
-                reset();
-                alert_toast(
-                    "Success",
-                    "Service created successfully!",
-                    "success"
-                );
-                // Force reload to show the updated services
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Error creating service:', error);
-                alert_toast(
-                    "Error",
-                    error.response?.data?.message || 'An error occurred while creating the service',
-                    "error"
-                );
-            });
+        // const formData = {
+        //     ...data,
+        //     description: "", // Add empty description
+        // };
+        post(route("admin.services.create"), {
+            onSuccess: () => {
+                CloseModal();
+            },
+            onFinish: () => {
+                router.reload({
+                    only: ["flash"],
+                });
+            },
+        });
+        // axios
+        //     .post("/admin/services/create", formData)
+        //     .then((response) => {
+        //         setIsModalOpen(false);
+        //         clearErrors();
+        //         reset();
+        //         alert_toast(
+        //             "Success",
+        //             "Service created successfully!",
+        //             "success"
+        //         );
+        //         // Force reload to show the updated services
+        //         window.location.reload();
+        //     })
+        //     .catch((error) => {
+        //         console.error("Error creating service:", error);
+        //         alert_toast(
+        //             "Error",
+        //             error.response?.data?.message ||
+        //                 "An error occurred while creating the service",
+        //             "error"
+        //         );
+        //     });
     };
 
     // State for the selected doctor and status
@@ -289,30 +315,42 @@ export default function ServicesLayout({ children }) {
             >
                 {children}
             </motion.div>
-            <Modal2 isOpen={isModalOpen} onClose={CloseModal}>
-                <div className="p-6">
+            <Modal2 isOpen={isModalOpen} maxWidth=" md" onClose={CloseModal}>
+                <div>
                     <h2 className="text-xl font-bold mb-4">Add New Service</h2>
                     <form onSubmit={handleSubmit}>
                         <div className="mb-4">
-                            <Label htmlFor="servicename" className="block mb-1">Service Name</Label>
-                            <Input 
-                                id="servicename" 
-                                type="text" 
-                                value={data.servicename}
-                                onChange={(e) => setData('servicename', e.target.value)}
+                            <Label htmlFor="servicename" className="block mb-1">
+                                Service Name
+                            </Label>
+                            <Input
+                                id="servicename"
+                                type="text"
+                                value={data.service_name}
+                                onChange={(e) =>
+                                    setData("service_name", e.target.value)
+                                }
                                 className="w-full"
                                 required
                             />
-                            {errors.servicename && (
-                                <p className="text-red-500 text-sm mt-1">{errors.servicename}</p>
+                            {errors.service_name && (
+                                <p className="text-red-500 text-sm mt-1">
+                                    {errors.service_name}
+                                </p>
                             )}
                         </div>
-                        
 
-                        
                         <div className="flex justify-end gap-2 mt-6">
-                            <Button type="button" variant="outline" onClick={CloseModal}>Cancel</Button>
-                            <Button type="submit" disabled={processing}>Add Service</Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={CloseModal}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                Add Service
+                            </Button>
                         </div>
                     </form>
                 </div>

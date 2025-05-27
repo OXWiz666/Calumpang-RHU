@@ -2,7 +2,23 @@ import Header from "@/components/tempo/components/landing/Header";
 import Footer from "@/components/tempo/components/landing/Footer";
 import { usePage, router } from "@inertiajs/react";
 import PusherListener from "@/components/pusher";
+import { useEffect } from "react";
 export default function LandingLayout({ children, className, footer = false }) {
+    // const { user } = usePage().props.auth;
+
+    // useEffect(() => {
+    //     console.log("user::", user);
+    // }, [user]);
+
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash) {
+            //console.log("this toast:", flash);
+            alert_toast(flash.title, flash.message, flash.icon);
+        }
+    }, [flash]);
+
     return (
         <div className={className}>
             <PusherListener

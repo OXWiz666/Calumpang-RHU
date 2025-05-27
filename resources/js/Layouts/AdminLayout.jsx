@@ -34,6 +34,7 @@ export default function AdminLayout({ header, children, tools }) {
     const [datas, setDatas] = useState(auth);
     useEffect(() => {
         //setActivities(notifs);
+        //console.log("auth:", auth);
         setDatas(auth);
     }, [auth]);
     // const [activePage, setActivePage] = useState("dashboard"); // Default: 'dashboard'

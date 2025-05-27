@@ -22,4 +22,8 @@ class program_types extends Model
     {
         return $this->hasMany(program_schedules::class, 'program_type_id')->orderBy('created_at', 'desc');
     }
+
+    public function service(){
+        return $this->belongsTo(servicetypes::class,'service_id');
+    }
 }
