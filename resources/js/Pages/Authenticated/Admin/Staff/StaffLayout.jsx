@@ -327,7 +327,7 @@ export default function StaffLayout({ children }) {
     // }, [links]);
 
     return (
-        <AdminLayout header="Staff" tools={tools()}>
+        <AdminLayout header="Staff yawa" tools={tools()}>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
