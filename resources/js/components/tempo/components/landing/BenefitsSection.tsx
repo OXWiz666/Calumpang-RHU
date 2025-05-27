@@ -39,7 +39,7 @@ const BenefitCard: React.FC<BenefitProps> = ({ icon, title, description }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md text-center">
+    <div className="bg-white p-6 rounded-lg shadow-lg text-center">
       <div className="p-3 rounded-full text-primary mb-4">
         {renderIcon()}
       </div>
