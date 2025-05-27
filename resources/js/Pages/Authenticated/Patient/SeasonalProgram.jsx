@@ -38,26 +38,8 @@ import CustomCalendar from "@/components/CustomCalendar";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-import ProgramRegis from "./ProgramRegistration";
-
-const SeasonalProgramDashboard = ({
-    myprograms,
-    allprograms,
-    programtypes,
-}) => {
-    // useEffect(() => {
-    //     if (programtypes) {
-    //         console.log("programtypes:", programtypes);
-    //     }
-    // }, [programtypes]);
-
-    const [programs, setPrograms] = useState(allprograms);
-    const { auth, userPrograms = [] } = usePage().props;
-    useEffect(() => {
-        if (auth.userPrograms) {
-            console.log(auth.userPrograms);
-        }
-    }, [auth.userPrograms]);
+const SeasonalProgramDashboard = () => {
+    const { auth, programs = [], userPrograms = [] } = usePage().props;
     const isAuthenticated = auth && auth.user;
 
     // State for program registration modal
@@ -65,6 +47,12 @@ const SeasonalProgramDashboard = ({
         isOpen: false,
         program: null,
     });
+
+    // Helper function to handle program registration
+    const handleProgramJoin = (program) => {
+        // Redirect to the dedicated registration page with the program ID
+        window.location.href = `/services/vaccinations/registration?program_id=${program.id}`;
+    };
 
     // Close registration modal
     const closeRegistrationModal = () => {
@@ -207,7 +195,6 @@ const SeasonalProgramDashboard = ({
             document.removeEventListener("click", handleClick, true);
         };
     }, [isAuthenticated, activeTab]);
-
     const [programFilter, setProgramFilter] = useState(null);
 
     // Transform program data from the server to the format we need
@@ -226,17 +213,13 @@ const SeasonalProgramDashboard = ({
                 availableSlots: program.availableSlots,
                 totalSlots: program.totalSlots,
                 status: program.status.toLowerCase(),
-                type: program.programType,
-                //type: mapProgramTypeToCategory(program.programType || ""),
+                type: mapProgramTypeToCategory(program.programType || ""),
                 coordinator: program.coordinator,
                 description: program.description,
             }));
 
-            //console.log("sched:", programs);
             setProgramSchedules(formattedPrograms);
         }
-
-        //console.log("programs:", programSchedules);
     }, [programs]);
 
     // Helper function to map program types to categories
@@ -303,10 +286,7 @@ const SeasonalProgramDashboard = ({
                 schedule.date.getMonth() === selectedDate.getMonth() &&
                 schedule.date.getFullYear() === selectedDate.getFullYear());
 
-        const typeMatches =
-            !programFilter || schedule.type.toString() == programFilter;
-
-        //console.log("typee::", schedule);
+        const typeMatches = !programFilter || schedule.type === programFilter;
 
         return dateMatches && typeMatches;
     });
@@ -741,66 +721,31 @@ const SeasonalProgramDashboard = ({
                             >
                                 Cancel
                             </button>
-                            {auth?.user ? (
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center"
+                            <button
+                                type="submit"
+                                className="px-5 py-2.5 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center"
+                            >
+                                <svg
+                                    className="w-4 h-4 mr-2"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
                                 >
-                                    <svg
-                                        className="w-4 h-4 mr-2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                        />
-                                    </svg>
-                                    Register for Program
-                                </button>
-                            ) : (
-                                <>Please Login First to submit</>
-                            )}
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                                Register for Program
+                            </button>
                         </div>
                     </form>
                 </div>
             </div>
         );
     };
-
-    const [IsJoiningProgram, setIsJoiningProgram] = useState(false);
-    const [selectedSched, setSelectedSched] = useState(null);
-    // useEffect(() => {
-    //     console.log("selected:", selectedSched);
-    // }, [selectedSched]);
-    // Helper function to handle program registration
-    const handleProgramJoin = (program) => {
-        // if (!auth?.user) {
-        //     router.visit(route("login"));
-        //     return;
-        // }
-        // Redirect to the dedicated registration page with the program ID
-        setIsJoiningProgram(true);
-        if (program) {
-            setSelectedSched(program);
-        } else {
-            setSelectedSched(null);
-        }
-        //window.location.href = `/services/vaccinations/registration?program_id=${program.id}`;
-    };
-
-    //const xProps = usePage().props;
-
-    // useEffect(() => {
-    //     if (auth.userPrograms) {
-    //         console.log("userprograms:", auth.userPrograms);
-
-    //         //setProgramRecords(auth.userPrograms);
-    //     }
-    // }, [auth.userPrograms]);
 
     return (
         <LandingLayout>
@@ -890,26 +835,64 @@ const SeasonalProgramDashboard = ({
                                             >
                                                 All Programs
                                             </Badge>
-
-                                            {programtypes.map((type, i) => (
-                                                <Badge
-                                                    key={i}
-                                                    variant={
-                                                        programFilter ===
-                                                        type.servicename
-                                                            ? "default"
-                                                            : "outline"
-                                                    }
-                                                    className="cursor-pointer"
-                                                    onClick={() =>
-                                                        setProgramFilter(
-                                                            type.servicename
-                                                        )
-                                                    }
-                                                >
-                                                    {type.servicename}
-                                                </Badge>
-                                            ))}
+                                            <Badge
+                                                variant={
+                                                    programFilter ===
+                                                    "healthprograms"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                    setProgramFilter(
+                                                        "healthprograms"
+                                                    )
+                                                }
+                                            >
+                                                Health Programs
+                                            </Badge>
+                                            <Badge
+                                                variant={
+                                                    programFilter ===
+                                                    "mental-health"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                    setProgramFilter(
+                                                        "mental-health"
+                                                    )
+                                                }
+                                            >
+                                                Mental Health
+                                            </Badge>
+                                            <Badge
+                                                variant={
+                                                    programFilter === "maternal"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                    setProgramFilter("maternal")
+                                                }
+                                            >
+                                                Maternal Care
+                                            </Badge>
+                                            <Badge
+                                                variant={
+                                                    programFilter === "general"
+                                                        ? "default"
+                                                        : "outline"
+                                                }
+                                                className="cursor-pointer"
+                                                onClick={() =>
+                                                    setProgramFilter("general")
+                                                }
+                                            >
+                                                General Health
+                                            </Badge>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -926,12 +909,10 @@ const SeasonalProgramDashboard = ({
                                                       "MMMM d, yyyy"
                                                   )}`
                                                 : "All Upcoming Program Schedules"}
-                                            {/* {programFilter &&
+                                            {programFilter &&
                                                 ` - ${getProgramTypeLabel(
                                                     programFilter
-                                                )}`} */}
-                                            {" - "}
-                                            {programFilter ?? "All Programs"}
+                                                )}`}
                                         </CardTitle>
                                         <CardDescription>
                                             {filteredSchedules.length} program
@@ -994,23 +975,13 @@ const SeasonalProgramDashboard = ({
                                                                     }
                                                                     className="ml-2"
                                                                 >
-                                                                    {myprograms.some(
-                                                                        (p) =>
-                                                                            p.program_schedule_id ==
-                                                                            schedule.id
-                                                                    ) ? (
-                                                                        <div>
-                                                                            Joined
-                                                                        </div>
-                                                                    ) : schedule.status ===
-                                                                      "completed" ? (
-                                                                        "Completed"
-                                                                    ) : schedule.availableSlots ===
-                                                                      0 ? (
-                                                                        "Fully Booked"
-                                                                    ) : (
-                                                                        "Available"
-                                                                    )}
+                                                                    {schedule.status ===
+                                                                    "completed"
+                                                                        ? "Completed"
+                                                                        : schedule.availableSlots ===
+                                                                          0
+                                                                        ? "Fully Booked"
+                                                                        : "Available"}
                                                                 </Badge>
                                                             </div>
                                                             <div className="flex items-center text-gray-600 text-sm gap-4">
@@ -1084,31 +1055,12 @@ const SeasonalProgramDashboard = ({
                                                                         : "default"
                                                                 }
                                                                 size="sm"
-                                                                onClick={(
-                                                                    e
-                                                                ) => {
-                                                                    handleProgramJoin(
-                                                                        schedule
-                                                                    );
-                                                                    // !myprograms.some(
-                                                                    //     (p) =>
-                                                                    //         p.program_schedule_id ==
-                                                                    //         schedule.id
-                                                                    // )
-                                                                    //     ? handleProgramJoin(
-                                                                    //           schedule
-                                                                    //       )
-                                                                    //     : null;
-                                                                }}
+                                                                onClick={
+                                                                    handleProgramJoin
+                                                                }
                                                             >
-                                                                {myprograms.some(
-                                                                    (p) =>
-                                                                        p.program_schedule_id ==
-                                                                        schedule.id
-                                                                )
-                                                                    ? "Joined"
-                                                                    : schedule.status ===
-                                                                      "completed"
+                                                                {schedule.status ===
+                                                                "completed"
                                                                     ? "Completed"
                                                                     : schedule.availableSlots ===
                                                                       0
@@ -1172,7 +1124,7 @@ const SeasonalProgramDashboard = ({
                                 </CardHeader>
                                 <CardContent>
                                     <div>
-                                        {auth.userPrograms.length == 0 ? (
+                                        {programRecords.length === 0 ? (
                                             <div className="p-8 text-center border rounded-lg">
                                                 <AlertCircle className="h-10 w-10 mx-auto text-gray-400 mb-2" />
                                                 <h3 className="text-lg font-medium text-gray-900 mb-1">
@@ -1194,22 +1146,17 @@ const SeasonalProgramDashboard = ({
                                                 </Button>
                                             </div>
                                         ) : (
-                                            auth.userPrograms.map((record) => (
-                                                //time
+                                            programRecords.map((record) => (
                                                 <div
                                                     key={record.id}
                                                     className="border rounded-lg overflow-hidden"
                                                 >
                                                     <div
                                                         className={`h-1 ${
-                                                            record
-                                                                .program_schedule
-                                                                .status ==
+                                                            record.status ===
                                                             "completed"
                                                                 ? "bg-green-500"
-                                                                : record
-                                                                      .program_schedule
-                                                                      .status ==
+                                                                : record.status ===
                                                                   "scheduled"
                                                                 ? "bg-blue-500"
                                                                 : "bg-red-500"
@@ -1220,41 +1167,28 @@ const SeasonalProgramDashboard = ({
                                                             <div>
                                                                 <div className="flex items-center gap-2">
                                                                     {getProgramTypeIcon(
-                                                                        record
-                                                                            .program_schedule
-                                                                            .program_type_id
+                                                                        record.type
                                                                     )}
                                                                     <h3 className="font-semibold text-lg">
                                                                         {
-                                                                            record
-                                                                                .program_schedule
-                                                                                .program_type
-                                                                                .programname
+                                                                            record.name
                                                                         }
                                                                     </h3>
                                                                     <Badge
                                                                         variant={
-                                                                            record
-                                                                                .program_schedule
-                                                                                .status ===
+                                                                            record.status ===
                                                                             "completed"
                                                                                 ? "success"
-                                                                                : record
-                                                                                      .program_schedule
-                                                                                      .status ===
+                                                                                : record.status ===
                                                                                   "scheduled"
                                                                                 ? "default"
                                                                                 : "destructive"
                                                                         }
                                                                     >
-                                                                        {record
-                                                                            .program_schedule
-                                                                            .status ===
+                                                                        {record.status ===
                                                                         "completed"
                                                                             ? "Completed"
-                                                                            : record
-                                                                                  .program_schedule
-                                                                                  .status ===
+                                                                            : record.status ===
                                                                               "scheduled"
                                                                             ? "Scheduled"
                                                                             : "Missed"}
@@ -1265,14 +1199,10 @@ const SeasonalProgramDashboard = ({
                                                                         <Stethoscope className="h-4 w-4 mr-2" />
                                                                         <span className="font-medium">
                                                                             Program
-                                                                            Type:{" "}
-                                                                        </span>
+                                                                            Type:
+                                                                        </span>{" "}
                                                                         {
-                                                                            record
-                                                                                .program_schedule
-                                                                                .program_type
-                                                                                .service
-                                                                                .servicename
+                                                                            record.programType
                                                                         }
                                                                     </div>
                                                                     <div className="flex items-center mb-1">
@@ -1281,9 +1211,7 @@ const SeasonalProgramDashboard = ({
                                                                             Date:
                                                                         </span>{" "}
                                                                         {format(
-                                                                            record
-                                                                                .program_schedule
-                                                                                .date,
+                                                                            record.date,
                                                                             "MMMM d, yyyy"
                                                                         )}
                                                                     </div>
@@ -1294,28 +1222,21 @@ const SeasonalProgramDashboard = ({
                                                                             By:
                                                                         </span>{" "}
                                                                         {
-                                                                            // record.conductedBy
+                                                                            record.conductedBy
                                                                         }
                                                                     </div>
                                                                 </div>
                                                             </div>
                                                             <div className="flex flex-col justify-center items-center md:items-end gap-2">
-                                                                {/* <div className="text-sm font-medium">
-                                                                    Session{" "}
-                                                                </div> */}
-                                                                {record.session && (
+                                                                {record.sessionNumber && (
                                                                     <div className="text-sm font-medium">
                                                                         Session{" "}
                                                                         {
-                                                                            record.session
+                                                                            record.sessionNumber
                                                                         }
                                                                     </div>
                                                                 )}
-                                                                <div className="text-sm">
-                                                                    Next
-                                                                    session:{" "}
-                                                                </div>
-                                                                {/* {record.nextSessionDate && (
+                                                                {record.nextSessionDate && (
                                                                     <div className="text-sm text-gray-600">
                                                                         Next
                                                                         session:{" "}
@@ -1324,7 +1245,7 @@ const SeasonalProgramDashboard = ({
                                                                             "MMMM d, yyyy"
                                                                         )}
                                                                     </div>
-                                                                )} */}
+                                                                )}
                                                                 {record.status ===
                                                                     "completed" && (
                                                                     <div className="flex items-center text-green-600 text-sm">
@@ -1455,11 +1376,11 @@ const SeasonalProgramDashboard = ({
                                                     </div>
                                                     <Button
                                                         size="sm"
-                                                        // onClick={() =>
-                                                        //     handleProgramJoin(
-                                                        //         program
-                                                        //     )
-                                                        // }
+                                                        onClick={() =>
+                                                            handleProgramJoin(
+                                                                program
+                                                            )
+                                                        }
                                                         disabled={
                                                             program.availableSlots <=
                                                                 0 ||
@@ -1488,12 +1409,7 @@ const SeasonalProgramDashboard = ({
             </div>
 
             {/* Render the registration modal */}
-            {/* {ProgramRegistrationModal()} */}
-            <ProgramRegis
-                isOpen={IsJoiningProgram}
-                onClose={(e) => setIsJoiningProgram(e)}
-                schedule={selectedSched}
-            />
+            {ProgramRegistrationModal()}
         </LandingLayout>
     );
 };
