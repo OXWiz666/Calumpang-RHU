@@ -6,6 +6,12 @@
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["resources/js/types/*"]
+    },
+    "typeRoots": ["node_modules/@types", "resources/js/types"]
+  },
+  "include": ["resources/js/**/*"]
 }

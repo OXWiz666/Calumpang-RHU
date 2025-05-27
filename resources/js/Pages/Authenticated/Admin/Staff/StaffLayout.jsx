@@ -327,13 +327,12 @@ export default function StaffLayout({ children }) {
     // }, [links]);
 
     return (
-        <AdminLayout header="Staff yawa" tools={tools()}>
+        <AdminLayout header="Staff" tools={tools()}>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
             >
-                {/* sd */}
                 {children}
             </motion.div>
             <Modal2 isOpen={isModalOpen} onClose={CloseModal}>

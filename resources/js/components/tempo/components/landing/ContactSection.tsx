@@ -47,11 +47,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
                 <div className="bg-primary/10 p-3 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round" className="h-6 w-6 text-primary">
-                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
-                    <circle cx="12" cy="10" r="3"></circle>
+                  <svg 
+                    className="h-6 w-6 text-primary"
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
                   </svg>
                 </div>
                 <div>
@@ -62,12 +69,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
 
               <div className="flex items-start space-x-4">
                 <div className="bg-primary/10 p-3 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round" className="h-6 w-6 text-primary">
-                    <path
-                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
-                    </path>
+                  <svg 
+                    className="h-6 w-6 text-primary"
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                    <path d="M22 6l-10 7L2 6"></path>
                   </svg>
                 </div>
                 <div>
@@ -78,11 +91,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
 
               <div className="flex items-start space-x-4">
                 <div className="bg-primary/10 p-3 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                    strokeLinejoin="round" className="h-6 w-6 text-primary">
-                    <rect width="20" height="16" x="2" y="4" rx="2"></rect>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                  <svg 
+                    className="h-6 w-6 text-primary"
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9l1.3 1.5a8.76 8.76 0 0 1 1.5 1.3V5.4z"></path>
+                    <path d="M12 21v-8m0 4-4-4 4-4 4 4-4 4z"></path>
                   </svg>
                 </div>
                 <div>
@@ -110,11 +130,17 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                 <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-green-50 to-transparent opacity-50"></div>
                   <div className="relative flex items-center">
-                    <svg className="h-5 w-5 text-green-500 mr-3" xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd" />
+                    <svg 
+                      className="h-5 w-5 text-green-500 mr-3"
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <p className="text-sm text-green-700">{formSuccess}</p>
                   </div>
@@ -127,11 +153,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                 <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-transparent opacity-50"></div>
                   <div className="relative flex items-center">
-                    <svg className="h-5 w-5 text-red-500 mr-3" xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd" />
+                    <svg 
+                      className="h-5 w-5 text-red-500 mr-3"
+                      xmlns="http://www.w3.org/2000/svg" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14"></path>
+                      <path d="M22 4L12 14.01l-3-3"></path>
                     </svg>
                     <p className="text-sm text-red-700">{formError}</p>
                   </div>
@@ -147,12 +180,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                     <ul className="list-disc list-inside text-sm text-red-700">
                       {formErrors.map((error, index) => (
                         <li key={index} className="flex items-center space-x-2">
-                          <svg className="h-4 w-4 text-red-500 flex-shrink-0"
-                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                            fill="currentColor">
-                            <path fillRule="evenodd"
-                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                              clipRule="evenodd" />
+                          <svg 
+                            className="h-4 w-4 text-red-500 flex-shrink-0"
+                            xmlns="http://www.w3.org/2000/svg" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"></path>
+                            <path d="M22 4L12 14.01l-3-3"></path>
                           </svg>
                           <span>{error}</span>
                         </li>
@@ -172,11 +211,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd"
-                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                          clipRule="evenodd" />
+                      <svg 
+                        className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
                       </svg>
                     </div>
                     <input type="text" id="name" name="name" placeholder="Your name"
@@ -194,10 +240,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      <svg 
+                        className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                        <path d="M22 6l-10 7L2 6"></path>
                       </svg>
                     </div>
                     <input type="email" id="email" name="email" placeholder="you@example.com"
@@ -215,11 +269,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd"
-                          d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
-                          clipRule="evenodd" />
+                      <svg 
+                        className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9l1.3 1.5a8.76 8.76 0 0 1 1.5 1.3V5.4z"></path>
+                        <path d="M12 21v-8m0 4-4-4 4-4 4 4-4 4z"></path>
                       </svg>
                     </div>
                     <input type="text" id="subject" name="subject" placeholder="Message subject"
@@ -237,11 +298,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                   </label>
                   <div className="relative">
                     <div className="absolute top-3 left-3 flex items-start pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd"
-                          d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z"
-                          clipRule="evenodd" />
+                      <svg 
+                        className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
+                        xmlns="http://www.w3.org/2000/svg" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9l1.3 1.5a8.76 8.76 0 0 1 1.5 1.3V5.4z"></path>
+                        <path d="M12 21v-8m0 4-4-4 4-4 4 4-4 4z"></path>
                       </svg>
                     </div>
                     <textarea id="message" name="message" placeholder="Your message"
@@ -257,10 +325,18 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                 className="w-full bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-all duration-300
                 transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group">
                 <span className="relative z-10 flex items-center">
-                  <svg className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12"
-                    xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                  <svg 
+                    className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12"
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  >
+                    <path d="m22 2-7 20-4-9-9-4Z"/>
+                    <path d="M22 2 11 13"/>
                   </svg>
                   <span className="font-medium">Send Message</span>
                 </span>

@@ -448,7 +448,9 @@ const Header = ({
                                             </div>
                                         </Link>
                                         <Link
-                                            href="/services/vaccinations"
+                                            href={route(
+                                                "services.vaccinations"
+                                            )}
                                             className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1"
                                         >
                                             <svg

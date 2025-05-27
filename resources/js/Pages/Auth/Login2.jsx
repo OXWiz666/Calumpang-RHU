@@ -36,11 +36,11 @@ export default function Login2({ flash }) {
     //     }
     //   }, [errors]);
 
-    useEffect(() => {
-        if (flash) {
-            alert_toast(flash.title, flash.message, flash.icon);
-        }
-    }, [flash]);
+    // useEffect(() => {
+    //     if (flash) {
+    //         alert_toast(flash.title, flash.message, flash.icon);
+    //     }
+    // }, [flash]);
 
     return (
         <LoginLayout>

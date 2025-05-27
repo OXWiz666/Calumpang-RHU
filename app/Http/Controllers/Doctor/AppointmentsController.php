@@ -30,4 +30,6 @@ class AppointmentsController extends Controller
         $appointment->load(['user','service']);
         return response()->json($appointment);
     }
+
+
 }
