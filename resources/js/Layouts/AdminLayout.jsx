@@ -27,6 +27,15 @@ import Sidebar2 from "@/components/tempo/doctor/include/Sidebar";
 import NotificationDropdown from "@/components/tempo/admin/include/NotificationDropdown";
 import { data } from "autoprefixer";
 import PusherListener from "@/components/pusher";
+
+import { create } from "zustand";
+
+export const useSidebarState = create((set) => ({
+    sidebarstate: false,
+
+    setSidebarstate: (sidebarstate) => set({ sidebarstate }),
+}));
+
 export default function AdminLayout({ header, children, tools }) {
     const role = usePage().props.auth.role;
 
@@ -38,6 +47,7 @@ export default function AdminLayout({ header, children, tools }) {
         setDatas(auth);
     }, [auth]);
     // const [activePage, setActivePage] = useState("dashboard"); // Default: 'dashboard'
+
     return (
         <div className="flex h-screen bg-background">
             <PusherListener

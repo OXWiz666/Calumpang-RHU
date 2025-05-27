@@ -25,8 +25,12 @@ import { router } from "@inertiajs/react";
 //   userRole?: "Admin" | "Doctor" | "Pharmacist";
 // }
 
+import { useSidebarState } from "@/Layouts/AdminLayout";
+
 const Sidebar = ({ activePage, userRole = "Admin" }) => {
-    const [collapsed, setCollapsed] = useState(false);
+    const { sidebarstate, setSidebarstate } = useSidebarState();
+
+    //const [sidebarstate, setCollapsed] = useState(sidebarstate);
 
     const menuItems = [
         {
@@ -107,13 +111,13 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         <div
             className={cn(
                 "flex flex-col h-full bg-white border-r transition-all duration-300 shadow-sm",
-                collapsed ? "w-20" : "w-64 md:w-72"
+                sidebarstate ? "w-20" : "w-64 md:w-72"
             )}
         >
             {/* Header with logo */}
             <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center">
-                    {!collapsed && (
+                    {!sidebarstate && (
                         <div className="flex flex-col">
                             <h1 className="font-bold text-lg text-primary">
                                 RHU Calumpang
@@ -123,7 +127,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                             </p>
                         </div>
                     )}
-                    {collapsed && (
+                    {sidebarstate && (
                         <div className="mx-auto">
                             <span className="font-bold text-xl text-primary">
                                 RHU
@@ -134,10 +138,13 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setCollapsed(!collapsed)}
+                    onClick={
+                        () => setSidebarstate(!sidebarstate)
+                        //setCollapsed(!sidebarstate)
+                    }
                     className="ml-auto"
                 >
-                    {collapsed ? (
+                    {sidebarstate ? (
                         <Menu className="h-5 w-5" />
                     ) : (
                         <X className="h-5 w-5" />
@@ -157,11 +164,11 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                                     route().current(item.route) && item.route
                                         ? "bg-primary text-primary-foreground"
                                         : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                                    collapsed && "justify-center px-0"
+                                    sidebarstate && "justify-center px-0"
                                 )}
                             >
                                 {item.icon}
-                                {!collapsed && (
+                                {!sidebarstate && (
                                     <span className="ml-3">{item.title}</span>
                                 )}
                             </Link>
@@ -175,13 +182,13 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                 <div
                     className={cn(
                         "flex items-center",
-                        collapsed && "justify-center"
+                        sidebarstate && "justify-center"
                     )}
                 >
                     <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                         {userRole[0]}
                     </div>
-                    {!collapsed && (
+                    {!sidebarstate && (
                         <div className="ml-3">
                             <p className="text-sm font-medium">
                                 {user.firstname} {user.lastname}
@@ -198,12 +205,12 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                     variant="ghost"
                     className={cn(
                         "w-full mt-4 text-muted-foreground hover:text-foreground",
-                        collapsed && "px-0"
+                        sidebarstate && "px-0"
                     )}
                     onClick={(e) => router.post("/logout")}
                 >
                     <LogOut className="h-5 w-5" />
-                    {!collapsed && <span className="ml-2">Logout</span>}
+                    {!sidebarstate && <span className="ml-2">Logout</span>}
                 </Button>
             </div>
         </div>
