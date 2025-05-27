@@ -81,7 +81,9 @@ const ProfilePage = ({ errors }) => {
             lastname: user__.lastname,
             suffix: user__.suffix,
             email: user__.email,
-            avatar: user__.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=juan",
+            avatar:
+                user__.avatar ||
+                "https://api.dicebear.com/7.x/avataaars/svg?seed=juan",
             phone: user__.contactno,
             address: user__.address,
             medicalInfo: "No known allergies. Last check-up: March 2023",
@@ -149,7 +151,7 @@ const ProfilePage = ({ errors }) => {
         // Trigger file input click
         fileInputRef.current.click();
     };
-    
+
     // Handle file selection
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -157,13 +159,13 @@ const ProfilePage = ({ errors }) => {
             // Create a preview URL
             const previewUrl = URL.createObjectURL(file);
             setAvatarPreview(previewUrl);
-            
+
             // Create FormData and submit
             const formData = new FormData();
-            formData.append('avatar', file);
-            
+            formData.append("avatar", file);
+
             // Use Inertia to submit the form
-            router.post(route('patient.avatar.upload'), formData, {
+            router.post(route("patient.avatar.upload"), formData, {
                 forceFormData: true,
                 onSuccess: () => {
                     // Clean up the preview URL
@@ -177,7 +179,7 @@ const ProfilePage = ({ errors }) => {
                     // Clean up the preview URL
                     URL.revokeObjectURL(previewUrl);
                     setAvatarPreview(null);
-                }
+                },
             });
         }
     };
@@ -187,7 +189,18 @@ const ProfilePage = ({ errors }) => {
             case 1:
                 return (
                     <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <circle cx="12" cy="12" r="10"></circle>
                             <polyline points="12 6 12 12 16 14"></polyline>
                         </svg>
@@ -197,7 +210,18 @@ const ProfilePage = ({ errors }) => {
             case 2:
                 return (
                     <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                         <span>Completed</span>
@@ -206,7 +230,18 @@ const ProfilePage = ({ errors }) => {
             case 3:
                 return (
                     <div className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -216,7 +251,18 @@ const ProfilePage = ({ errors }) => {
             case 4:
                 return (
                     <div className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                         </svg>
@@ -226,7 +272,18 @@ const ProfilePage = ({ errors }) => {
             case 5:
                 return (
                     <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <polyline points="20 6 9 17 4 12"></polyline>
                         </svg>
                         <span>Confirmed</span>
@@ -235,7 +292,18 @@ const ProfilePage = ({ errors }) => {
             default:
                 return (
                     <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -258,11 +326,17 @@ const ProfilePage = ({ errors }) => {
                                     <div className="relative group">
                                         <Avatar className="h-24 w-24 mb-4 border-4 border-primary/10">
                                             <AvatarImage
-                                                src={avatarPreview || (user__.avatar ? `/storage/avatars/${user__.avatar}` : data.avatar)}
+                                                src={
+                                                    avatarPreview ||
+                                                    (user__.avatar
+                                                        ? `/storage/avatars/${user__.avatar}`
+                                                        : data.avatar)
+                                                }
                                                 alt={`${user__.firstname} ${user__.lastname}`}
                                             />
                                             <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-                                                {user__.firstname?.charAt(0)}{user__.lastname?.charAt(0)}
+                                                {user__.firstname?.charAt(0)}
+                                                {user__.lastname?.charAt(0)}
                                             </AvatarFallback>
                                         </Avatar>
                                         <button
@@ -271,17 +345,32 @@ const ProfilePage = ({ errors }) => {
                                             title="Upload avatar"
                                         >
                                             {/* Inline SVG for upload icon */}
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                                 <polyline points="17 8 12 3 7 8"></polyline>
-                                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                                                <line
+                                                    x1="12"
+                                                    y1="3"
+                                                    x2="12"
+                                                    y2="15"
+                                                ></line>
                                             </svg>
                                         </button>
                                         {/* Hidden file input */}
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            className="hidden" 
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
                                             accept="image/*"
                                             onChange={handleFileChange}
                                         />
@@ -435,12 +524,6 @@ const ProfilePage = ({ errors }) => {
                                         >
                                             Personal Information
                                         </TabsTrigger>
-                                        {/* <TabsTrigger
-                                            value="medical"
-                                            className="text-xs sm:text-sm "
-                                        >
-                                            Medical Information
-                                        </TabsTrigger> */}
                                         <TabsTrigger
                                             value="appointments"
                                             className="text-xs sm:text-sm "
@@ -661,10 +744,24 @@ const ProfilePage = ({ errors }) => {
                                                         size="sm"
                                                         variant="outline"
                                                         className="px-3 py-1 text-sm shadow-sm flex items-center justify-center"
-                                                        onClick={() => window.location.href = "/patient/appointments/history"}
+                                                        onClick={() =>
+                                                            (window.location.href =
+                                                                "/patient/appointments/history")
+                                                        }
                                                     >
                                                         <span>View All</span>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className="ml-1"
+                                                        >
                                                             <polyline points="9 18 15 12 9 6"></polyline>
                                                         </svg>
                                                     </Button>
@@ -681,28 +778,74 @@ const ProfilePage = ({ errors }) => {
                                                                 <div className="flex justify-between items-start mb-2">
                                                                     <div>
                                                                         <h4 className="font-medium flex items-center">
-                                                                            {appointment.purpose}
+                                                                            {
+                                                                                appointment.purpose
+                                                                            }
                                                                             <span className="text-xs text-muted-foreground ml-2">
-                                                                                #{appointment.id}
+                                                                                #
+                                                                                {
+                                                                                    appointment.id
+                                                                                }
                                                                             </span>
                                                                         </h4>
                                                                         <p className="text-sm text-muted-foreground">
-                                                                            {appointment.doctor}
+                                                                            {
+                                                                                appointment.doctor
+                                                                            }
                                                                         </p>
                                                                     </div>
-                                                                    {getStatusBadge(appointment.status_code)}
+                                                                    {getStatusBadge(
+                                                                        appointment.status_code
+                                                                    )}
                                                                 </div>
                                                                 <div className="flex items-center text-sm text-muted-foreground">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1">
-                                                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                                                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                                                                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                                                                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        width="16"
+                                                                        height="16"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="mr-1"
+                                                                    >
+                                                                        <rect
+                                                                            x="3"
+                                                                            y="4"
+                                                                            width="18"
+                                                                            height="18"
+                                                                            rx="2"
+                                                                            ry="2"
+                                                                        ></rect>
+                                                                        <line
+                                                                            x1="16"
+                                                                            y1="2"
+                                                                            x2="16"
+                                                                            y2="6"
+                                                                        ></line>
+                                                                        <line
+                                                                            x1="8"
+                                                                            y1="2"
+                                                                            x2="8"
+                                                                            y2="6"
+                                                                        ></line>
+                                                                        <line
+                                                                            x1="3"
+                                                                            y1="10"
+                                                                            x2="21"
+                                                                            y2="10"
+                                                                        ></line>
                                                                     </svg>
                                                                     <span>
-                                                                        {appointment.date}{" "}
+                                                                        {
+                                                                            appointment.date
+                                                                        }{" "}
                                                                         at{" "}
-                                                                        {appointment.time}
+                                                                        {
+                                                                            appointment.time
+                                                                        }
                                                                     </span>
                                                                 </div>
                                                             </div>
@@ -712,11 +855,44 @@ const ProfilePage = ({ errors }) => {
                                             </div>
                                         ) : (
                                             <div className="text-center p-8 border rounded-md bg-muted/10">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-4 text-muted-foreground">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="48"
+                                                    height="48"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="mx-auto mb-4 text-muted-foreground"
+                                                >
+                                                    <rect
+                                                        x="3"
+                                                        y="4"
+                                                        width="18"
+                                                        height="18"
+                                                        rx="2"
+                                                        ry="2"
+                                                    ></rect>
+                                                    <line
+                                                        x1="16"
+                                                        y1="2"
+                                                        x2="16"
+                                                        y2="6"
+                                                    ></line>
+                                                    <line
+                                                        x1="8"
+                                                        y1="2"
+                                                        x2="8"
+                                                        y2="6"
+                                                    ></line>
+                                                    <line
+                                                        x1="3"
+                                                        y1="10"
+                                                        x2="21"
+                                                        y2="10"
+                                                    ></line>
                                                 </svg>
                                                 <h3 className="font-medium mb-1">
                                                     No Appointments Yet
@@ -726,10 +902,15 @@ const ProfilePage = ({ errors }) => {
                                                     appointments yet.
                                                 </p>
                                                 <Button
-                                                    onClick={() => window.location.href = "/appointments"}
+                                                    onClick={() =>
+                                                        (window.location.href =
+                                                            "/appointments")
+                                                    }
                                                     className="px-4 py-1 text-sm shadow-md flex items-center justify-center"
                                                 >
-                                                    <span>Schedule an Appointment</span>
+                                                    <span>
+                                                        Schedule an Appointment
+                                                    </span>
                                                 </Button>
                                             </div>
                                         )}
