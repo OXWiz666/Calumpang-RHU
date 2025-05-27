@@ -15,7 +15,7 @@ export default function SettingsLayout({
     activeTab = "accinfo",
 }) {
     return (
-        <AdminLayout header="Settings">
+        <AdminLayout header="Settingsx">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
