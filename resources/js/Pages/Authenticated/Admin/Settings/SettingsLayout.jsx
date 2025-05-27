@@ -9,13 +9,17 @@ import {
     CardTitle,
 } from "@/components/tempo/components/ui/card";
 import Sidebar from "./Sidebar";
+import PrimaryButton from "@/components/PrimaryButton";
 export default function SettingsLayout({
     children,
     description = "",
     activeTab = "accinfo",
+
+    onsave = () => {},
+    processing = false,
 }) {
     return (
-        <AdminLayout header="Settingsx">
+        <AdminLayout header="Settings">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -48,6 +52,16 @@ export default function SettingsLayout({
                                     </div>
                                 </div>
                             </CardHeader>
+                            <CardFooter>
+                                {onsave && (
+                                    <PrimaryButton
+                                        disabled={processing}
+                                        onClick={onsave}
+                                    >
+                                        Save
+                                    </PrimaryButton>
+                                )}
+                            </CardFooter>
                         </Card>
                     </div>
                 </div>

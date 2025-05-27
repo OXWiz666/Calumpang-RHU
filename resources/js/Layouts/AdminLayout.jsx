@@ -48,6 +48,15 @@ export default function AdminLayout({ header, children, tools }) {
     }, [auth]);
     // const [activePage, setActivePage] = useState("dashboard"); // Default: 'dashboard'
 
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash) {
+            //console.log("this toast:", flash);
+            alert_toast(flash.title, flash.message, flash.icon);
+        }
+    }, [flash]);
+
     return (
         <div className="flex h-screen bg-background">
             <PusherListener

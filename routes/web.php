@@ -169,6 +169,9 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
         Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
+
+        Route::post('/settings/account/update',[SettingsController::class,'saveaccount'])->name('admin.settings.update');
+
         Route::post('/appointment/status/update/{appointment}',[AppointmentsController::class,'UpdateStatus'])->name('admin.appointment.status.update');
     });
 });
