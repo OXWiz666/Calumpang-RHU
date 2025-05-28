@@ -42,7 +42,7 @@ export default function Settings({}) {
             onSuccess: () => {
                 reset();
             },
-            onFinish: () => {
+            onFinish: (res) => {
                 router.reload({
                     only: ["flash"],
                 });
@@ -59,6 +59,7 @@ export default function Settings({}) {
             processing={processing}
             description="These are your password information."
             activeTab="pwsettings"
+            header="Password Settings"
         >
             <PrintErrors errors={errors} />
             <div className="grid grid-cols-2 gap-4 mt-5 w-1/2">

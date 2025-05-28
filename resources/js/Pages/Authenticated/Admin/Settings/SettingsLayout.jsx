@@ -17,6 +17,8 @@ export default function SettingsLayout({
 
     onsave = () => {},
     processing = false,
+
+    header = "Account Information",
 }) {
     return (
         <AdminLayout header="Settings">
@@ -26,7 +28,7 @@ export default function SettingsLayout({
                 transition={{ duration: 0.5 }}
             >
                 <div className=" mb-5">
-                    <h1 className="text-3xl font-bold mb-2">Settings</h1>
+                    <h1 className="text-3xl font-bold mb-2">{header}</h1>
                     <p className="text-gray-600">
                         Here you can customize your settings on your own.
                     </p>
