@@ -150,6 +150,7 @@ Route::middleware(['auth','Admin'])->group(function(){
 
         Route::prefix('settings')->group(function(){
             Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
+            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
         });
 
 
@@ -168,6 +169,9 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         Route::get('/appointment/get/{appointment}', [AppointmentsController::class,'GetAppointment'])->name('admin.appointment.get');
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
         Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
+
+
+        Route::post('/settings/pw/update',[SettingsController::class,'changePw'])->name('admin.settings.pw.update');
 
 
         Route::post('/settings/account/update',[SettingsController::class,'saveaccount'])->name('admin.settings.update');

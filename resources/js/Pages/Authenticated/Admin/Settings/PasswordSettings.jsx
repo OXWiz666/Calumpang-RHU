@@ -18,14 +18,19 @@ import PrintErrors from "@/components/PrintErrors";
 // import "bootstrap/dist/css/bootstrap.min.css";
 export default function Settings({}) {
     const { user } = usePage().props.auth;
-    const { data, setData, recentlySuccessful, processing, errors, post } =
-        useForm({
-            firstname: user?.firstname,
-            middlename: user?.middlename,
-            lastname: user?.lastname,
-            email: user?.email,
-            contactno: user?.contactno,
-        });
+    const {
+        data,
+        setData,
+        recentlySuccessful,
+        processing,
+        errors,
+        post,
+        reset,
+    } = useForm({
+        oldpw: "",
+        newpw: "",
+        confirmpw: "",
+    });
 
     const textchange = (e) => {
         setData(e.target.name, e.target.value);
@@ -33,7 +38,10 @@ export default function Settings({}) {
 
     const saveChanges = (e) => {
         e.preventDefault();
-        post(route("admin.settings.update"), {
+        post(route("admin.settings.pw.update"), {
+            onSuccess: () => {
+                reset();
+            },
             onFinish: () => {
                 router.reload({
                     only: ["flash"],
@@ -49,55 +57,41 @@ export default function Settings({}) {
         <SettingsLayout
             onsave={saveChanges}
             processing={processing}
-            description="These are your account information."
+            description="These are your password information."
+            activeTab="pwsettings"
         >
             <PrintErrors errors={errors} />
-            <div className="grid grid-cols-1  md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+            <div className="grid grid-cols-2 gap-4 mt-5 w-1/2">
                 <div>
-                    <InputLabel value="First Name" />
+                    <InputLabel value="Old Password" />
                     <Input
-                        name="firstname"
-                        value={data.firstname}
+                        name="oldpw"
+                        value={data.oldpw}
                         onChange={textchange}
                         className="w-full"
-                    />
-                </div>
-                <div>
-                    <InputLabel value="Middle Name" />
-                    <Input
-                        value={data.middlename}
-                        name="middlename"
-                        onChange={textchange}
-                        className="w-full"
-                    />
-                </div>
-                <div>
-                    <InputLabel value="Last Name" />
-                    <Input
-                        value={data.lastname}
-                        name="lastname"
-                        onChange={textchange}
-                        className="w-full"
+                        type="password"
                     />
                 </div>
             </div>
-            <div className="grid grid-cols-1  md:grid-cols-2 gap-4 mt-5">
+            <div className="grid grid-cols-2 gap-4 mt-5 w-full lg:w-1/2">
                 <div>
-                    <InputLabel value="Email" />
+                    <InputLabel value="New Password" />
                     <Input
-                        name="email"
-                        value={data.email}
+                        name="newpw"
+                        value={data.newpw}
                         onChange={textchange}
                         className="w-full"
+                        type="password"
                     />
                 </div>
                 <div>
-                    <InputLabel value="Contact #" />
+                    <InputLabel value="Confirm Password" />
                     <Input
-                        value={data.contactno}
-                        name="contactno"
+                        name="confirmpw"
+                        value={data.confirmpw}
                         onChange={textchange}
                         className="w-full"
+                        type="password"
                     />
                 </div>
             </div>

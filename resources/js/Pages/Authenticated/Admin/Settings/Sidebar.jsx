@@ -52,6 +52,9 @@ export default function Sidebar({ activeTab }) {
                                 }
                                 className="w-full justify-start"
                                 size="lg"
+                                onClick={(e) =>
+                                    router.visit(route("admin.settings.index"))
+                                }
                             >
                                 <UserPen className="mr-2 h-5 w-5" />
                                 Account Information
@@ -64,6 +67,9 @@ export default function Sidebar({ activeTab }) {
                                 }
                                 className="w-full justify-start"
                                 size="lg"
+                                onClick={(e) =>
+                                    router.visit(route("admin.settings.pw"))
+                                }
                             >
                                 <UserCog className="mr-2 h-5 w-5" />
                                 Password Settings

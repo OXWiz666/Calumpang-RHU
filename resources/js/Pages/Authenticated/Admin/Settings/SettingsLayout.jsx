@@ -35,7 +35,7 @@ export default function SettingsLayout({
                 <div className="flex flex-col lg:flex-row gap-4">
                     <Sidebar activeTab={activeTab} />
 
-                    <div className="w-full md:w-3/4">
+                    <div className="w-full">
                         <Card>
                             <CardHeader>
                                 <div className="">
