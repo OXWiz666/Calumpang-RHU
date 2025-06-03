@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AppointmentsController;
 use App\Http\Controllers\Admin\DoctorsController;
 use App\Http\Controllers\Admin\HealthProgramsController;
 use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\Admin\MessagesController;
 use App\Http\Controllers\Admin\PatientsController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\ServicesController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\PatientMessagesController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgramParticipantController;
 use App\Livewire\Doctor\DoctorDashboard;
@@ -97,7 +99,7 @@ Route::middleware(['auth','Patient'])->group(function(){
         // Get latest appointment priority number
         Route::get('/get-latest-appointment',[PatientController::class,'getLatestAppointment'])->name('patient.latest.appointment');
 
-
+        Route::post('/message/send',[PatientMessagesController::class,'sendmssg'])->name('patient.landing.sendmessage');
     });
 });
 
@@ -116,7 +118,7 @@ Route::middleware(['auth','Admin'])->group(function(){
         Route::get('/',[AdminDashboardController::class,'index'])->name('admin');
 
 
-
+        Route::get('/inventory',[InventoryController::class,'index'])->name('admin.inventory.index');
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
 
@@ -153,6 +155,11 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
         });
 
+        Route::prefix('landing-page')->group(function(){
+            Route::get('/messages',[MessagesController::class,'index'])->name('admin.landing.messages');
+
+
+        });
 
         Route::post('/registerstaff/create',[AuthController::class,'registerStaff'])->name('admin.staff.register');
         //Route::post('/registerdoctor/create',[AuthController::class,'registerDoctor'])->name('admin.register.doctor');

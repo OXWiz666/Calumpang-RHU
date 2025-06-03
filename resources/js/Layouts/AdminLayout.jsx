@@ -63,9 +63,6 @@ export default function AdminLayout({ header, children, tools }) {
                 channelName="notification"
                 eventName="notification-event"
                 onEvent={(data) => {
-                    // Call hook at component top level
-                    //console.log("handle data: ", data);
-                    //setActivities(auth.notifications);
                     router.reload({
                         only: ["auth"],
                         preserveScroll: true,
