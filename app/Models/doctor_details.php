@@ -9,7 +9,7 @@ class doctor_details extends Model
     //
     protected $fillable = [
         'user_id',
-
+        'status'
     ];
     public function user(){
         return $this->belongsTo(User::class,'user_id');
@@ -21,5 +21,8 @@ class doctor_details extends Model
 
     public function department(){
         return $this->belongsTo(doctor_departments::class,'department_id');
+    }
+    public function status(){
+        return $this->belongsTo(doctor_status::class,'status');
     }
 }

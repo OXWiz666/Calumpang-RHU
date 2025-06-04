@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => 'Calumpang Rural Health Unit',
     'providers' => [
         /*
          * Laravel Framework Service Providers...

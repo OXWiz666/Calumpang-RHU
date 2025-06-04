@@ -5,7 +5,8 @@ import StatisticsOverview from "@/components/tempo/admin/include/StatisticsOverv
 import ModuleCards from "@/components/tempo/admin/include/ModuleCards";
 import ActivityFeed from "@/components/tempo/admin/include/ActivityFeed";
 import AdminLayout from "@/Layouts/AdminLayout";
-import { usePage } from "@inertiajs/react";
+import { usePage, router } from "@inertiajs/react";
+
 // import { Bell, User, Search } from "lucide-react";
 // import { Button } from "@/components/tempo/components/ui/button";
 // import { Input } from "@/components/tempo/components/ui/input";
@@ -22,11 +23,18 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage }) {
         growth: patientGrowthPercentage,
     });
 
+    const { auth } = usePage().props;
+    const [datas_, setDatas] = useState(auth);
     useEffect(() => {
-        console.log("notipatientsfs", notifs);
-    }, [notifs]);
+        setActivities(notifs);
+        //console.log(notifs);
+    }, [auth]);
+
     return (
-        <AdminLayout header="Dashboard">
+        <AdminLayout
+            header="Dashboard"
+            //datas={datas_}
+        >
             {/* Main Content Area */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -35,7 +43,7 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage }) {
             >
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold mb-2 text-primary">
-                        Welcome to RHU Management System
+                        Welcome to Calumpang Rural Health Unit Dashboard
                     </h2>
                     <p className="text-muted-foreground">
                         Barangay Calumpang, General Santos City

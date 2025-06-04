@@ -3,6 +3,9 @@ import { Link, usePage } from "@inertiajs/react";
 
 import importedCss from "./css/header.css";
 
+// @ts-ignore
+import NotficationDropdown from "../../patient/include/NotificationDropdown.jsx";
+
 const Header = ({
     auth,
     isLoggedin,
@@ -31,6 +34,11 @@ const Header = ({
     // Then in your component
     const user__: User = usePage().props.auth.user; // Or however you get the user
 
+    const auth_ = usePage().props.auth;
+    const [datas, setDatas] = useState(auth_);
+    useEffect(() => {
+        setDatas(auth_);
+    }, [auth_]);
     return (
         <header className="w-full h-16 bg-white border-b border-gray-200 header-shadow fixed top-0 left-0 z-50">
             <div className="container mx-auto h-full flex items-center justify-between px-4">
@@ -165,7 +173,7 @@ const Header = ({
                                 {servicesOpen && (
                                     <div className="pl-10 pr-3 py-1 space-y-1">
                                         <Link
-                                            href="#"
+                                            href="/appointments"
                                             className="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
                                         >
                                             <svg
@@ -183,6 +191,7 @@ const Header = ({
                                             </svg>
                                             Appointments
                                         </Link>
+
                                         <Link
                                             href="#"
                                             className="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
@@ -439,7 +448,9 @@ const Header = ({
                                             </div>
                                         </Link>
                                         <Link
-                                            href="/services/vaccinations"
+                                            href={route(
+                                                "services.vaccinations"
+                                            )}
                                             className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1"
                                         >
                                             <svg
@@ -515,52 +526,55 @@ const Header = ({
                             <span>Login</span>
                         </Link>
                     ) : (
-                        <div className="relative">
-                            <button
-                                onClick={toggleUserMenu}
-                                className={`group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative ${
-                                    userMenuOpen
-                                        ? "bg-gray-100 text-gray-900"
-                                        : ""
-                                }`}
-                            >
-                                <span>
-                                    {user__.firstname} {user__.lastname}
-                                </span>
-                                <svg
-                                    className={`ml-1 h-4 w-4 transition-transform duration-300 ${
-                                        userMenuOpen ? "rotate-180" : ""
+                        <div className="flex items-center gap-2">
+                            <NotficationDropdown datas={datas} />
+                            <div className="relative">
+                                <button
+                                    onClick={toggleUserMenu}
+                                    className={`group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative ${
+                                        userMenuOpen
+                                            ? "bg-gray-100 text-gray-900"
+                                            : ""
                                     }`}
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
                                 >
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                        clipRule="evenodd"
-                                    />
-                                </svg>
-                            </button>
-                            {userMenuOpen && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-50">
-                                    <div className="p-2">
-                                        <Link
-                                            href={route("patient.profile")}
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300"
-                                        >
-                                            Profile
-                                        </Link>
-                                        <Link
-                                            href="/logout"
-                                            method="post"
-                                            as="button"
-                                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300 w-full text-left"
-                                        >
-                                            Logout
-                                        </Link>
+                                    <span>
+                                        {user__.firstname} {user__.lastname}
+                                    </span>
+                                    <svg
+                                        className={`ml-1 h-4 w-4 transition-transform duration-300 ${
+                                            userMenuOpen ? "rotate-180" : ""
+                                        }`}
+                                        viewBox="0 0 20 20"
+                                        fill="currentColor"
+                                    >
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                            clipRule="evenodd"
+                                        />
+                                    </svg>
+                                </button>
+                                {userMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-50">
+                                        <div className="p-2">
+                                            <Link
+                                                href={route("patient.profile")}
+                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300"
+                                            >
+                                                Profile
+                                            </Link>
+                                            <Link
+                                                href="/logout"
+                                                method="post"
+                                                as="button"
+                                                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300 w-full text-left"
+                                            >
+                                                Logout
+                                            </Link>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

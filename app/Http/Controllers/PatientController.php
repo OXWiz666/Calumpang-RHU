@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\SendNotification;
 use App\Models\appointments;
 use App\Models\servicetypes;
+use App\Models\subservices;
 use App\Notifications\SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\NotifSender;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 
@@ -18,16 +22,45 @@ class PatientController extends Controller
 {
     //
     public function profile(){
-        return Inertia::render("Authenticated/Patient/ProfilePage",[]);
-        //return view('patient.profie');
+        // Get recent appointments for the current user
+        $recentAppointments = appointments::with(['service','user', 'doctor', 'subservice'])
+            ->where('user_id', Auth::user()->id)
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(function($appointment) {
+                // Get service name from the relationship
+                $serviceName = $appointment->service ? $appointment->service->servicename : 'General Checkup';
+
+                // Get doctor name if available
+                $doctorName = $appointment->doctor
+                    ? $appointment->doctor->firstname . ' ' . $appointment->doctor->lastname
+                    : 'Not Assigned';
+
+                return [
+                    'id' => $appointment->id,
+                    'date' => $appointment->date,
+                    'time' => $appointment->time,
+                    'doctor' => $doctorName,
+                    'purpose' => $serviceName,
+                    'status' => $appointment->status,
+                    'status_code' => is_numeric($appointment->status) ? (int)$appointment->status : 1,
+                    'created_at' => $appointment->created_at->format('Y-m-d H:i:s'),
+                    'service' => $appointment->service
+                ];
+            });
+
+        return Inertia::render("Authenticated/Patient/ProfilePage",[
+            'recentAppointments' => $recentAppointments
+        ]);
     }
 
 
     public function update(Request $request){
         $cred = $request->validate([
-            'firstname' => 'required|min:3',
-            'middlename' => 'required|min:3',
-            'lastname' => 'required|min:3',
+            'firstname' => 'required|min:2',
+            'middlename' => 'required|min:2',
+            'lastname' => 'required|min:2',
             'email' => [
                 'required',
                 'min:3',
@@ -39,9 +72,8 @@ class PatientController extends Controller
                 'numeric',
                 Rule::unique('users', 'contactno')->ignore(Auth::user()->id,'id')
             ],
-            'address' => 'required|min:3',
+            // 'address' => 'required|min:3',
             'birthdate' => 'required',
-            'bloodType' => 'required|min:1',
             'gender' => "required|in:M,F"
         ]);
 
@@ -51,94 +83,142 @@ class PatientController extends Controller
                 'firstname' => $request->firstname,
                 'middlename' => $request->middlename,
                 'lastname' => $request->lastname,
+                'suffix' => $request->suffix,
                 'email' => $request->email,
                 'contactno' => $request->phone,
                 'address' => $request->address,
                 'birth' => $request->birthdate,
-                'bloodtype' => $request->bloodType,
+                'bloodtype' => $request->bloodtype,
                 'gender' => $request->gender
             ]);
+        }
+
+        if($request->hasFile('avatar')){
+            $this->uploadAvatar($request);
         }
 
         ActivityLogger::log("User updated profile information.",$user,['ip',request()->ip()]);
     }
 
-    public function medicalrecords(){
+    /**
+     * Upload and update user avatar
+     */
+    public function uploadAvatar(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
 
-        return Inertia::render("Authenticated/Patient/MedicalRecordsPage",[]);
+        $user = Auth::user();
+
+        if ($request->hasFile('avatar')) {
+            // Delete old avatar if it exists
+            if ($user->avatar && $user->avatar !== 'default-avatar.png' && Storage::disk('public')->exists('avatars/' . $user->avatar)) {
+                Storage::disk('public')->delete('avatars/' . $user->avatar);
+            }
+
+            // Store new avatar
+            $avatarName = 'avatar_' . $user->id . '_' . time() . '.' . $request->avatar->extension();
+            $request->avatar->storeAs('avatars', $avatarName, 'public');
+
+            // Update user record
+            $user->update(['avatar' => $avatarName]);
+
+            ActivityLogger::log("User updated profile avatar", $user, ['ip' => $request->ip()]);
+
+            return redirect()->back()->with('success', 'Avatar updated successfully');
+        }
+
+        return redirect()->back()->with('error', 'Failed to upload avatar');
+    }
+
+    public function medicalrecords(){
+        $user = Auth::user();
+        return Inertia::render("Authenticated/Patient/MedicalRecordsPage",[
+            'userData' => [
+                'avatar' => $user->avatar
+            ]
+        ]);
     }
 
     public function appointments(){
-        $serv = servicetypes::get();
+        // Only get active services (status = 1, not archived)
+        $serv = servicetypes::with(['servicedays'])
+            ->where('status', 1) // Only show active services, not archived ones
+            ->get();
+
         return Inertia::render('Authenticated/Patient/Appointments/Appointment',[
             'services' => $serv,
             'ActiveTAB' => 'appointment'
         ]);
     }
+
+    public function GetSubServices(Request $request,$id){
+        $subservices = subservices::with(['times'])->where('service_id',$id)->get();
+        return response()->json($subservices);
+    }
+
     public function appointmentshistory(){
         $appointments =
-        appointments::with(['service','user'])
+        appointments::with(['service','user', 'doctor', 'subservice'])
         ->where('user_id',Auth::user()->id)->orderByDesc('created_at')->paginate(5);
 
         return Inertia::render('Authenticated/Patient/Appointments/AppointmentHistory',[
             'appointments' => $appointments,
             'ActiveTAB' => 'History'
+
         ]);
     }
+
     public function storeAppointment(Request $request){
         $request->validate([
             'phone' => 'required|min:10',
             'date' => 'required|date',
-            'time' => 'required|date_format:h:i A',
-            'service' => 'required|exists:servicetypes,id',
-            //'notes' => 'required|min:10'
+            'time' => 'required',
+            'service' => 'required|exists:servicetypes,id'
         ]);
-        //dd($request);
-        try{
-            DB::beginTransaction();
 
-                $appoint = appointments::create([
-                    'user_id' => Auth::user()->id,
-                    'phone' => $request->phone,
-                    'date' => \Carbon\Carbon::parse( $request->date)->format('Y-m-d'),
-                    'time' => \Carbon\Carbon::parse($request->time)->format('H:i:s'),
-                    'servicetype_id' => $request->service,
-                    //'notes' => $request->notes,
-                ]);
+        $user = Auth::user();
+        $service = servicetypes::find($request->service);
 
-                if($appoint){
-                    $appoint->load(['service','user','user.role']);
-                    $time = \Carbon\Carbon::parse($appoint->time)->format('H:m A');
-                    $message = "Scheduled {$appoint->service->servicename} at {$appoint->date} {$time}.";
+        $appointment = appointments::create([
+            'user_id' => $user->id,
+            'phone' => $request->phone,
+            'date' => \Carbon\Carbon::parse($request->date)->format("Y-m-d"),
+            'time' => \Carbon\Carbon::parse($request->time)->format("H:i:s"),
+            'servicetype_id' => $request->service,
+            'subservice_id' => $request->subservice ?? null,
+            'notes' => $request->notes,
+            'status' => 6
+        ]);
 
-                    //dd($message);
+        $user->notify(new SystemNotification(
+            'Appointment Scheduled',
+            'Your appointment for '.$service->name.' has been scheduled for '.$request->date.' at '.$request->time.'.',
+            'appointment'
+        ));
 
-                    ActivityLogger::log($message . " ({$appoint->user->firstname} {$appoint->user->lastname})",$appoint,
-                    ['ip' => $request->ip()]);
+        // Trigger notification event
+        //event(new SendNotification($user->id));
 
-                    $recipients = User::where('roleID', '7')->orWhere('roleID','1')->get();
+        NotifSender::SendNotif(true,[$user->id],'Appointment scheduled successfully','Appointment Schedule');
 
-                    foreach($recipients as $recipient){
-                        $recipient->notify(new SystemNotification(
-                            $message,
-                                "{$appoint->user->firstname} {$appoint->user->lastname} ({$appoint->user->role->roletype})",
-                            "new_appointment",
-                            "#"
-                        ));
-                    }
-                }
 
-            DB::commit();
+        NotifSender::SendNotif(false,[1,7],"{$user->firstname} {$user->lastname} ({$user->role->roletype}) Scheduled an appointment",'New Appointment Scheduled');
 
-            //return response()->noContent();
-        }
-        catch(\Exception $er){
+        ActivityLogger::log('User scheduled an appointment', $user, ['appointment_id' => $appointment->id]);
 
-            //dd($er);
-            DB::rollBack();
+        return redirect()->back()->with('success', 'Appointment scheduled successfully');
+    }
 
-            //Log::error("Appointment creation failed: " . $e->getMessage());
-            //return redirect()->back()->with('error', 'Failed to create appointment');
-        }
+    public function getLatestAppointment(Request $request) {
+        $latestAppointment = appointments::where('date', $request->date)
+            ->where('servicetype_id', $request->service)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        return response()->json([
+            'priority_number' => $latestAppointment ? $latestAppointment->priority_number + 1 : 1
+        ]);
     }
 }

@@ -35,11 +35,11 @@ import {
     Shield,
 } from "lucide-react";
 import LandingLayout from "@/Layouts/LandingLayout";
-import { Head, useForm, router } from "@inertiajs/react";
+import { Head, useForm, router, usePage } from "@inertiajs/react";
 
 //import { useAuth } from "../../contexts/AuthContext";
 
-const MedicalRecordsPage = () => {
+const MedicalRecordsPage = ({ userData }) => {
     //const { user: authUser } = useAuth();
     const [activeTab, setActiveTab] = useState("records");
     const [searchQuery, setSearchQuery] = useState("");
@@ -183,6 +183,7 @@ const MedicalRecordsPage = () => {
             result.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const { auth } = usePage().props;
     return (
         <LandingLayout className=" p-5">
             <div className="container mx-auto mt-7 py-12 px-4 min-h-screen">
@@ -200,18 +201,20 @@ const MedicalRecordsPage = () => {
                             <CardHeader className="pb-4">
                                 <div className="flex flex-col items-center">
                                     <Avatar className="h-24 w-24 mb-4 border-4 border-primary/10">
-                                        {/*
-                                <AvatarImage src={userData.avatar} alt={userData.name} /> */}
+                                        <AvatarImage 
+                                            src={userData?.avatar ? `/storage/avatars/${userData.avatar}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth?.user.firstname}`} 
+                                            alt={`${auth?.user.firstname} ${auth?.user.lastname}`} 
+                                        />
                                         <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-                                            {/* {userData.name.charAt(0)} */}
+                                            {auth?.user.firstname?.charAt(0)}{auth?.user.lastname?.charAt(0)}
                                         </AvatarFallback>
                                     </Avatar>
                                     <CardTitle className="text-xl">
-                                        name
+                                        {auth?.user.firstname}{" "}
+                                        {auth?.user.lastname}
                                     </CardTitle>
                                     <CardDescription className="text-center">
-                                        {/* {userData.email} */}
-                                        email
+                                        {auth?.user.email}
                                     </CardDescription>
                                 </div>
                             </CardHeader>
@@ -227,7 +230,13 @@ const MedicalRecordsPage = () => {
                                         size="lg"
                                         onClick={() => setActiveTab("records")}
                                     >
-                                        <FileText className="mr-2 h-5 w-5" />
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                                            <polyline points="14 2 14 8 20 8"></polyline>
+                                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                                            <line x1="10" y1="9" x2="8" y2="9"></line>
+                                        </svg>
                                         Medical Records
                                     </Button>
                                     {/* <Button
@@ -245,19 +254,7 @@ const MedicalRecordsPage = () => {
                                         <Pill className="mr-2 h-5 w-5" />
                                         Prescriptions
                                     </Button> */}
-                                    <Button
-                                        variant={
-                                            activeTab === "lab"
-                                                ? "secondary"
-                                                : "ghost"
-                                        }
-                                        className="w-full justify-start"
-                                        size="lg"
-                                        onClick={() => setActiveTab("lab")}
-                                    >
-                                        <Clipboard className="mr-2 h-5 w-5" />
-                                        Lab Results
-                                    </Button>
+
                                     <Button
                                         variant={
                                             activeTab === "immunizations"
@@ -270,7 +267,9 @@ const MedicalRecordsPage = () => {
                                             setActiveTab("immunizations")
                                         }
                                     >
-                                        <Shield className="mr-2 h-5 w-5" />
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path>
+                                        </svg>
                                         Immunization Records
                                     </Button>
                                     {/* <Button
@@ -291,9 +290,9 @@ const MedicalRecordsPage = () => {
                             <CardFooter>
                                 <Button
                                     variant="outline"
-                                    className="w-full"
+                                    className="w-full justify-center text-sm px-5 py-2 shadow-md"
                                     onClick={() =>
-                                        (window.location.href = "/profile")
+                                        (window.location.href = "/patient/profile")
                                     }
                                 >
                                     View Profile
@@ -348,10 +347,6 @@ const MedicalRecordsPage = () => {
                                         <Button variant="outline" size="icon">
                                             <Filter className="h-4 w-4" />
                                         </Button>
-                                        <Button variant="outline" size="sm">
-                                            <Download className="h-4 w-4 mr-2" />
-                                            Export
-                                        </Button>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -367,9 +362,6 @@ const MedicalRecordsPage = () => {
                                         {/* <TabsTrigger value="prescriptions">
                                             Prescriptions
                                         </TabsTrigger> */}
-                                        <TabsTrigger value="lab">
-                                            Lab Results
-                                        </TabsTrigger>
                                         <TabsTrigger value="immunizations">
                                             Immunizations
                                         </TabsTrigger>
@@ -386,7 +378,7 @@ const MedicalRecordsPage = () => {
                                             <div className="rounded-md border">
                                                 <div className="p-4 bg-muted/50 flex justify-between items-center">
                                                     <h3 className="font-medium">
-                                                        Medical Visit Records
+                                                        Medical Records
                                                     </h3>
                                                     <Button
                                                         size="sm"
@@ -396,7 +388,7 @@ const MedicalRecordsPage = () => {
                                                     </Button>
                                                 </div>
                                                 <div className="divide-y">
-                                                    {filteredRecords.map(
+                                                    {/* {filteredRecords.map(
                                                         (record) => (
                                                             <div
                                                                 key={record.id}
@@ -467,7 +459,7 @@ const MedicalRecordsPage = () => {
                                                                 )}
                                                             </div>
                                                         )
-                                                    )}
+                                                    )} */}
                                                 </div>
                                             </div>
                                         ) : (

@@ -26,16 +26,20 @@ class User extends Authenticatable
         'password',
 
         'firstname' ,
-                'middlename' ,
-                'lastname' ,
-                'email' ,
-                'password' ,
-                'contactno' ,
-                'roleID' ,
-                'questionID' ,
-                'answer' ,
-                'gender' ,
-                'birth'
+        'middlename' ,
+        'lastname' ,
+        'email' ,
+        'password' ,
+        'contactno' ,
+        'roleID' ,
+        'questionID' ,
+        'answer' ,
+        'gender' ,
+        'birth',
+        'suffix',
+        'bloodtype',
+        'avatar',
+        'address'
     ];
 
     /**
@@ -68,4 +72,12 @@ class User extends Authenticatable
     public function role(){
         return $this->belongsTo(roles::class,'roleID');
     }
+
+    public function userPrograms(){
+        return $this->hasMany(program_participants::class,'user_id','id')
+        ->with('program_schedule')
+        ->with('program_schedule.program_type')
+        ->with('program_schedule.program_type.service');
+    }
+
 }

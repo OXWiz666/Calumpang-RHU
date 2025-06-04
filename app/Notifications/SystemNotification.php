@@ -18,7 +18,8 @@ class SystemNotification extends Notification
         public string $message,
         public string $title = '',
         public string $type = 'info',
-        public ?string $actionUrl = null
+        public ?string $actionUrl = null,
+        public ?string $key = null
     )
     {
         //
@@ -41,6 +42,7 @@ class SystemNotification extends Notification
             'type' => $this->type,
             'action_url' => $this->actionUrl,
             'time' => now()->toDateTimeString(),
+            'key' => $this->key
         ];
     }
     /**

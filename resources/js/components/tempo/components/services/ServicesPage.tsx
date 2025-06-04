@@ -87,7 +87,7 @@ const ServicesPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      <Header />
+      <Header auth={{}} isLoggedin={false} />
       <main className="flex-grow pt-20">
         <div className="container mx-auto px-4 py-12">
           <h1 className="text-3xl md:text-4xl font-bold text-center mb-4">

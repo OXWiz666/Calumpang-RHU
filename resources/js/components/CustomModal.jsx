@@ -32,7 +32,7 @@ import {
 //   onReorder: (itemId: string, quantity: number, supplier: string) => void;
 // }
 
-const ReorderModal = ({
+const CustomModal = ({
     isOpen,
     onClose = () => {},
     title = "",
@@ -87,4 +87,4 @@ const ReorderModal = ({
     );
 };
 
-export default ReorderModal;
+export default CustomModal;

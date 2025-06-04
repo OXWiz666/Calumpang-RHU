@@ -6,7 +6,6 @@ import {
     Users,
     Calendar,
     Activity,
-    AlertTriangle,
 } from "lucide-react";
 
 // interface StatisticCardProps {
@@ -68,14 +67,12 @@ const StatisticCard = ({
 //   totalPatients?: number;
 //   todayAppointments?: number;
 //   activePrograms?: number;
-//   inventoryAlerts?: number;
 // }
 
 const StatisticsOverview = ({
     patients = {},
     todayAppointments = 32,
     activePrograms = 8,
-    inventoryAlerts = 5,
 }) => {
     return (
         <div className="w-full bg-background">
@@ -103,14 +100,6 @@ const StatisticsOverview = ({
                     value={activePrograms}
                     icon={<Activity className="h-5 w-5 text-primary" />}
                     change={{ value: 0, isPositive: true }}
-                />
-
-                <StatisticCard
-                    title="Inventory Alerts"
-                    value={inventoryAlerts}
-                    icon={<AlertTriangle className="h-5 w-5 text-primary" />}
-                    change={{ value: 2, isPositive: false }}
-                    bgColor={inventoryAlerts > 0 ? "bg-red-50" : "bg-white"}
                 />
             </div>
         </div>

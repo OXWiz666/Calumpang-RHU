@@ -19,12 +19,13 @@ import {
     SelectValue,
 } from "@/components/tempo/components/ui/select";
 import { format } from "date-fns";
-import { CalendarIcon, Clock } from "lucide-react";
+import { CalendarIcon, Clock, Hash } from "lucide-react";
 import { cn } from "@/components/tempo/lib/utils"; //
 // At the top with other imports
 import { addDays } from "date-fns";
 import { usePage, useForm } from "@inertiajs/react";
-import CustomCalendar from "@/components/CustomCalendar";
+import CustomCalendar from "./CustomCalendar";
+import moment from "moment";
 
 const AppointmentForm = ({
     onSubmit = () => {},
@@ -33,6 +34,8 @@ const AppointmentForm = ({
     errors,
     processing,
     services = [],
+
+    //programs,
 }) => {
     const user = usePage().props.auth.user;
 
@@ -49,6 +52,7 @@ const AppointmentForm = ({
                 service: "",
                 gender: user.gender,
                 birth: user.birth,
+                priorityNumber: Math.floor(1000 + Math.random() * 9000), // Generate random 4-digit priority number
             });
         }
     }, [user]);
@@ -58,6 +62,7 @@ const AppointmentForm = ({
         acc[service.id] = service;
         return acc;
     }, {});
+
     const [date, setDate] = useState(new Date());
 
     // Separate handler for date changes
@@ -80,7 +85,7 @@ const AppointmentForm = ({
     };
 
     const handleSelectChange = (name, value) => {
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        setFormData((prev) => ({ ...prev, [name]: value ?? null }));
     };
 
     const handleSubmit = (e) => {
@@ -113,6 +118,32 @@ const AppointmentForm = ({
     //     "Family Planning",
     //     "Dental Services",
     //   ];
+
+    const [subservices, setSubServices] = useState([]);
+
+    const [timesArr, setTimesArr] = useState([]);
+
+    const subServiceLookup = subservices?.reduce((acc, subservice) => {
+        acc[subservice.id] = subservice;
+        return acc;
+    }, {});
+
+    // useEffect(() => {
+    //     //console.log("subservice: ", subservices);
+    // }, [timesArr]);
+
+    const [programs, setPrograms] = useState([]);
+    useEffect(() => {
+        const service = serviceLookup[formData.service]; // id
+
+        setPrograms(service?.servicedays?.map((day) => day.day));
+        //programs = service?.servicedays?.map((day) => day.day);
+        //console.log("programs:: ", programs);
+    }, [formData, serviceLookup]);
+
+    // useEffect(() => {
+    //     console.log("time:", formData.time?.toString().trim(), "wew");
+    // }, [formData.time]);
 
     return (
         <form
@@ -187,15 +218,130 @@ const AppointmentForm = ({
                         <InputError message={errors.phone} />
                     </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <Label>Service Type</Label>
+                        <Select
+                            value={formData.service?.toString()} // Ensure string value
+                            onValueChange={(selectedId) => {
+                                const service = serviceLookup[selectedId];
+                                if (service) {
+                                    handleSelectChange("service", service.id);
+                                    handleSelectChange(
+                                        "servicename",
+                                        service.servicename
+                                    );
 
+                                    handleSelectChange("date", null);
+                                    handleSelectChange("subservice", "");
+                                    handleSelectChange("subservicename", "");
+                                    handleSelectChange("timeid", "");
+                                    handleSelectChange("time", "");
+                                    //  handleSelectChange("customAttr", service.customAttribute);
+                                } // handleSelectChange("servicename", selectedService?.servicename || "");
+
+                                fetch(
+                                    `/services/get-sub-services/${selectedId}`
+                                )
+                                    .then((resp) => resp.json())
+                                    .then((data) => {
+                                        setSubServices(data);
+                                    });
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select service">
+                                    {formData.service
+                                        ? services.find(
+                                              (s) =>
+                                                  s.id.toString() ===
+                                                  formData.service.toString()
+                                          )?.servicename
+                                        : "Select service"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {services.map((service) => (
+                                    <SelectItem
+                                        key={service.id} // Use service.id as key
+                                        value={service.id} // Ensure string value
+                                    >
+                                        {service.servicename}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.service} />
+                    </div>
+                    <div>
+                        <Label>Service Sub Type</Label>
+                        <Select
+                            value={formData.subservice?.toString()} // Ensure string value
+                            onValueChange={(selectedId) => {
+                                const subservice = subServiceLookup[selectedId];
+
+                                setTimesArr(subservice?.times);
+                                //console.log(subservice);
+                                // handleSelectChange({
+                                //     subservice: subservice.id,
+                                //     subservicename: subservice.subservicename,
+                                // });
+                                // Correct - call separately for each field
+                                handleSelectChange(
+                                    "subservice",
+                                    subservice.id ?? null
+                                );
+                                handleSelectChange(
+                                    "subservicename",
+                                    subservice.subservicename ?? null
+                                );
+
+                                handleSelectChange("timeid", "");
+                                handleSelectChange("time", "");
+                            }}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select Sub Service">
+                                    {formData.subservice
+                                        ? subservices.find(
+                                              (s) =>
+                                                  s.id.toString() ===
+                                                  formData.subservice.toString()
+                                          )?.subservicename
+                                        : "Select Sub-Service"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {subservices?.map((ss, i) => (
+                                    <SelectItem key={i} value={ss.id}>
+                                        {ss.subservicename}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.subservice} />
+                    </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <Label>Appointment Date</Label>
-                        {/* <CustomCalendar
+                        <CustomCalendar
                             selectedDate={formData.date}
                             onDateSelect={handleDateChange}
-                        /> */}
-                        <Popover>
+                            // hasPrograms={services?.map(
+                            //     (serv, i) => serv?.servicedays.map(days) // return days
+                            // )}
+                            // hasPrograms={services?.flatMap(
+                            //     (
+                            //         service //console.log("serv:: ", service)
+                            //     ) =>
+                            //         service.servicedays?.map(
+                            //             (day) => day.day
+                            //         ) || []
+                            // )}
+                            hasPrograms={programs}
+                        />
+                        {/* <Popover>
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
@@ -231,25 +377,38 @@ const AppointmentForm = ({
                                     }}
                                 />
                             </PopoverContent>
-                        </Popover>
+                        </Popover> */}
                         <InputError message={errors.date} />
                     </div>
 
                     <div>
                         <Label>Appointment Time</Label>
                         <Select
-                            value={formData.time}
-                            onValueChange={(value) =>
-                                handleSelectChange("time", value)
-                            }
-                            required
+                            value={formData.timeid}
+                            onValueChange={(value) => {
+                                const subserv =
+                                    subServiceLookup[formData.subservice];
+                                handleSelectChange("timeid", value ?? null);
+                                handleSelectChange(
+                                    "time",
+                                    moment(
+                                        subserv?.times?.find(
+                                            (t) => t.id == value
+                                        )?.time,
+                                        "HH:mm:ss"
+                                    ).format("hh:mm A") ?? null
+                                );
+                            }}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select time">
-                                    {formData.time ? (
+                                    {formData.timeid ? (
                                         <div className="flex items-center">
                                             <Clock className="mr-2 h-4 w-4" />
-                                            {formData.time}
+                                            {moment(
+                                                formData.time,
+                                                "HH:mm:ss"
+                                            ).format("h:mm A")}
                                         </div>
                                     ) : (
                                         "Select time"
@@ -257,71 +416,23 @@ const AppointmentForm = ({
                                 </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                {timeSlots.map((time) => (
+                                {timesArr.map((time, i) => (
+                                    <SelectItem key={time.id} value={time.id}>
+                                        {moment(time.time, "HH:mm:ss").format(
+                                            "h:mm A"
+                                        )}
+                                    </SelectItem>
+                                ))}
+                                {/* {timeSlots.map((time) => (
                                     <SelectItem key={time} value={time}>
                                         {time}
                                     </SelectItem>
-                                ))}
+                                ))} */}
                             </SelectContent>
                         </Select>
                         <InputError message={errors.time} />
                     </div>
                 </div>
-
-                <div>
-                    <Label>Service Type</Label>
-                    <Select
-                        value={formData.service?.toString()} // Ensure string value
-                        onValueChange={(selectedId) => {
-                            const service = serviceLookup[selectedId];
-                            if (service) {
-                                handleSelectChange("service", service.id);
-                                handleSelectChange(
-                                    "servicename",
-                                    service.servicename
-                                );
-                                //  handleSelectChange("customAttr", service.customAttribute);
-                            } // handleSelectChange("servicename", selectedService?.servicename || "");
-                        }}
-                        required
-                    >
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select service">
-                                {formData.service
-                                    ? services.find(
-                                          (s) =>
-                                              s.id.toString() ===
-                                              formData.service.toString()
-                                      )?.servicename
-                                    : "Select service"}
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {services.map((service) => (
-                                <SelectItem
-                                    key={service.id} // Use service.id as key
-                                    value={service.id} // Ensure string value
-                                >
-                                    {service.servicename}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <InputError message={errors.service} />
-                </div>
-
-                {/* <div>
-                    <Label htmlFor="notes">Additional Notes</Label>
-                    <Textarea
-                        id="notes"
-                        name="notes"
-                        value={formData.notes}
-                        onChange={handleChange}
-                        placeholder="Please provide any additional information about your appointment request"
-                        className="min-h-[100px]"
-                    />
-                    <InputError message={errors.notes} />
-                </div> */}
             </div>
 
             {usePage().props.auth.user ? (

@@ -147,4 +147,55 @@ class LandingPageController extends Controller
         return Inertia::render('Landing/faq',[ ]);
         //return view('Landing.pages.faq');
     }
+    
+    public function programs()
+    {
+        // Get all program schedules with their related program types and coordinators
+        $programs = \App\Models\program_schedules::with(['program_type', 'coordinator'])
+            ->orderBy('date', 'asc')
+            ->get()
+            ->map(function ($program) {
+                // Format the program data for the frontend
+                return [
+                    'id' => $program->id,
+                    'name' => $program->program_type->programname,
+                    'description' => $program->program_type->description,
+                    'date' => $program->date,
+                    'startTime' => $program->start_time,
+                    'endTime' => $program->end_time,
+                    'location' => $program->location,
+                    'totalSlots' => $program->total_slots,
+                    'availableSlots' => $program->available_slots,
+                    'coordinator' => $program->coordinator ? $program->coordinator->lastname : null,
+                    'status' => $program->status ?: 'Active', // Default to 'Active' if status is null
+                    'programType' => $program->program_type->programname,
+                ];
+            });
+
+        // Get the user's registered programs if authenticated
+        $userPrograms = [];
+        if (Auth::check()) {
+            $userPrograms = \App\Models\program_participants::where('user_id', Auth::id())
+                ->with('program_schedule.program_type')
+                ->get()
+                ->map(function ($registration) {
+                    $program = $registration->program_schedule;
+                    return [
+                        'id' => $program->id,
+                        'name' => $program->program_type->programname,
+                        'date' => $program->date,
+                        'time' => $program->start_time . ' - ' . $program->end_time,
+                        'location' => $program->location,
+                        'status' => $registration->status,
+                        'registrationDate' => $registration->created_at,
+                    ];
+                });
+        }
+
+        return Inertia::render('Authenticated/Patient/SeasonalProgram', [
+            'isLoggedin' => Auth::check(),
+            'programs' => $programs,
+            'userPrograms' => $userPrograms,
+        ]);
+    }
 }

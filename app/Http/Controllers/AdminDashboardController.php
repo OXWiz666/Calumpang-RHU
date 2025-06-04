@@ -50,14 +50,18 @@ class AdminDashboardController extends Controller
         //     $growth = (((($current - $past) / $past) * 100) / $past) * 100;
         // }
 
-        $percentageChange = 0;
-        if ($previousMonthPatients > 0) {
-            $percentageChange = (($currentMonthPatients - $previousMonthPatients) / $previousMonthPatients) * 100;
-        }
+        // $percentageChange = 0;
+        // if ($previousMonthPatients > 0) {
+        //     $percentageChange = (($currentMonthPatients - $previousMonthPatients) / $previousMonthPatients) * 100;
+        // }
+
+        $max = max($past, $current);
+
+        $change = $max == 0 ? 0 : ($current - $past) / $max * 100;
 
         return Inertia::render("Authenticated/Admin/Dashboard",[
             'totalPatients' => User::where('roleID', '5')->count(),
-            'patientGrowthPercentage' => round($percentageChange, 2)
+            'patientGrowthPercentage' => round($change, 2)
         ]);
     }
     /**

@@ -87,13 +87,6 @@ const ModuleCards = ({ modules }) => {
             href: "/admin/programs",
         },
         {
-            title: "Inventory",
-            description:
-                "Track medicine stock levels, expiry dates, and dispensation",
-            icon: <Package className="h-5 w-5 text-primary" />,
-            href: "/admin/inventory",
-        },
-        {
             title: "Reports",
             description: "Generate and view comprehensive system data reports",
             icon: <BarChart3 className="h-5 w-5 text-primary" />,

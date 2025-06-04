@@ -38,10 +38,59 @@ import Sidebar from "./Sidebar";
 import AppointmentLayout from "../Appointments/AppointmentLayout";
 export default function AppointmentHistory({ appointments }) {
     const { links } = usePage().props.appointments; // Get pagination links
+
+    // useEffect(() => {
+    //     console.log(links);
+    // }, [links]);
+
+    const getStatusBadge = (status) => {
+        //	1=scheduled=2=completed,3=cancelled,4=declined,5=confirmed
+        switch (status) {
+            case 1:
+                return (
+                    <div className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full flex items-center">
+                        <Clock9 className="h-3 w-3 mr-1" />
+                        Scheduled
+                    </div>
+                );
+            case 2:
+                return (
+                    <div className="text-xs bg-green-600 text-white px-2 py-1 rounded-full flex items-center">
+                        <Check className="h-3 w-3 mr-1" />
+                        Completed
+                    </div>
+                );
+                break;
+            case 3:
+                return (
+                    <div className="text-xs bg-red-500 text-white px-2 py-1 rounded-full flex items-center">
+                        <X className="h-3 w-3 mr-1" />
+                        Cancelled
+                    </div>
+                );
+                break;
+            case 4:
+                return (
+                    <div className="text-xs bg-red-600 text-white px-2 py-1 rounded-full flex items-center">
+                        <X className="h-3 w-3 mr-1" />
+                        Declined
+                    </div>
+                );
+                break;
+            case 5:
+                return (
+                    <div className="text-xs bg-green-600 text-white px-2 py-1 rounded-full flex items-center">
+                        <Check className="h-3 w-3 mr-1" />
+                        Confirmed
+                    </div>
+                );
+                break;
+        }
+    };
     return (
         <AppointmentLayout>
             <div className="mb-8">
-                <h1 className="text-3xl font-bold mb-2">Appointment History</h1>
+                <h1 className="text-3xl font-bold mb-2">My Appointments</h1>
                 <p className="text-gray-600">
                     Book your visit to Barangay Calumpang Health Center. Please
                     fill out the form below with your information and preferred
@@ -55,7 +104,7 @@ export default function AppointmentHistory({ appointments }) {
                         <CardHeader>
                             <div className="flex items-center gap-2">
                                 <CardTitle className="text-lg">
-                                    Appointment History
+                                    My Appointments
                                 </CardTitle>
                             </div>
                             <CardDescription>
@@ -65,6 +114,11 @@ export default function AppointmentHistory({ appointments }) {
                         <CardContent>
                             <div className="rounded-md border">
                                 <div className="divide-y">
+                                    {appointments.data.length <= 0 && (
+                                        <div className=" m-5">
+                                            No Appointments.
+                                        </div>
+                                    )}
                                     {appointments.data.map((a, i) => (
                                         <div
                                             key={i}
@@ -101,7 +155,7 @@ export default function AppointmentHistory({ appointments }) {
                                                 {a.notes}
                                             </p>
                                             <div className="flex flex-wrap gap-2 mt-2">
-                                                {a.status == 1 ? (
+                                                {/* {a.status == 1 ? (
                                                     <div className="text-xs bg-blue-500 text-white px-2 py-1 rounded-full flex items-center">
                                                         <Clock9 className="h-3 w-3 mr-1" />
                                                         Scheduled
@@ -116,7 +170,8 @@ export default function AppointmentHistory({ appointments }) {
                                                         <X className="h-3 w-3 mr-1" />
                                                         Cancelled
                                                     </div>
-                                                )}
+                                                )} */}
+                                                {getStatusBadge(a.status)}
                                             </div>
                                         </div>
                                     ))}

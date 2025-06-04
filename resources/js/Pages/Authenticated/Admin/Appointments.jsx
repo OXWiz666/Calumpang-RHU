@@ -1,6 +1,6 @@
 import AdminLayout from "@/Layouts/AdminLayout";
-import React, { useState } from "react";
-import { motion } from "framer-motion";
+import React, { useEffect, useState } from "react";
+import { inertia, motion } from "framer-motion";
 import Sidebar from "@/components/tempo/admin/include/Sidebar";
 import {
     Search,
@@ -9,6 +9,11 @@ import {
     ChevronDown,
     ChevronUp,
     Download,
+    ChevronLeft,
+    ChevronRight,
+    Pencil,
+    Trash2,
+    Eye,
 } from "lucide-react";
 import {
     Card,
@@ -26,15 +31,15 @@ import {
     AvatarImage,
 } from "@/components/tempo/components/ui/avatar";
 import { Badge } from "@/components/tempo/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/tempo/components/ui/table";
+// import {
+//     Table,
+//     TableBody,
+//     TableCaption,
+//     TableCell,
+//     TableHead,
+//     TableHeader,
+//     TableRow,
+// } from "@/components/tempo/components/ui/table";
 import {
     Select,
     SelectContent,
@@ -44,7 +49,21 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 import Modal from "@/components/CustomModal";
-
+import {
+    Table,
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableCell,
+    TableCaption,
+    SortableTable,
+    SortableTableHead,
+} from "@/components/tempo/components/ui/table2";
+import { usePage, router, useForm } from "@inertiajs/react";
+import PrimaryButton from "@/components/PrimaryButton";
+import DangerButton from "@/components/DangerButton";
+import Label from "@/components/InputLabel";
+import InputError from "@/components/InputError";
 // Mock data for appointments
 const mockAppointments = [
     {
@@ -104,8 +123,8 @@ const mockAppointments = [
     },
 ];
 
-export default function appointments({ Appoints }) {
-    const [appointments, setAppointments] = useState(Appoints);
+export default function appointments({ appointments_ }) {
+    const [appointments, setAppointments] = useState(appointments_.data);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [sortConfig, setSortConfig] = useState({
@@ -169,30 +188,35 @@ export default function appointments({ Appoints }) {
     const getStatusBadge = (status) => {
         switch (status) {
             case 2:
-                return <Badge className="bg-green-500">Completed</Badge>;
+                return <Badge className="bg-green-600">Completed</Badge>;
             case 1:
                 return <Badge className="bg-blue-500">Scheduled</Badge>;
             case 3:
                 return <Badge className="bg-red-500">Cancelled</Badge>;
+            case 4:
+                return <Badge className="bg-red-600">Declined</Badge>;
+            case 5:
+                return <Badge className="bg-green-500">Confirmed</Badge>;
+            case 6:
+                return <Badge className="bg-blue-600">Pending</Badge>;
             default:
-                return <Badge>{status} ew</Badge>;
+                return <Badge>{status}</Badge>;
         }
     };
 
     const tools = () => {
-        return (
-            <>
-                <Button variant="outline" className="flex items-center gap-2">
-                    {/* <Calendar className="h-4 w-4" /> */}
-                    <span>Schedule New</span>
-                </Button>
-            </>
-        );
+        return <></>;
     };
 
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [appointment_, setAppointment_] = useState({});
+
+    const { data, setData, processing, recentlySuccessful, errors, post } =
+        useForm({
+            status: null,
+        });
+
     const openModal = (e, appointment) => {
         //alert('wew')
         fetch(`/auth/appointment/get/${appointment}`)
@@ -200,6 +224,8 @@ export default function appointments({ Appoints }) {
             .then((data) => {
                 //console.log(data);
                 setAppointment_(data);
+
+                setData("status", data.status);
             });
         setIsModalOpen(true);
         //console.log(id);
@@ -208,6 +234,79 @@ export default function appointments({ Appoints }) {
     const closeModal = (e) => {
         setIsModalOpen(false);
     };
+    const { inertia } = usePage();
+
+    // Function to handle archive appointment
+    const handleArchiveAppointment = async (appointmentId) => {
+        try {
+            const response = await axios.post("/auth/appointments/archive", {
+                appointment_id: appointmentId,
+            });
+
+            if (response.data.appointments) {
+                // Update the appointments with the new data
+                setAppointments(response.data.appointments.data);
+                alert(response.data.message);
+            }
+        } catch (error) {
+            console.error("Error archiving appointment:", error);
+            alert(
+                error.response?.data?.message ||
+                    "An error occurred while archiving the appointment"
+            );
+        }
+    };
+
+    // Function to handle unarchive appointment
+    const handleUnarchiveAppointment = async (appointmentId) => {
+        try {
+            const response = await axios.post("/auth/appointments/unarchive", {
+                appointment_id: appointmentId,
+            });
+
+            if (response.data.appointments) {
+                // Update the appointments with the new data
+                setAppointments(response.data.appointments.data);
+                alert(response.data.message);
+            }
+        } catch (error) {
+            console.error("Error unarchiving appointment:", error);
+            alert(
+                error.response?.data?.message ||
+                    "An error occurred while unarchiving the appointment"
+            );
+        }
+    };
+
+    useEffect(() => {
+        setAppointments(appointments_.data);
+    }, [appointments_]);
+
+    const SaveStatus = (e) => {
+        e.preventDefault();
+        post(
+            route("admin.appointment.status.update", {
+                appointment: appointment_.id,
+            }),
+            {
+                onSuccess: () => {
+                    closeModal();
+                    // inertia.get(route("admin.appointments"), {
+                    //     only: ["appointments"],
+                    // });
+                    alert_toast(
+                        "Success!",
+                        "Status updated successfully!",
+                        "success"
+                    );
+                    router.reload({ only: ["appointments_"] });
+                },
+            }
+        );
+    };
+
+    const { links } = usePage().props.appointments_;
+
     return (
         <AdminLayout header="Appointments" tools={tools()}>
             <motion.div
@@ -249,146 +348,152 @@ export default function appointments({ Appoints }) {
 
                     {/* Table */}
                     <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead
-                                        className="cursor-pointer"
-                                        onClick={() =>
-                                            requestSort("user?.firstname")
-                                        }
-                                    >
-                                        <div className="flex items-center">
-                                            Patient
-                                            {sortConfig.key ===
-                                                "user?.firstname" && (
-                                                <span className="ml-1">
-                                                    {sortConfig.direction ===
-                                                    "ascending" ? (
-                                                        <ChevronUp className="h-4 w-4" />
-                                                    ) : (
-                                                        <ChevronDown className="h-4 w-4" />
-                                                    )}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </TableHead>
-                                    <TableHead
-                                        className="cursor-pointer"
-                                        onClick={() => requestSort("date")}
-                                    >
-                                        <div className="flex items-center">
-                                            Date & Time
-                                            {sortConfig.key === "date" && (
-                                                <span className="ml-1">
-                                                    {sortConfig.direction ===
-                                                    "ascending" ? (
-                                                        <ChevronUp className="h-4 w-4" />
-                                                    ) : (
-                                                        <ChevronDown className="h-4 w-4" />
-                                                    )}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </TableHead>
-                                    <TableHead>Doctor</TableHead>
-                                    <TableHead>Purpose</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">
-                                        Actions
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sortedAppointments.length > 0 ? (
-                                    sortedAppointments.map((appointment) => (
-                                        <TableRow key={appointment.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar>
-                                                        <AvatarImage
-                                                            //   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${appointment.avatar}`}
-                                                            alt={
-                                                                appointment.user
-                                                                    ?.firstname
-                                                            }
-                                                        />
-                                                        <AvatarFallback>
-                                                            {appointment.user?.firstname
-                                                                .split(" ")
-                                                                .map(
-                                                                    (n) => n[0]
-                                                                )
-                                                                .join("")}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div>
-                                                        <div className="font-medium">
-                                                            {
-                                                                appointment.user
-                                                                    ?.firstname
-                                                            }
-                                                        </div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {
-                                                                appointment.user_id
-                                                            }
+                        <SortableTable
+                            data={appointments}
+                            defaultSort={{
+                                key: "user.firstname",
+                                direction: "asc",
+                            }}
+                        >
+                            {({ sortedData }) => (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <SortableTableHead
+                                                sortKey="user.firstname"
+                                                sortable
+                                            >
+                                                Patient
+                                            </SortableTableHead>
+                                            <SortableTableHead sortKey="date">
+                                                Date & Time
+                                            </SortableTableHead>
+                                            <SortableTableHead>
+                                                Doctor
+                                            </SortableTableHead>
+                                            <SortableTableHead sortKey="service.servicename">
+                                                Purpose
+                                            </SortableTableHead>
+                                            <SortableTableHead sortKey="status">
+                                                Status
+                                            </SortableTableHead>
+                                            <SortableTableHead>
+                                                Actions
+                                            </SortableTableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {sortedData.length <= 0 && (
+                                            <div className=" m-5">
+                                                No Records Available.
+                                            </div>
+                                        )}
+                                        {sortedData.map((aa, i) => (
+                                            <TableRow key={i}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar>
+                                                            <AvatarImage
+                                                                //   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${appointment.avatar}`}
+                                                                alt={
+                                                                    aa.user
+                                                                        ?.firstname
+                                                                }
+                                                            />
+                                                            <AvatarFallback>
+                                                                {aa.user?.firstname
+                                                                    .split(" ")
+                                                                    .map(
+                                                                        (n) =>
+                                                                            n[0]
+                                                                    )
+                                                                    .join("")}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <div className="font-medium">
+                                                                {
+                                                                    aa.user
+                                                                        ?.firstname
+                                                                }{" "}
+                                                                {
+                                                                    aa.user
+                                                                        ?.lastname
+                                                                }
+                                                            </div>
+                                                            <div className="text-sm text-muted-foreground">
+                                                                {aa.user_id}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="font-medium">
-                                                    {new Date(
-                                                        appointment.date
-                                                    ).toLocaleDateString()}
-                                                </div>
-                                                <div className="text-sm text-muted-foreground">
-                                                    {appointment.time}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>DOCTOR</TableCell>
-                                            <TableCell>
-                                                {
-                                                    appointment.service
-                                                        ?.servicename
-                                                }
-                                            </TableCell>
-                                            <TableCell>
-                                                {getStatusBadge(
-                                                    appointment.status
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    variant="ghost"
-                                                    onClick={(e) =>
-                                                        openModal(
-                                                            e,
-                                                            appointment.id
-                                                        )
-                                                    }
-                                                    size="sm"
-                                                >
-                                                    View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={6}
-                                            className="text-center h-24 text-muted-foreground"
-                                        >
-                                            No appointments found
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {/* moment(
+                                                                                                            activity.created_at
+                                                                                                        ).format("h:mm A") */}
+                                                    <div className="font-medium">
+                                                        {new Date(
+                                                            aa.date
+                                                        ).toLocaleDateString()}
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        {aa.time}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>Not Set</TableCell>
+                                                <TableCell>
+                                                    {aa.service?.servicename}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {getStatusBadge(aa.status)}
+                                                </TableCell>
+                                                <TableCell className="">
+                                                    <PrimaryButton
+                                                        onClick={(e) => {
+                                                            openModal(e, aa.id);
+                                                        }}
+                                                        className=" m-1"
+                                                    >
+                                                        <Eye />
+                                                    </PrimaryButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </SortableTable>
                     </div>
                 </div>
+                <CardFooter className="  mt-2">
+                    <div className="text-sm text-muted-foreground">
+                        Showing {appointments_.from} to {appointments_.to} of{" "}
+                        {appointments_.total} Results
+                    </div>
+                    <div className="flex ml-2 space-x-2">
+                        {links.map((link, index) => (
+                            <Button
+                                key={index}
+                                variant={link.active ? "default" : "outline"}
+                                size="sm"
+                                disabled={!link.url || link.active}
+                                onClick={() => {
+                                    if (link.url) {
+                                        router.get(link.url);
+                                    }
+                                }}
+                            >
+                                {link.label.includes("Previous") ? (
+                                    <ChevronLeft className="h-4 w-4" />
+                                ) : link.label.includes("Next") ? (
+                                    <ChevronRight className="h-4 w-4" />
+                                ) : (
+                                    link.label
+                                )}
+                            </Button>
+                        ))}
+                    </div>
+                </CardFooter>
             </motion.div>
             <Modal
                 isOpen={isModalOpen}
@@ -462,16 +567,52 @@ export default function appointments({ Appoints }) {
                         {/* {data.notes && (
 
                     )} */}
-                        <div>
-                            <p className="text-sm font-medium text-gray-500">
-                                Additional Notes
-                            </p>
-                            <p className="text-gray-900">
-                                {appointment_.notes}
-                            </p>
-                        </div>
                     </CardContent>
                 </Card>
+                <CardFooter>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                {/* < className="h-4 w-4 text-muted-foreground" /> */}
+                                <span className="text-sm font-medium">
+                                    Status:
+                                </span>
+                            </div>
+                            <Select
+                                value={data.status}
+                                onValueChange={(e) => {
+                                    setData("status", e);
+                                }}
+                                id="axz"
+                            >
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={1}>Scheduled</SelectItem>
+                                    <SelectItem value={5}>Confirm</SelectItem>
+                                    <SelectItem value={4}>Decline</SelectItem>
+                                    {/* <SelectItem value={2}>Completed</SelectItem>
+                                    <SelectItem value={3}>Cancelled</SelectItem> */}
+                                </SelectContent>
+                            </Select>
+                            {/* <Button
+                                type="button"
+                                variant="outline"
+                                onClick={closeModal}
+                            >
+                                Cancel
+                            </Button> */}
+                            <PrimaryButton
+                                disabled={processing}
+                                onClick={SaveStatus}
+                            >
+                                Save
+                            </PrimaryButton>
+                        </div>
+                    </div>
+                    <InputError message={errors.status} />
+                </CardFooter>
             </Modal>
         </AdminLayout>
     );

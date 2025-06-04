@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -28,34 +28,7 @@ import {
 // utils/formatTime.js
 import moment from "moment";
 import PrimaryButton from "@/components/PrimaryButton";
-
-// interface ActivityItem {
-//   id: string;
-//   type:
-//     | "patient"
-//     | "appointment"
-//     | "inventory"
-//     | "message"
-//     | "alert"
-//     | "program";
-//   title: string;
-//   description: string;
-//   time: string;
-//   user?: {
-//     name: string;
-//     avatar?: string;
-//     role: string;
-//   };
-//   status?: "success" | "pending" | "warning" | "error";
-//   actionLabel?: string;
-// }
-
-// interface ActivityFeedProps {
-//   activities?: ActivityItem[];
-//   title?: string;
-//   maxItems?: number;
-// }
-
+import Reschedule from "@/Pages/Authenticated/Admin/partials/Reschedule";
 const getActivityIcon = () =>
     //   type: ActivityItem["type"],
     //   status?: ActivityItem["status"],
@@ -120,11 +93,27 @@ const ActivityFeed = ({
 }) => {
     const displayActivities = activities; //activities.slice(0, maxItems);
 
+    //const { links } = usePage().props; // Get pagination links
+
     useEffect(() => {
         if (displayActivities) {
-            console.log(displayActivities);
+            //console.log(displayActivities);
         }
     }, [displayActivities]);
+
+    const [isOpen, setIsOpen] = useState(false);
+
+    const [appointDatas, setAppointDatas] = useState({});
+    //const [appointmentkey, setAppKey] = useState(null);
+    const openModal = (data) => {
+        setIsOpen(true);
+        setAppointDatas(data);
+    };
+
+    // useEffect(() => {
+    //     console.log("datas: ", appointDatas);
+    // }, [appointDatas]);
+
     return (
         <Card className="w-full bg-white border-r-4 border-r-primary">
             <CardHeader className="pb-2">
@@ -149,7 +138,17 @@ const ActivityFeed = ({
                                                 {/* {getStatusBadge(activity.status)} */}
                                                 {activity.data.type ==
                                                     "new_appointment" && (
-                                                    <PrimaryButton>
+                                                    <PrimaryButton
+                                                        onClick={() => {
+                                                            //setIsOpen(true);
+                                                            openModal({
+                                                                primaryKey:
+                                                                    activity
+                                                                        .data
+                                                                        .key,
+                                                            });
+                                                        }}
+                                                    >
                                                         Reschedule
                                                     </PrimaryButton>
                                                 )}
@@ -221,92 +220,14 @@ const ActivityFeed = ({
                     </div>
                 </ScrollArea>
             </CardContent>
+            <Reschedule
+                maxWidth="lg"
+                isOpen={isOpen}
+                datas={appointDatas}
+                onClose={() => setIsOpen(false)}
+            />
         </Card>
     );
 };
-
-// Default mock data
-// const defaultActivities = [
-//   {
-//     id: "1",
-//     type: "patient",
-//     title: "New patient registered",
-//     description: "Maria Santos has been registered as a new patient",
-//     time: "10 minutes ago",
-//     user: {
-//       name: "Dr. Reyes",
-//       role: "Admin",
-//     },
-//     status: "success",
-//   },
-//   {
-//     id: "2",
-//     type: "appointment",
-//     title: "Upcoming appointment",
-//     description: "Prenatal checkup for Joanna Cruz scheduled at 2:00 PM",
-//     time: "30 minutes ago",
-//     status: "pending",
-//     actionLabel: "View Details",
-//   },
-//   {
-//     id: "3",
-//     type: "inventory",
-//     title: "Low stock alert",
-//     description: "Paracetamol 500mg is running low (5 boxes remaining)",
-//     time: "1 hour ago",
-//     status: "warning",
-//     actionLabel: "Restock",
-//   },
-//   {
-//     id: "4",
-//     type: "message",
-//     title: "SMS notification sent",
-//     description: "Vaccination reminder sent to 24 patients",
-//     time: "2 hours ago",
-//     user: {
-//       name: "Anna Lim",
-//       role: "Nurse",
-//     },
-//   },
-//   {
-//     id: "5",
-//     type: "alert",
-//     title: "Medicine expiry alert",
-//     description: "Amoxicillin batch #A2023 will expire in 30 days",
-//     time: "3 hours ago",
-//     status: "error",
-//     actionLabel: "Take Action",
-//   },
-//   {
-//     id: "6",
-//     type: "program",
-//     title: "Health program updated",
-//     description: "Immunization drive schedule updated for next month",
-//     time: "5 hours ago",
-//     user: {
-//       name: "Dr. Santos",
-//       role: "Doctor",
-//     },
-//   },
-//   {
-//     id: "7",
-//     type: "appointment",
-//     title: "Appointment rescheduled",
-//     description: "Pedro Reyes rescheduled appointment to next Monday",
-//     time: "6 hours ago",
-//   },
-//   {
-//     id: "8",
-//     type: "inventory",
-//     title: "New supplies received",
-//     description: "Received 20 boxes of face masks and 10 boxes of gloves",
-//     time: "1 day ago",
-//     user: {
-//       name: "Miguel Cruz",
-//       role: "Pharmacist",
-//     },
-//     status: "success",
-//   },
-// ];
 
 export default ActivityFeed;

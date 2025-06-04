@@ -148,8 +148,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                             Medical Records Access
                         </h3>
                         <p className="text-gray-700 mb-4 leading-relaxed flex-grow">
-                            Securely access your personal medical history, test
-                            results, prescriptions, and treatment plans through
+                            Securely access your personal medical history, immunization record, and treatment plans through
                             our digital platform.
                         </p>
                         <div className="mt-auto">
@@ -182,12 +181,12 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                             </svg>
                         </div>
                         <h3 className="text-xl font-bold mb-5">
-                            Vaccination Schedules
+                            Seasonal Health Programs Schedules
                         </h3>
                         <p className="text-gray-700 mb-4 leading-relaxed flex-grow">
-                            View upcoming vaccination campaigns, register for
-                            immunizations, and receive reminders for your
-                            family's vaccination appointments.
+                            Stay informed about our seasonal health programs,
+                            vaccination drives, and other community health
+                            initiatives.
                         </p>
                         <div className="mt-auto">
                             <a

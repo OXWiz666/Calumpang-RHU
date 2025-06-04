@@ -6,21 +6,21 @@ const FAQPage = () => {
 
   const faqs = [
     {
-      question: "How do I schedule an appointment at the health center?",
-      answer: "You can schedule an appointment through our online appointment system by clicking on the 'Schedule Appointment' button on our homepage. Alternatively, you can visit the health center in person or call our appointment hotline at +63 (123) 456-7890."
+      question: "How do I schedule an appointment at the Calumpang Rural Health Unit?",
+      answer: "You can schedule an appointment through our online appointment system by clicking on the 'Schedule Appointment' button on our homepage. Alternatively, you can visit the health center in person or call our appointment hotline at +63 (083) 554-0146"
     },
     {
-      question: "What services are available at the Barangay Calumpang Health Center?",
+      question: "What services are available at the Calumpang Rural Health Unit?",
       answer: "We offer a wide range of services including general consultations, maternal and child health care, immunizations, family planning, health education, minor treatments, and referrals to specialized care. We also provide digital access to medical records and vaccination schedules."
     },
     {"question" : "How can I access my medical records online?", "answer" : "You can access your medical records by logging into your account on our website. If you don't have an account yet, you can register by visiting the health center with a valid ID. Our staff will assist you in setting up your digital health account."},
-                            {"question" : "Are vaccinations available at the health center?", "answer" : "Yes, we provide various vaccinations according to the Department of Health's immunization schedule. You can view the vaccination schedule on our website and book an appointment for vaccination services."},
-                            {"question" : "Is there a fee for services at the health center?", "answer" : "Most basic health services at the Barangay Health Center are provided free of charge to residents of Barangay Calumpang. Some specialized services or medications may have associated costs. Please inquire at the health center for specific details."},
-                            {"question" : "What should I bring for my first visit to the health center?", "answer" : "For your first visit, please bring a valid ID, your barangay residence certificate, and any previous medical records or prescriptions if available. If you're enrolled in PhilHealth or have other health insurance, please bring your membership card."},
+                            {"question" : "Are vaccinations available at the Calumpang Rural Health Unit?", "answer" : "Yes, we provide various vaccinations according to the Department of Health's immunization schedule. You can view the vaccination schedule on our website and book an appointment for vaccination services."},
+                            {"question" : "Is there a fee for services at the Calumpang Rural Health Unit?", "answer" : "Most basic health services at the Barangay Health Center are provided free of charge to residents of Barangay Calumpang."},
+                            {"question" : "What should I bring for my first visit to the Calumpang Rural Health Unit?", "answer" : "For your first visit, please bring a valid ID, your barangay residence certificate, and any previous medical records or prescriptions if available. If you're enrolled in PhilHealth or have other health insurance, please bring your membership card."},
                             {"question" : "How do I reset my password for the online health portal?", "answer" : "You can reset your password by clicking on the 'Forgot Password' link on the login page. You will receive a password reset link via email. If you continue to experience issues, please visit the health center for assistance."},
-                            {"question" : "Can non-residents of Barangay Calumpang avail of services at the health center?", "answer" : "While our primary focus is serving residents of Barangay Calumpang, we do provide emergency services to anyone in need. For regular services, non-residents may be accommodated based on availability and may be subject to different fees."},
-                            {"question" : "What are the operating hours of the health center?", "answer" : "The Barangay Calumpang Health Center is open Monday to Friday from 8:00 AM to 5:00 PM, and Saturday from 8:00 AM to 12:00 PM. We are closed on Sundays and public holidays except for emergencies."},
-                            {"question" : "How can I provide feedback about the health center services?", "answer" : "We value your feedback! You can provide feedback through our online portal, by filling out a feedback form at the health center, or by contacting us directly via phone or email. Your input helps us improve our services."}
+                            {"question" : "Can non-residents of Barangay Calumpang avail of services at the Calumpang Rural Health Unit?", "answer" : "While our primary focus is serving residents of Barangay Calumpang, we do provide emergency services to anyone in need. For regular services, non-residents may be accommodated based on availability and may be subject to different approach."},
+                            {"question" : "What are the operating hours of the Calumpang Rural Health Unit?", "answer" : "The Barangay Calumpang Rural Health Unit is open Monday to Friday from 8:00 AM to 5:00 PM, and Saturday from 8:00 AM to 12:00 PM. We are closed on Sundays and public holidays except for emergencies."},
+                           
     // Add all other FAQs here...
   ];
 

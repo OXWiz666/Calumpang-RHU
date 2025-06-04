@@ -5,7 +5,7 @@
 // import { Link, usePage } from "@inertiajs/react";
 // import { useState } from "react";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Sidebar from "@/components/tempo/admin/include/Sidebar";
 import StatisticsOverview from "@/components/tempo/admin/include/StatisticsOverview";
@@ -20,15 +20,55 @@ import {
     AvatarImage,
 } from "@/components/tempo/components/ui/avatar";
 import { Badge } from "@/components/tempo/components/ui/badge";
-import { usePage } from "@inertiajs/react";
+import { usePage, router } from "@inertiajs/react";
 
 import Sidebar2 from "@/components/tempo/doctor/include/Sidebar";
 
+import NotificationDropdown from "@/components/tempo/admin/include/NotificationDropdown";
+import { data } from "autoprefixer";
+import PusherListener from "@/components/pusher";
+
+import { create } from "zustand";
+
+export const useSidebarState = create((set) => ({
+    sidebarstate: false,
+
+    setSidebarstate: (sidebarstate) => set({ sidebarstate }),
+}));
+
 export default function AdminLayout({ header, children, tools }) {
     const role = usePage().props.auth.role;
+
+    const { auth } = usePage().props;
+    const [datas, setDatas] = useState(auth);
+    useEffect(() => {
+        //setActivities(notifs);
+        //console.log("auth:", auth);
+        setDatas(auth);
+    }, [auth]);
     // const [activePage, setActivePage] = useState("dashboard"); // Default: 'dashboard'
+
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash) {
+            //console.log("this toast:", flash);
+            alert_toast(flash.title, flash.message, flash.icon);
+        }
+    }, [flash]);
+
     return (
         <div className="flex h-screen bg-background">
+            <PusherListener
+                channelName="notification"
+                eventName="notification-event"
+                onEvent={(data) => {
+                    router.reload({
+                        only: ["auth"],
+                        preserveScroll: true,
+                    });
+                }}
+            />
             {/* Sidebar */}
             {role.id == 7 ? <Sidebar /> : <Sidebar2 />}
             {/* Main Content */}
@@ -51,7 +91,7 @@ export default function AdminLayout({ header, children, tools }) {
 
                     <div className="flex items-center gap-4">
                         {tools}
-                        <Button
+                        {/* <Button
                             variant="ghost"
                             size="icon"
                             className="relative"
@@ -60,7 +100,8 @@ export default function AdminLayout({ header, children, tools }) {
                             <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
                                 3
                             </Badge>
-                        </Button>
+                        </Button> */}
+                        <NotificationDropdown datas={datas} />
 
                         <div className="flex items-center gap-2">
                             <Avatar>

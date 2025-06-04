@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Card,
     CardContent,
@@ -22,7 +22,7 @@ import {
     AvatarFallback,
     AvatarImage,
 } from "@/components/tempo/components/ui/avatar";
-import { usePage, useForm } from "@inertiajs/react";
+import { usePage, useForm, router } from "@inertiajs/react";
 import {
     User,
     Settings,
@@ -31,7 +31,6 @@ import {
     LogOut,
     Calendar,
     FileText,
-    Upload,
     Check,
     AlertCircle,
 } from "lucide-react";
@@ -51,7 +50,8 @@ const ProfilePage = ({ errors }) => {
     //   }
 
     // Then in your component
-    const user__ = usePage().props.auth.user; // Or however you get the user
+    const { auth, recentAppointments } = usePage().props; // Get user and appointments from props
+    const user__ = auth.user;
 
     // State for form data
     // const {data, setFormData} = userForm(
@@ -62,6 +62,8 @@ const ProfilePage = ({ errors }) => {
     const [isSavingx, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [saveError, setSaveError] = useState(false);
+    const [avatarPreview, setAvatarPreview] = useState(null);
+    const fileInputRef = useRef(null);
 
     // Update form data when user changes
     useEffect(() => {
@@ -69,39 +71,25 @@ const ProfilePage = ({ errors }) => {
         //setFormData(defaultUser);
     }, [user__]);
 
-    // Sample appointments data
-    const appointments = [
-        {
-            id: 1,
-            date: "2023-10-15",
-            time: "10:00 AM",
-            doctor: "Dr. Maria Santos",
-            purpose: "Annual Check-up",
-            status: "Completed",
-        },
-        {
-            id: 2,
-            date: "2023-11-20",
-            time: "2:30 PM",
-            doctor: "Dr. Jose Reyes",
-            purpose: "Vaccination",
-            status: "Upcoming",
-        },
-    ];
+    // Get real appointments from props or use empty array if not available
+    const appointments = recentAppointments || [];
 
     const { data, setData, post, patch, processing, recentlySuccessful } =
         useForm({
             firstname: user__.firstname,
             middlename: user__.middlename,
             lastname: user__.lastname,
+            suffix: user__.suffix,
             email: user__.email,
-            avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=juan",
+            avatar:
+                user__.avatar ||
+                "https://api.dicebear.com/7.x/avataaars/svg?seed=juan",
             phone: user__.contactno,
             address: user__.address,
             medicalInfo: "No known allergies. Last check-up: March 2023",
             birthdate: user__.birth,
             emergencyContact: user__.emercont?.[0]?.contactno,
-            bloodType: user__.bloodtype,
+            bloodtype: user__.bloodtype,
             allergies: "None",
             medications: "None",
             gender: user__.gender,
@@ -160,8 +148,170 @@ const ProfilePage = ({ errors }) => {
 
     // Handle avatar upload
     const handleAvatarUpload = () => {
-        // This would normally open a file picker
-        alert("Avatar upload functionality would be implemented here");
+        // Trigger file input click
+        fileInputRef.current.click();
+    };
+
+    // Handle file selection
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Create a preview URL
+            const previewUrl = URL.createObjectURL(file);
+            setAvatarPreview(previewUrl);
+
+            // Create FormData and submit
+            const formData = new FormData();
+            formData.append("avatar", file);
+
+            // Use Inertia to submit the form
+            router.post(route("patient.avatar.upload"), formData, {
+                forceFormData: true,
+                onSuccess: () => {
+                    // Clean up the preview URL
+                    URL.revokeObjectURL(previewUrl);
+                    setSaveSuccess(true);
+                    setTimeout(() => setSaveSuccess(false), 3000);
+                },
+                onError: () => {
+                    setSaveError(true);
+                    setTimeout(() => setSaveError(false), 3000);
+                    // Clean up the preview URL
+                    URL.revokeObjectURL(previewUrl);
+                    setAvatarPreview(null);
+                },
+            });
+        }
+    };
+
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 1:
+                return (
+                    <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Scheduled</span>
+                    </div>
+                );
+            case 2:
+                return (
+                    <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Completed</span>
+                    </div>
+                );
+            case 3:
+                return (
+                    <div className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        <span>Cancelled</span>
+                    </div>
+                );
+            case 4:
+                return (
+                    <div className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        <span>Declined</span>
+                    </div>
+                );
+            case 5:
+                return (
+                    <div className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>Confirmed</span>
+                    </div>
+                );
+            default:
+                return (
+                    <div className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="mr-1"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>Pending</span>
+                    </div>
+                );
+        }
     };
 
     return (
@@ -176,25 +326,60 @@ const ProfilePage = ({ errors }) => {
                                     <div className="relative group">
                                         <Avatar className="h-24 w-24 mb-4 border-4 border-primary/10">
                                             <AvatarImage
-                                                src={data.avatar}
-                                                alt={data.name}
+                                                src={
+                                                    avatarPreview ||
+                                                    (user__.avatar
+                                                        ? `/storage/avatars/${user__.avatar}`
+                                                        : data.avatar)
+                                                }
+                                                alt={`${user__.firstname} ${user__.lastname}`}
                                             />
                                             <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-                                                name
+                                                {user__.firstname?.charAt(0)}
+                                                {user__.lastname?.charAt(0)}
                                             </AvatarFallback>
                                         </Avatar>
                                         <button
                                             onClick={handleAvatarUpload}
                                             className="absolute bottom-4 right-0 bg-primary text-white rounded-full p-1.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Upload avatar"
                                         >
-                                            <Upload className="h-4 w-4" />
+                                            {/* Inline SVG for upload icon */}
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                <polyline points="17 8 12 3 7 8"></polyline>
+                                                <line
+                                                    x1="12"
+                                                    y1="3"
+                                                    x2="12"
+                                                    y2="15"
+                                                ></line>
+                                            </svg>
                                         </button>
+                                        {/* Hidden file input */}
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleFileChange}
+                                        />
                                     </div>
                                     <CardTitle className="text-xl">
-                                        {data.name}
+                                        {user__.firstname} {user__.lastname}
                                     </CardTitle>
                                     <CardDescription className="text-center">
-                                        {data.email}
+                                        {user__.email}
                                     </CardDescription>
                                 </div>
                             </CardHeader>
@@ -215,7 +400,7 @@ const ProfilePage = ({ errors }) => {
                                         <User className="mr-2 h-5 w-5" />
                                         Personal Information
                                     </Button>
-                                    <Button
+                                    {/* <Button
                                         variant={
                                             activeTab === "medical"
                                                 ? "secondary"
@@ -229,7 +414,7 @@ const ProfilePage = ({ errors }) => {
                                     >
                                         <FileText className="mr-2 h-5 w-5" />
                                         Medical Information
-                                    </Button>
+                                    </Button> */}
                                     <Button
                                         variant={
                                             activeTab === "appointments"
@@ -340,12 +525,6 @@ const ProfilePage = ({ errors }) => {
                                             Personal Information
                                         </TabsTrigger>
                                         <TabsTrigger
-                                            value="medical"
-                                            className="text-xs sm:text-sm "
-                                        >
-                                            Medical Information
-                                        </TabsTrigger>
-                                        <TabsTrigger
                                             value="appointments"
                                             className="text-xs sm:text-sm "
                                         >
@@ -429,7 +608,43 @@ const ProfilePage = ({ errors }) => {
                                                     />
                                                 </div>
                                             </div>
-                                            <div className="grid grid-cols-1 mt-2 md:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 mt-2 md:grid-cols-3 gap-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="suffix">
+                                                            Suffix
+                                                        </Label>
+                                                        <Input
+                                                            id="suffix"
+                                                            type="text"
+                                                            value={data.suffix}
+                                                            onChange={
+                                                                handleChange
+                                                            }
+                                                            disabled={
+                                                                !isEditing
+                                                            }
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="bloodtype">
+                                                            Blood Type
+                                                        </Label>
+                                                        <Input
+                                                            id="bloodtype"
+                                                            type="text"
+                                                            value={
+                                                                data.bloodtype
+                                                            }
+                                                            onChange={
+                                                                handleChange
+                                                            }
+                                                            disabled={
+                                                                !isEditing
+                                                            }
+                                                        />
+                                                    </div>
+                                                </div>
                                                 <div className="space-y-2">
                                                     <Label htmlFor="email">
                                                         Email
@@ -443,6 +658,7 @@ const ProfilePage = ({ errors }) => {
                                                         required
                                                     />
                                                 </div>
+
                                                 <div className="space-y-2">
                                                     <Label htmlFor="phone">
                                                         Phone Number
@@ -498,7 +714,6 @@ const ProfilePage = ({ errors }) => {
                                                     value={data.address}
                                                     onChange={handleChange}
                                                     disabled={!isEditing}
-                                                    required
                                                 />
                                             </div>
                                             {isEditing && (
@@ -510,89 +725,6 @@ const ProfilePage = ({ errors }) => {
                                                     {processing
                                                         ? "Saving..."
                                                         : "Save Changes"}
-                                                </Button>
-                                            )}
-                                        </form>
-                                    </TabsContent>
-
-                                    <TabsContent
-                                        value="medical"
-                                        className="space-y-4"
-                                    >
-                                        <form onSubmit={handleSubmit}>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="bloodType">
-                                                        Blood Type
-                                                    </Label>
-                                                    <Input
-                                                        id="bloodType"
-                                                        value={data.bloodType}
-                                                        onChange={handleChange}
-                                                        disabled={!isEditing}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="emergencyContact">
-                                                        Emergency Contact
-                                                    </Label>
-                                                    <Input
-                                                        id="emergencyContact"
-                                                        value={
-                                                            data.emergencyContact
-                                                        }
-                                                        onChange={handleChange}
-                                                        placeholder="Name and phone number"
-                                                        disabled={!isEditing}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2 mt-4">
-                                                <Label htmlFor="allergies">
-                                                    Allergies
-                                                </Label>
-                                                <Textarea
-                                                    id="allergies"
-                                                    value={data.allergies}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                    placeholder="List any allergies"
-                                                />
-                                            </div>
-                                            <div className="space-y-2 mt-4">
-                                                <Label htmlFor="medications">
-                                                    Current Medications
-                                                </Label>
-                                                <Textarea
-                                                    id="medications"
-                                                    value={data.medications}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                    placeholder="List any current medications"
-                                                />
-                                            </div>
-                                            <div className="space-y-2 mt-4">
-                                                <Label htmlFor="medicalInfo">
-                                                    Additional Medical
-                                                    Information
-                                                </Label>
-                                                <Textarea
-                                                    id="medicalInfo"
-                                                    rows={4}
-                                                    value={data.medicalInfo}
-                                                    onChange={handleChange}
-                                                    disabled={!isEditing}
-                                                />
-                                            </div>
-                                            {isEditing && (
-                                                <Button
-                                                    type="submit"
-                                                    className="mt-4"
-                                                    disabled={processing}
-                                                >
-                                                    {processing
-                                                        ? "Saving..."
-                                                        : "Save Medical Information"}
                                                 </Button>
                                             )}
                                         </form>
@@ -611,8 +743,27 @@ const ProfilePage = ({ errors }) => {
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
+                                                        className="px-3 py-1 text-sm shadow-sm flex items-center justify-center"
+                                                        onClick={() =>
+                                                            (window.location.href =
+                                                                "/patient/appointments/history")
+                                                        }
                                                     >
-                                                        View All
+                                                        <span>View All</span>
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="16"
+                                                            height="16"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            className="ml-1"
+                                                        >
+                                                            <polyline points="9 18 15 12 9 6"></polyline>
+                                                        </svg>
                                                     </Button>
                                                 </div>
                                                 <div className="divide-y">
@@ -626,10 +777,16 @@ const ProfilePage = ({ errors }) => {
                                                             >
                                                                 <div className="flex justify-between items-start mb-2">
                                                                     <div>
-                                                                        <h4 className="font-medium">
+                                                                        <h4 className="font-medium flex items-center">
                                                                             {
                                                                                 appointment.purpose
                                                                             }
+                                                                            <span className="text-xs text-muted-foreground ml-2">
+                                                                                #
+                                                                                {
+                                                                                    appointment.id
+                                                                                }
+                                                                            </span>
                                                                         </h4>
                                                                         <p className="text-sm text-muted-foreground">
                                                                             {
@@ -637,21 +794,50 @@ const ProfilePage = ({ errors }) => {
                                                                             }
                                                                         </p>
                                                                     </div>
-                                                                    <span
-                                                                        className={`text-xs px-2 py-1 rounded-full ${
-                                                                            appointment.status ===
-                                                                            "Completed"
-                                                                                ? "bg-green-100 text-green-800"
-                                                                                : "bg-blue-100 text-blue-800"
-                                                                        }`}
-                                                                    >
-                                                                        {
-                                                                            appointment.status
-                                                                        }
-                                                                    </span>
+                                                                    {getStatusBadge(
+                                                                        appointment.status_code
+                                                                    )}
                                                                 </div>
                                                                 <div className="flex items-center text-sm text-muted-foreground">
-                                                                    <Calendar className="h-4 w-4 mr-1" />
+                                                                    <svg
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                        width="16"
+                                                                        height="16"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        className="mr-1"
+                                                                    >
+                                                                        <rect
+                                                                            x="3"
+                                                                            y="4"
+                                                                            width="18"
+                                                                            height="18"
+                                                                            rx="2"
+                                                                            ry="2"
+                                                                        ></rect>
+                                                                        <line
+                                                                            x1="16"
+                                                                            y1="2"
+                                                                            x2="16"
+                                                                            y2="6"
+                                                                        ></line>
+                                                                        <line
+                                                                            x1="8"
+                                                                            y1="2"
+                                                                            x2="8"
+                                                                            y2="6"
+                                                                        ></line>
+                                                                        <line
+                                                                            x1="3"
+                                                                            y1="10"
+                                                                            x2="21"
+                                                                            y2="10"
+                                                                        ></line>
+                                                                    </svg>
                                                                     <span>
                                                                         {
                                                                             appointment.date
@@ -668,57 +854,66 @@ const ProfilePage = ({ errors }) => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="rounded-md border">
-                                                <div className="p-4 bg-muted/50">
-                                                    <h3 className="font-medium">
-                                                        Recent Appointments
-                                                    </h3>
-                                                </div>
-                                                <div className="p-4">
-                                                    <p className="text-sm text-muted-foreground">
-                                                        You have no recent
-                                                        appointments.
-                                                    </p>
-                                                    <Button
-                                                        className="mt-4"
-                                                        variant="outline"
-                                                    >
+                                            <div className="text-center p-8 border rounded-md bg-muted/10">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="48"
+                                                    height="48"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    className="mx-auto mb-4 text-muted-foreground"
+                                                >
+                                                    <rect
+                                                        x="3"
+                                                        y="4"
+                                                        width="18"
+                                                        height="18"
+                                                        rx="2"
+                                                        ry="2"
+                                                    ></rect>
+                                                    <line
+                                                        x1="16"
+                                                        y1="2"
+                                                        x2="16"
+                                                        y2="6"
+                                                    ></line>
+                                                    <line
+                                                        x1="8"
+                                                        y1="2"
+                                                        x2="8"
+                                                        y2="6"
+                                                    ></line>
+                                                    <line
+                                                        x1="3"
+                                                        y1="10"
+                                                        x2="21"
+                                                        y2="10"
+                                                    ></line>
+                                                </svg>
+                                                <h3 className="font-medium mb-1">
+                                                    No Appointments Yet
+                                                </h3>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    You haven't scheduled any
+                                                    appointments yet.
+                                                </p>
+                                                <Button
+                                                    onClick={() =>
+                                                        (window.location.href =
+                                                            "/appointments")
+                                                    }
+                                                    className="px-4 py-1 text-sm shadow-md flex items-center justify-center"
+                                                >
+                                                    <span>
                                                         Schedule an Appointment
-                                                    </Button>
-                                                </div>
+                                                    </span>
+                                                </Button>
                                             </div>
                                         )}
-                                        <div className="mt-6">
-                                            <h3 className="font-medium mb-4">
-                                                Upcoming Vaccinations
-                                            </h3>
-                                            <div className="rounded-md border p-4 bg-yellow-50">
-                                                <div className="flex items-start">
-                                                    <div className="mr-4 bg-yellow-100 p-2 rounded-full">
-                                                        <Shield className="h-5 w-5 text-yellow-600" />
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-medium text-yellow-800">
-                                                            Flu Vaccination Due
-                                                        </h4>
-                                                        <p className="text-sm text-yellow-700 mt-1">
-                                                            Your annual flu
-                                                            vaccination is due
-                                                            this month. Please
-                                                            schedule an
-                                                            appointment.
-                                                        </p>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="mt-2 bg-white"
-                                                        >
-                                                            Schedule Now
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </TabsContent>
                                 </Tabs>
                             </CardContent>
