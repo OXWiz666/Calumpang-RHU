@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\program_participants;
+use App\Models\program_types;
+use App\Models\servicetypes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,10 +15,11 @@ class VaccineController extends Controller
     public function index()
     {
         // Get all program schedules with their related program types and coordinators
-        $programs = \App\Models\program_schedules::with(['program_type', 'coordinator'])
+        $programs = \App\Models\program_schedules::with(['program_type', 'coordinator','registered_participants'])
             ->where('status', '!=', 'Archived') // Filter out archived programs
             ->orderBy('date', 'asc')
             ->get()
+            ->load('program_type.service')
             ->map(function ($program) {
                 // Format the program data for the frontend
                 return [
@@ -27,10 +31,10 @@ class VaccineController extends Controller
                     'endTime' => $program->end_time,
                     'location' => $program->location,
                     'totalSlots' => $program->total_slots,
-                    'availableSlots' => $program->available_slots,
+                    'availableSlots' => ($program->total_slots-$program->registered_participants->count()),
                     'coordinator' => $program->coordinator ? $program->coordinator->lastname : null,
                     'status' => $program->status ?: 'Active', // Default to 'Active' if status is null
-                    'programType' => $program->program_type->programname,
+                    'programType' => $program->program_type->service->servicename,
                 ];
             });
 
@@ -40,11 +44,13 @@ class VaccineController extends Controller
 
         return Inertia::render('Authenticated/Patient/SeasonalProgram', [
             'isLoggedin' => Auth::check(),
-            'programs' => $programs,
+            'allprograms' => $programs,
             'userPrograms' => $userPrograms,
+            'programtypes' => servicetypes::get(),
+            'myprograms' => program_participants::where('user_id',Auth::id())->get()
         ]);
     }
-    
+
     /**
      * Show the registration form for a specific program
      */
@@ -52,19 +58,19 @@ class VaccineController extends Controller
     {
         // Get the program ID from the query string
         $programId = $request->query('program_id');
-        
+
         if (!$programId) {
             return redirect()->route('services.vaccinations');
         }
-        
+
         // Get the program details
         $program = \App\Models\program_schedules::with(['program_type', 'coordinator'])
             ->find($programId);
-            
+
         if (!$program) {
             return redirect()->route('services.vaccinations');
         }
-        
+
         // Format the program data for the frontend
         $programData = [
             'id' => $program->id,
@@ -80,7 +86,7 @@ class VaccineController extends Controller
             'status' => $program->status ?: 'Active',
             'programType' => $program->program_type->programname,
         ];
-        
+
         return Inertia::render('Authenticated/Patient/ProgramRegistration', [
             'isLoggedin' => Auth::check(),
             'program' => $programData,
@@ -106,7 +112,7 @@ class VaccineController extends Controller
 
         // Check if the program exists and has available slots
         $program = \App\Models\program_schedules::findOrFail($request->program_id);
-        
+
         if ($program->available_slots <= 0) {
             return response()->json([
                 'message' => 'No available slots for this program.'
@@ -115,7 +121,7 @@ class VaccineController extends Controller
 
         // Start a database transaction
         DB::beginTransaction();
-        
+
         try {
             // Create or find the user
             $user = null;
@@ -124,7 +130,7 @@ class VaccineController extends Controller
             } else {
                 // Check if user with this email exists
                 $user = \App\Models\User::where('email', $request->email)->first();
-                
+
                 if (!$user) {
                     // Create a new user
                     $user = new \App\Models\User();

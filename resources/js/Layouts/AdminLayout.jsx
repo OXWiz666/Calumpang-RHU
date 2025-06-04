@@ -27,6 +27,15 @@ import Sidebar2 from "@/components/tempo/doctor/include/Sidebar";
 import NotificationDropdown from "@/components/tempo/admin/include/NotificationDropdown";
 import { data } from "autoprefixer";
 import PusherListener from "@/components/pusher";
+
+import { create } from "zustand";
+
+export const useSidebarState = create((set) => ({
+    sidebarstate: false,
+
+    setSidebarstate: (sidebarstate) => set({ sidebarstate }),
+}));
+
 export default function AdminLayout({ header, children, tools }) {
     const role = usePage().props.auth.role;
 
@@ -34,18 +43,26 @@ export default function AdminLayout({ header, children, tools }) {
     const [datas, setDatas] = useState(auth);
     useEffect(() => {
         //setActivities(notifs);
+        //console.log("auth:", auth);
         setDatas(auth);
     }, [auth]);
     // const [activePage, setActivePage] = useState("dashboard"); // Default: 'dashboard'
+
+    const { flash } = usePage().props;
+
+    useEffect(() => {
+        if (flash) {
+            //console.log("this toast:", flash);
+            alert_toast(flash.title, flash.message, flash.icon);
+        }
+    }, [flash]);
+
     return (
         <div className="flex h-screen bg-background">
             <PusherListener
                 channelName="notification"
                 eventName="notification-event"
                 onEvent={(data) => {
-                    // Call hook at component top level
-                    //console.log("handle data: ", data);
-                    //setActivities(auth.notifications);
                     router.reload({
                         only: ["auth"],
                         preserveScroll: true,

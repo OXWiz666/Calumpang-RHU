@@ -39,27 +39,65 @@ import {
 } from "@/components/tempo/components/ui/dialog";
 
 // Statistics Card Component
-const StatisticCard = ({ title, value, icon, change, bgColor = "bg-white" }) => {
+const StatisticCard = ({
+    title,
+    value,
+    icon,
+    change,
+    bgColor = "bg-white",
+}) => {
     return (
-        <div className={`${bgColor} rounded-lg shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-primary p-4`}>
+        <div
+            className={`${bgColor} rounded-lg shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-primary p-4`}
+        >
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-sm font-medium text-muted-foreground">{title}</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                        {title}
+                    </p>
                     <h3 className="text-2xl font-bold mt-1">{value}</h3>
                     {change && (
                         <div className="flex items-center mt-2">
                             {change.isPositive ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-green-500 mr-1">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="h-4 w-4 text-green-500 mr-1"
+                                >
                                     <path d="m5 12 7-7 7 7"></path>
                                     <path d="M12 19V5"></path>
                                 </svg>
                             ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-red-500 mr-1">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="h-4 w-4 text-red-500 mr-1"
+                                >
                                     <path d="m5 12 7 7 7-7"></path>
                                     <path d="M12 5v14"></path>
                                 </svg>
                             )}
-                            <span className={`text-xs font-medium ${change.isPositive ? "text-green-500" : "text-red-500"}`}>
+                            <span
+                                className={`text-xs font-medium ${
+                                    change.isPositive
+                                        ? "text-green-500"
+                                        : "text-red-500"
+                                }`}
+                            >
                                 {change.value} total
                             </span>
                         </div>
@@ -71,14 +109,14 @@ const StatisticCard = ({ title, value, icon, change, bgColor = "bg-white" }) => 
     );
 };
 
-const HealthPrograms = ({ 
-    programs = [], 
-    doctors = [], 
+const HealthPrograms = ({
+    programs = [],
+    doctors = [],
     flash,
     activePrograms = 0,
     archivedPrograms = 0,
     todayAppointments = 0,
-    totalParticipants = 0
+    totalParticipants = 0,
 }) => {
     const [localPrograms, setLocalPrograms] = useState(programs);
     const [searchTerm, setSearchTerm] = useState("");
@@ -114,7 +152,7 @@ const HealthPrograms = ({
             const timer = setTimeout(() => setErrorMessage(""), 5000);
             return () => clearTimeout(timer);
         }
-        
+
         // If flash contains programs data, update the local state
         if (flash?.programs && Array.isArray(flash.programs)) {
             console.log("Programs updated from flash:", flash.programs);
@@ -154,35 +192,37 @@ const HealthPrograms = ({
     // Handle sorting
     const requestSort = (key) => {
         let direction = "ascending";
-        if (
-            sortConfig.key === key &&
-            sortConfig.direction === "ascending"
-        ) {
+        if (sortConfig.key === key && sortConfig.direction === "ascending") {
             direction = "descending";
         }
         setSortConfig({ key, direction });
     };
-    
+
     // Handle archive/unarchive program
     const handleArchiveProgram = async (programId, isArchived) => {
         setIsLoading(true);
         try {
-            const endpoint = isArchived ? '/admin/programs/unarchive' : '/admin/programs/archive';
+            const endpoint = isArchived
+                ? "/admin/programs/unarchive"
+                : "/admin/programs/archive";
             const response = await axios.post(endpoint, {
-                program_id: programId
+                program_id: programId,
             });
-            
+
             if (response.data.programs) {
                 setLocalPrograms(response.data.programs);
                 setSuccessMessage(response.data.message);
                 // Clear success message after 3 seconds
-                setTimeout(() => setSuccessMessage(''), 3000);
+                setTimeout(() => setSuccessMessage(""), 3000);
             }
         } catch (error) {
-            console.error('Error archiving/unarchiving program:', error);
-            setErrorMessage(error.response?.data?.message || 'An error occurred while updating the program');
+            console.error("Error archiving/unarchiving program:", error);
+            setErrorMessage(
+                error.response?.data?.message ||
+                    "An error occurred while updating the program"
+            );
             // Clear error message after 3 seconds
-            setTimeout(() => setErrorMessage(''), 3000);
+            setTimeout(() => setErrorMessage(""), 3000);
         } finally {
             setIsLoading(false);
         }
@@ -210,24 +250,27 @@ const HealthPrograms = ({
                 reset();
                 setIsCreateDialogOpen(false);
                 setIsLoading(false);
-                
+
                 // Manually update the local programs list with the new data
                 if (response?.props?.flash?.programs) {
                     setLocalPrograms(response.props.flash.programs);
                 } else {
                     // If no programs in response, fetch the latest programs
-                    axios.get(route('admin.programs.fetch'))
-                        .then(res => {
+                    axios
+                        .get(route("admin.programs.fetch"))
+                        .then((res) => {
                             if (res.data.programs) {
                                 setLocalPrograms(res.data.programs);
                             }
                         })
-                        .catch(err => console.error('Error fetching programs:', err));
+                        .catch((err) =>
+                            console.error("Error fetching programs:", err)
+                        );
                 }
             },
             onError: () => {
                 setIsLoading(false);
-            }
+            },
         });
     };
 
@@ -287,8 +330,26 @@ const HealthPrograms = ({
                         title="Today's Appointments"
                         value={todayAppointments}
                         icon={
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-primary">
-                                <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-5 w-5 text-primary"
+                            >
+                                <rect
+                                    width="18"
+                                    height="18"
+                                    x="3"
+                                    y="4"
+                                    rx="2"
+                                    ry="2"
+                                ></rect>
                                 <line x1="16" x2="16" y1="2" y2="6"></line>
                                 <line x1="8" x2="8" y1="2" y2="6"></line>
                                 <line x1="3" x2="21" y1="10" y2="10"></line>
@@ -296,37 +357,72 @@ const HealthPrograms = ({
                         }
                         change={{ value: todayAppointments, isPositive: true }}
                     />
-                    
+
                     <StatisticCard
                         title="Active Health Programs"
                         value={activePrograms}
                         icon={
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-5 w-5 text-primary"
+                            >
                                 <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
                             </svg>
                         }
                         change={{ value: activePrograms, isPositive: true }}
                     />
-                    
+
                     <StatisticCard
                         title="Archived Programs"
                         value={archivedPrograms}
                         icon={
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-5 w-5 text-primary"
+                            >
                                 <path d="M21 8v13H3V8"></path>
                                 <path d="M1 3h22v5H1z"></path>
                                 <path d="M10 12h4"></path>
                             </svg>
                         }
                         change={{ value: archivedPrograms, isPositive: false }}
-                        bgColor={archivedPrograms > 0 ? "bg-amber-50" : "bg-white"}
+                        bgColor={
+                            archivedPrograms > 0 ? "bg-amber-50" : "bg-white"
+                        }
                     />
-                    
+
                     <StatisticCard
                         title="Total Participants"
                         value={totalParticipants}
                         icon={
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-primary">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-5 w-5 text-primary"
+                            >
                                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="9" cy="7" r="4"></circle>
                                 <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -338,10 +434,24 @@ const HealthPrograms = ({
                 </div>
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">Health Programs</h1>
-                    <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                    <Dialog
+                        open={isCreateDialogOpen}
+                        onOpenChange={setIsCreateDialogOpen}
+                    >
                         <DialogTrigger asChild>
                             <Button className="px-4 py-2 text-sm shadow-md flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="mr-2 h-4 w-4"
+                                >
                                     <circle cx="12" cy="12" r="10"></circle>
                                     <line x1="12" y1="8" x2="12" y2="16"></line>
                                     <line x1="8" y1="12" x2="16" y2="12"></line>
@@ -349,11 +459,14 @@ const HealthPrograms = ({
                                 <span>Create Program</span>
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px]">
-                            <DialogHeader>
-                                <DialogTitle>Create New Health Program</DialogTitle>
+                        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+                            <DialogHeader className="">
+                                <DialogTitle>
+                                    Create New Health Program
+                                </DialogTitle>
                                 <DialogDescription>
-                                    Fill in the details to create a new health program.
+                                    Fill in the details to create a new health
+                                    program.
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleSubmit}>
@@ -366,11 +479,16 @@ const HealthPrograms = ({
                                             placeholder="Enter program name"
                                             value={data.programname}
                                             onChange={(e) =>
-                                                setData("programname", e.target.value)
+                                                setData(
+                                                    "programname",
+                                                    e.target.value
+                                                )
                                             }
                                         />
                                         {errors.programname && (
-                                            <InputError message={errors.programname} />
+                                            <InputError
+                                                message={errors.programname}
+                                            />
                                         )}
                                     </div>
 
@@ -382,11 +500,16 @@ const HealthPrograms = ({
                                             placeholder="Enter program description"
                                             value={data.description}
                                             onChange={(e) =>
-                                                setData("description", e.target.value)
+                                                setData(
+                                                    "description",
+                                                    e.target.value
+                                                )
                                             }
                                         />
                                         {errors.description && (
-                                            <InputError message={errors.description} />
+                                            <InputError
+                                                message={errors.description}
+                                            />
                                         )}
                                     </div>
 
@@ -415,11 +538,16 @@ const HealthPrograms = ({
                                                 type="time"
                                                 value={data.starttime}
                                                 onChange={(e) =>
-                                                    setData("starttime", e.target.value)
+                                                    setData(
+                                                        "starttime",
+                                                        e.target.value
+                                                    )
                                                 }
                                             />
                                             {errors.starttime && (
-                                                <InputError message={errors.starttime} />
+                                                <InputError
+                                                    message={errors.starttime}
+                                                />
                                             )}
                                         </div>
                                         <div>
@@ -430,11 +558,16 @@ const HealthPrograms = ({
                                                 type="time"
                                                 value={data.endtime}
                                                 onChange={(e) =>
-                                                    setData("endtime", e.target.value)
+                                                    setData(
+                                                        "endtime",
+                                                        e.target.value
+                                                    )
                                                 }
                                             />
                                             {errors.endtime && (
-                                                <InputError message={errors.endtime} />
+                                                <InputError
+                                                    message={errors.endtime}
+                                                />
                                             )}
                                         </div>
                                     </div>
@@ -447,11 +580,16 @@ const HealthPrograms = ({
                                             placeholder="Enter program location"
                                             value={data.location}
                                             onChange={(e) =>
-                                                setData("location", e.target.value)
+                                                setData(
+                                                    "location",
+                                                    e.target.value
+                                                )
                                             }
                                         />
                                         {errors.location && (
-                                            <InputError message={errors.location} />
+                                            <InputError
+                                                message={errors.location}
+                                            />
                                         )}
                                     </div>
 
@@ -468,7 +606,9 @@ const HealthPrograms = ({
                                             }
                                         />
                                         {errors.slots && (
-                                            <InputError message={errors.slots} />
+                                            <InputError
+                                                message={errors.slots}
+                                            />
                                         )}
                                     </div>
 
@@ -497,7 +637,9 @@ const HealthPrograms = ({
                                             </SelectContent>
                                         </Select>
                                         {errors.coordinatorid && (
-                                            <InputError message={errors.coordinatorid} />
+                                            <InputError
+                                                message={errors.coordinatorid}
+                                            />
                                         )}
                                     </div>
 
@@ -527,17 +669,21 @@ const HealthPrograms = ({
                                             </SelectContent>
                                         </Select>
                                         {errors.status && (
-                                            <InputError message={errors.status} />
+                                            <InputError
+                                                message={errors.status}
+                                            />
                                         )}
                                     </div>
                                 </div>
-                                <DialogFooter>
-                                    <Button 
-                                        type="submit" 
+                                <DialogFooter className="sticky bottom-0 bg-transparent pt-4">
+                                    <Button
+                                        type="submit"
                                         disabled={processing || isLoading}
                                         className="px-4 py-2 text-sm shadow-md flex items-center justify-center"
                                     >
-                                        {processing || isLoading ? "Creating..." : "Create Program"}
+                                        {processing || isLoading
+                                            ? "Creating..."
+                                            : "Create Program"}
                                     </Button>
                                 </DialogFooter>
                             </form>
@@ -548,7 +694,9 @@ const HealthPrograms = ({
                 {/* Success message */}
                 {successMessage && (
                     <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
-                        <span className="block sm:inline">{successMessage}</span>
+                        <span className="block sm:inline">
+                            {successMessage}
+                        </span>
                     </div>
                 )}
 
@@ -563,9 +711,25 @@ const HealthPrograms = ({
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-1">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="text-gray-400"
+                            >
                                 <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                <line
+                                    x1="21"
+                                    y1="21"
+                                    x2="16.65"
+                                    y2="16.65"
+                                ></line>
                             </svg>
                         </div>
                         <Input
@@ -585,12 +749,22 @@ const HealthPrograms = ({
                                 <SelectValue placeholder="Filter by status" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">All Statuses</SelectItem>
+                                <SelectItem value="all">
+                                    All Statuses
+                                </SelectItem>
                                 <SelectItem value="Active">Active</SelectItem>
-                                <SelectItem value="Available">Available</SelectItem>
-                                <SelectItem value="Completed">Completed</SelectItem>
-                                <SelectItem value="Upcoming">Upcoming</SelectItem>
-                                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                <SelectItem value="Available">
+                                    Available
+                                </SelectItem>
+                                <SelectItem value="Completed">
+                                    Completed
+                                </SelectItem>
+                                <SelectItem value="Upcoming">
+                                    Upcoming
+                                </SelectItem>
+                                <SelectItem value="Cancelled">
+                                    Cancelled
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -609,12 +783,33 @@ const HealthPrograms = ({
                                         Program Name
                                         {sortConfig.key === "name" && (
                                             <span className="ml-1">
-                                                {sortConfig.direction === "ascending" ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                {sortConfig.direction ===
+                                                "ascending" ? (
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="16"
+                                                        height="16"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
                                                         <polyline points="18 15 12 9 6 15"></polyline>
                                                     </svg>
                                                 ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        width="16"
+                                                        height="16"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
                                                         <polyline points="6 9 12 15 18 9"></polyline>
                                                     </svg>
                                                 )}
@@ -622,24 +817,51 @@ const HealthPrograms = ({
                                         )}
                                     </div>
                                 </TableHead>
-                                <TableHead className="w-1/6">Description</TableHead>
+                                <TableHead className="w-1/6">
+                                    Description
+                                </TableHead>
                                 <TableHead className="w-1/12">Date</TableHead>
                                 <TableHead className="w-1/12">Time</TableHead>
-                                <TableHead className="w-1/12">Location</TableHead>
+                                <TableHead className="w-1/12">
+                                    Location
+                                </TableHead>
                                 <TableHead className="w-1/12">Slots</TableHead>
-                                <TableHead className="w-1/12">Coordinator</TableHead>
+                                <TableHead className="w-1/12">
+                                    Coordinator
+                                </TableHead>
                                 <TableHead className="w-1/12">Status</TableHead>
-                                <TableHead className="w-1/12">Actions</TableHead>
+                                <TableHead className="w-1/12">
+                                    Actions
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={9} className="text-center py-8">
+                                    <TableCell
+                                        colSpan={9}
+                                        className="text-center py-8"
+                                    >
                                         <div className="flex justify-center items-center">
-                                            <svg className="animate-spin h-5 w-5 mr-3 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            <svg
+                                                className="animate-spin h-5 w-5 mr-3 text-primary"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <circle
+                                                    className="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="4"
+                                                ></circle>
+                                                <path
+                                                    className="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                                ></path>
                                             </svg>
                                             Loading programs...
                                         </div>
@@ -660,7 +882,9 @@ const HealthPrograms = ({
                                         <TableCell>
                                             <div className="flex items-center space-x-3">
                                                 <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full text-gray-500">
-                                                    <span>{program.name.charAt(0)}</span>
+                                                    <span>
+                                                        {program.name.charAt(0)}
+                                                    </span>
                                                 </div>
                                                 <div>
                                                     <div className="font-medium">
@@ -681,7 +905,8 @@ const HealthPrograms = ({
                                         </TableCell>
                                         <TableCell>
                                             <div className="text-sm">
-                                                {program.startTime} - {program.endTime}
+                                                {program.startTime} -{" "}
+                                                {program.endTime}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -691,7 +916,8 @@ const HealthPrograms = ({
                                         </TableCell>
                                         <TableCell>
                                             <div className="text-sm">
-                                                {program.availableSlots}/{program.totalSlots}
+                                                {program.availableSlots}/
+                                                {program.totalSlots}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -713,12 +939,18 @@ const HealthPrograms = ({
                                                 >
                                                     <span>View</span>
                                                 </Button>
-                                                {program.status === 'Archived' ? (
+                                                {program.status ===
+                                                "Archived" ? (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="text-sm px-3 py-1 shadow-sm flex items-center justify-center text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                        onClick={() => handleArchiveProgram(program.id, true)}
+                                                        onClick={() =>
+                                                            handleArchiveProgram(
+                                                                program.id,
+                                                                true
+                                                            )
+                                                        }
                                                     >
                                                         <span>Unarchive</span>
                                                     </Button>
@@ -727,7 +959,12 @@ const HealthPrograms = ({
                                                         variant="outline"
                                                         size="sm"
                                                         className="text-sm px-3 py-1 shadow-sm flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                        onClick={() => handleArchiveProgram(program.id, false)}
+                                                        onClick={() =>
+                                                            handleArchiveProgram(
+                                                                program.id,
+                                                                false
+                                                            )
+                                                        }
                                                     >
                                                         <span>Archive</span>
                                                     </Button>

@@ -35,7 +35,7 @@ window.Echo = new Echo({
     //             .content,
     //         Authorization: `Bearer ${localStorage.getItem("auth_token")}`, // For API
     //         Accept: "application/json",
-    //     },   
+    //     },
     // },
 });
 
@@ -51,7 +51,7 @@ createInertiaApp({
 
         root.render(
             <>
-                <pusher />
+                {/* <pusher /> */}
                 <App {...props} />
                 <ToastContainer />
             </>

@@ -73,5 +73,11 @@ class User extends Authenticatable
         return $this->belongsTo(roles::class,'roleID');
     }
 
+    public function userPrograms(){
+        return $this->hasMany(program_participants::class,'user_id','id')
+        ->with('program_schedule')
+        ->with('program_schedule.program_type')
+        ->with('program_schedule.program_type.service');
+    }
 
 }

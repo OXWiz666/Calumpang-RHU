@@ -4,9 +4,11 @@ use App\Http\Controllers\Admin\AppointmentsController;
 use App\Http\Controllers\Admin\DoctorsController;
 use App\Http\Controllers\Admin\HealthProgramsController;
 use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\Admin\MessagesController;
 use App\Http\Controllers\Admin\PatientsController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\ServicesController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LandingPageController;
@@ -22,7 +24,9 @@ use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\PatientMessagesController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProgramParticipantController;
 use App\Livewire\Doctor\DoctorDashboard;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
@@ -59,9 +63,9 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     Route::get('/services', [LandingPageController::class, 'services'])->name('services');
     Route::get('/about', [LandingPageController::class, 'about'])->name('about');
     Route::get('/contact', [LandingPageController::class, 'contact'])->name('contact');
-    Route::get('/appointments', [LandingPageController::class, 'appointments'])->name('appointments');
+    //Route::get('/appointments', [LandingPageController::class, 'appointments'])->name('appointments');
     Route::get('/services/records', [LandingPageController::class, 'records'])->name('services.records');
-    Route::get('/services/vaccinations', [VaccineController::class, 'index'])->name('services.vaccinations');
+    Route::get('/services/seasonal-programs', [VaccineController::class, 'index'])->name('services.vaccinations');
     Route::get('/services/vaccinations/registration', [VaccineController::class, 'showRegistrationForm'])->name('services.vaccinations.registration');
     Route::post('/services/vaccinations/register', [VaccineController::class, 'register'])->name('services.vaccinations.register');
     Route::get('/faq', [LandingPageController::class, 'faq'])->name('faq');
@@ -73,7 +77,7 @@ Route::middleware(['GuestOrPatient'])->group(function () {
 
     Route::get('services/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
 
-
+    Route::post('programs/join-program/{schedule}',[ProgramParticipantController::class,'registerProgram'])->name('patient.seasonal.join');
 
     // Contact Routes
     //Route::post('/contact', [ContactController::class, 'submit'])->name('contact.submit');
@@ -95,7 +99,7 @@ Route::middleware(['auth','Patient'])->group(function(){
         // Get latest appointment priority number
         Route::get('/get-latest-appointment',[PatientController::class,'getLatestAppointment'])->name('patient.latest.appointment');
 
-
+        Route::post('/message/send',[PatientMessagesController::class,'sendmssg'])->name('patient.landing.sendmessage');
     });
 });
 
@@ -114,7 +118,7 @@ Route::middleware(['auth','Admin'])->group(function(){
         Route::get('/',[AdminDashboardController::class,'index'])->name('admin');
 
 
-
+        Route::get('/inventory',[InventoryController::class,'index'])->name('admin.inventory.index');
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
 
@@ -146,6 +150,17 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
         });
 
+        Route::prefix('settings')->group(function(){
+            Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
+            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
+        });
+
+        Route::prefix('landing-page')->group(function(){
+            Route::get('/messages',[MessagesController::class,'index'])->name('admin.landing.messages');
+
+
+        });
+
         Route::post('/registerstaff/create',[AuthController::class,'registerStaff'])->name('admin.staff.register');
         //Route::post('/registerdoctor/create',[AuthController::class,'registerDoctor'])->name('admin.register.doctor');
         //Route::post('/register', [AuthController::class, 'register'])->name('register.submit');
@@ -161,6 +176,12 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         Route::get('/appointment/get/{appointment}', [AppointmentsController::class,'GetAppointment'])->name('admin.appointment.get');
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
         Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
+
+
+        Route::post('/settings/pw/update',[SettingsController::class,'changePw'])->name('admin.settings.pw.update');
+
+
+        Route::post('/settings/account/update',[SettingsController::class,'saveaccount'])->name('admin.settings.update');
 
         Route::post('/appointment/status/update/{appointment}',[AppointmentsController::class,'UpdateStatus'])->name('admin.appointment.status.update');
     });

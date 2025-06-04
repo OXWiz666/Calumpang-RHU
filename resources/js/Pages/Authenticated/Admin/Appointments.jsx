@@ -197,16 +197,15 @@ export default function appointments({ appointments_ }) {
                 return <Badge className="bg-red-600">Declined</Badge>;
             case 5:
                 return <Badge className="bg-green-500">Confirmed</Badge>;
+            case 6:
+                return <Badge className="bg-blue-600">Pending</Badge>;
             default:
-                return <Badge>{status} ew</Badge>;  
+                return <Badge>{status}</Badge>;
         }
     };
 
     const tools = () => {
-        return (
-            <>
-            </>
-        );
+        return <></>;
     };
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -236,40 +235,46 @@ export default function appointments({ appointments_ }) {
         setIsModalOpen(false);
     };
     const { inertia } = usePage();
-    
+
     // Function to handle archive appointment
     const handleArchiveAppointment = async (appointmentId) => {
         try {
-            const response = await axios.post('/auth/appointments/archive', {
-                appointment_id: appointmentId
+            const response = await axios.post("/auth/appointments/archive", {
+                appointment_id: appointmentId,
             });
-            
+
             if (response.data.appointments) {
                 // Update the appointments with the new data
                 setAppointments(response.data.appointments.data);
                 alert(response.data.message);
             }
         } catch (error) {
-            console.error('Error archiving appointment:', error);
-            alert(error.response?.data?.message || 'An error occurred while archiving the appointment');
+            console.error("Error archiving appointment:", error);
+            alert(
+                error.response?.data?.message ||
+                    "An error occurred while archiving the appointment"
+            );
         }
     };
-    
+
     // Function to handle unarchive appointment
     const handleUnarchiveAppointment = async (appointmentId) => {
         try {
-            const response = await axios.post('/auth/appointments/unarchive', {
-                appointment_id: appointmentId
+            const response = await axios.post("/auth/appointments/unarchive", {
+                appointment_id: appointmentId,
             });
-            
+
             if (response.data.appointments) {
                 // Update the appointments with the new data
                 setAppointments(response.data.appointments.data);
                 alert(response.data.message);
             }
         } catch (error) {
-            console.error('Error unarchiving appointment:', error);
-            alert(error.response?.data?.message || 'An error occurred while unarchiving the appointment');
+            console.error("Error unarchiving appointment:", error);
+            alert(
+                error.response?.data?.message ||
+                    "An error occurred while unarchiving the appointment"
+            );
         }
     };
 

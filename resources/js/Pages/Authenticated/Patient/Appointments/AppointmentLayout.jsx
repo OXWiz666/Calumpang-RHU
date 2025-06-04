@@ -41,38 +41,6 @@ import {
 } from "@/components/tempo/components/ui/avatar";
 
 const Appointment = ({ children }) => {
-    // const [activeTab, setActiveTab] = useState("records");
-    // const [isSubmitted, setIsSubmitted] = useState(false);
-    // const {data, setData,errors,post,recentlySuccessful,processing} =
-    // useForm({
-    //     firstname: "",
-    //     middlename: "",
-    //     lastname:"",
-    //     email: "",
-    //     phone: "",
-    //     date: new Date(),
-    //     time: "",
-    //     service: "",
-    //     servicename: "",
-    //     notes: "",
-    // });
-    // const handleSubmit = (data) => {
-    //     // In a real application, you would send this data to your backend
-    //     setData(data);
-    //         console.log("Appointment data submitted:", data);
-    //     post(route('patient.appoint.create'),{
-    //             onSuccess: () => {
-    //                 setIsSubmitted(true);
-    //             },
-    //             onFinish: () => {
-    //                 window.scrollTo({ top: 0, behavior: "smooth" });
-    //             }
-    //         })
-    // };
-    // const App___ = usePage().props.appointments;
-    // useEffect(() => {
-    //     console.log(App___);
-    // }, [App___]);
     return (
         <LandingLayout className=" p-5">
             <div className="container mx-auto mt-7 py-12 px-4 min-h-screen">

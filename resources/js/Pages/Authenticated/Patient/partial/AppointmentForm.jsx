@@ -232,6 +232,7 @@ const AppointmentForm = ({
                                         service.servicename
                                     );
 
+                                    handleSelectChange("date", null);
                                     handleSelectChange("subservice", "");
                                     handleSelectChange("subservicename", "");
                                     handleSelectChange("timeid", "");

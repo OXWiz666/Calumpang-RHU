@@ -54,7 +54,7 @@ export default function Appointment({ services }) {
             lastname: "",
             email: "",
             phone: "",
-            date: new Date(),
+            date: null,
             timeid: null,
             time: null,
             service: "",

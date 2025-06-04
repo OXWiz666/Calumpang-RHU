@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\NotifSender;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 
@@ -30,12 +31,12 @@ class PatientController extends Controller
             ->map(function($appointment) {
                 // Get service name from the relationship
                 $serviceName = $appointment->service ? $appointment->service->servicename : 'General Checkup';
-                
+
                 // Get doctor name if available
-                $doctorName = $appointment->doctor 
+                $doctorName = $appointment->doctor
                     ? $appointment->doctor->firstname . ' ' . $appointment->doctor->lastname
                     : 'Not Assigned';
-                
+
                 return [
                     'id' => $appointment->id,
                     'date' => $appointment->date,
@@ -165,9 +166,10 @@ class PatientController extends Controller
         return Inertia::render('Authenticated/Patient/Appointments/AppointmentHistory',[
             'appointments' => $appointments,
             'ActiveTAB' => 'History'
+
         ]);
     }
-    
+
     public function storeAppointment(Request $request){
         $request->validate([
             'phone' => 'required|min:10',
@@ -182,12 +184,12 @@ class PatientController extends Controller
         $appointment = appointments::create([
             'user_id' => $user->id,
             'phone' => $request->phone,
-            'date' => $request->date,
-            'time' => $request->time,
+            'date' => \Carbon\Carbon::parse($request->date)->format("Y-m-d"),
+            'time' => \Carbon\Carbon::parse($request->time)->format("H:i:s"),
             'servicetype_id' => $request->service,
             'subservice_id' => $request->subservice ?? null,
             'notes' => $request->notes,
-            'status' => 'Pending'
+            'status' => 6
         ]);
 
         $user->notify(new SystemNotification(
@@ -197,11 +199,12 @@ class PatientController extends Controller
         ));
 
         // Trigger notification event
-        event(new SendNotification($user->id, [
-            'title' => 'New Appointment',
-            'message' => 'A new appointment has been scheduled by '.$user->firstname.' '.$user->lastname,
-            'type' => 'appointment'
-        ]));
+        //event(new SendNotification($user->id));
+
+        NotifSender::SendNotif(true,[$user->id],'Appointment scheduled successfully','Appointment Schedule');
+
+
+        NotifSender::SendNotif(false,[1,7],"{$user->firstname} {$user->lastname} ({$user->role->roletype}) Scheduled an appointment",'New Appointment Scheduled');
 
         ActivityLogger::log('User scheduled an appointment', $user, ['appointment_id' => $appointment->id]);
 
