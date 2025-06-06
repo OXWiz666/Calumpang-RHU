@@ -101,14 +101,14 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         //     id: "reports",
         //     roles: ["Admin"],
         // },
-        // {
-        //     title: "Settings",
-        //     icon: <Settings className="h-5 w-5" />,
-        //     route: "admin.settings*", // FOR ACTIVE NAV
-        //     path: route("admin.settings.index"),
-        //     id: "settings",
-        //     roles: ["Admin"],
-        // },
+        {
+            title: "Settings",
+            icon: <Settings className="h-5 w-5" />,
+            route: "admin.settings*", // FOR ACTIVE NAV
+            path: route("admin.settings.index"),
+            id: "settings",
+            roles: ["Admin"],
+        },
     ];
 
     const filteredMenuItems = menuItems.filter((item) =>

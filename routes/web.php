@@ -116,6 +116,11 @@ Route::middleware(['auth','Doctor'])->group(function(){
 Route::middleware(['auth', 'AdminPhar'])->group(function () {
     Route::prefix('inventory')->group(function(){
         Route::get('/',[InventoryController::class,'index'])->name('admin.inventory.index');
+
+        Route::prefix('settings')->group(function(){
+            Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
+            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
+        });
         //Route::get('/',[DoctorController::class,''])->name('');
     });
 });
@@ -159,10 +164,7 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
         });
 
-        Route::prefix('settings')->group(function(){
-            Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
-            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
-        });
+
 
         Route::prefix('landing-page')->group(function(){
             Route::get('/messages',[MessagesController::class,'index'])->name('admin.landing.messages');
