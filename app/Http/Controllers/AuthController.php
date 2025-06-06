@@ -46,6 +46,8 @@ class AuthController extends Controller
                 return redirect()->route('midwife.dashboard');
             case "5":
                 return redirect()->route('home');
+            case "6":
+                return redirect()->route('admin.inventory.index');
             case "7":
                 return redirect()->route('admin');
             default:

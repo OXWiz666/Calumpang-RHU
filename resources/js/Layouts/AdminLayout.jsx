@@ -30,6 +30,8 @@ import PusherListener from "@/components/pusher";
 
 import { create } from "zustand";
 
+import SidebarPhar from "@/components/tempo/pharmacist/include/Sidebar";
+
 export const useSidebarState = create((set) => ({
     sidebarstate: false,
 
@@ -70,7 +72,13 @@ export default function AdminLayout({ header, children, tools }) {
                 }}
             />
             {/* Sidebar */}
-            {role.id == 7 ? <Sidebar /> : <Sidebar2 />}
+            {role.id == 7 ? (
+                <Sidebar />
+            ) : role.id == 6 ? (
+                <SidebarPhar />
+            ) : (
+                <Sidebar2 />
+            )}
             {/* Main Content */}
             <div className="flex-1 overflow-auto">
                 {/* Header */}

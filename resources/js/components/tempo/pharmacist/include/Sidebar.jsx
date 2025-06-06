@@ -36,31 +36,6 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
 
     const menuItems = [
         {
-            title: "Dashboard",
-            icon: <Home className="h-5 w-5" />,
-            route: "admin",
-            path: "/admin",
-            id: "dashboard",
-            roles: ["Admin", "Doctor", "Pharmacist"],
-        },
-        {
-            title: "Patient Records",
-            icon: <Users className="h-5 w-5" />,
-            route: "admin.patients",
-            path: "/auth/patients",
-            id: "patients",
-            roles: ["Admin", "Doctor"],
-        },
-        {
-            title: "Staff",
-            icon: <UsersRound className="h-5 w-5" />,
-            route: "admin.staff.*",
-            request: "/admin/staff/",
-            path: route("admin.staff.overview"),
-            id: "patients",
-            roles: ["Admin", "Doctor"],
-        },
-        {
             title: "Inventory",
             icon: <Boxes className="h-5 w-5" />,
             route: "admin.inventory.index",
@@ -68,46 +43,72 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             id: "Inventory",
             roles: ["Admin"],
         },
-        {
-            title: "Appointments",
-            icon: <Calendar className="h-5 w-5" />,
-            route: "admin.appointments",
-            path: "/auth/appointments",
-            id: "appointments",
-            roles: ["Admin", "Doctor"],
-        },
-        {
-            title: "Services",
-            icon: <Layers className="h-5 w-5" />,
-            route: "admin.services*", // FOR ACTIVE NAV
-            path: route("admin.services.overview"),
-            id: "appointments",
-            roles: ["Admin", "Doctor"],
-        },
-        {
-            title: "Health Programs",
-            icon: <HeartPulse className="h-5 w-5" />,
-            route: "admin.programs",
-            path: "/admin/programs",
-            id: "programs",
-            roles: ["Admin", "Doctor"],
-        },
-        {
-            title: "Reports",
-            icon: <BarChart3 className="h-5 w-5" />,
-            route: "admin.reports",
-            path: "/admin/reports",
-            id: "reports",
-            roles: ["Admin"],
-        },
-        {
-            title: "Settings",
-            icon: <Settings className="h-5 w-5" />,
-            route: "admin.settings*", // FOR ACTIVE NAV
-            path: route("admin.settings.index"),
-            id: "settings",
-            roles: ["Admin"],
-        },
+        // {
+        //     title: "Dashboard",
+        //     icon: <Home className="h-5 w-5" />,
+        //     route: "admin",
+        //     path: "/admin",
+        //     id: "dashboard",
+        //     roles: ["Admin", "Doctor", "Pharmacist"],
+        // },
+        // {
+        //     title: "Patient Records",
+        //     icon: <Users className="h-5 w-5" />,
+        //     route: "admin.patients",
+        //     path: "/auth/patients",
+        //     id: "patients",
+        //     roles: ["Admin", "Doctor"],
+        // },
+        // {
+        //     title: "Staff",
+        //     icon: <UsersRound className="h-5 w-5" />,
+        //     route: "admin.staff.*",
+        //     request: "/admin/staff/",
+        //     path: route("admin.staff.overview"),
+        //     id: "patients",
+        //     roles: ["Admin", "Doctor"],
+        // },
+
+        // {
+        //     title: "Appointments",
+        //     icon: <Calendar className="h-5 w-5" />,
+        //     route: "admin.appointments",
+        //     path: "/auth/appointments",
+        //     id: "appointments",
+        //     roles: ["Admin", "Doctor"],
+        // },
+        // {
+        //     title: "Services",
+        //     icon: <Layers className="h-5 w-5" />,
+        //     route: "admin.services*", // FOR ACTIVE NAV
+        //     path: route("admin.services.overview"),
+        //     id: "appointments",
+        //     roles: ["Admin", "Doctor"],
+        // },
+        // {
+        //     title: "Health Programs",
+        //     icon: <HeartPulse className="h-5 w-5" />,
+        //     route: "admin.programs",
+        //     path: "/admin/programs",
+        //     id: "programs",
+        //     roles: ["Admin", "Doctor"],
+        // },
+        // {
+        //     title: "Reports",
+        //     icon: <BarChart3 className="h-5 w-5" />,
+        //     route: "admin.reports",
+        //     path: "/admin/reports",
+        //     id: "reports",
+        //     roles: ["Admin"],
+        // },
+        // {
+        //     title: "Settings",
+        //     icon: <Settings className="h-5 w-5" />,
+        //     route: "admin.settings*", // FOR ACTIVE NAV
+        //     path: route("admin.settings.index"),
+        //     id: "settings",
+        //     roles: ["Admin"],
+        // },
     ];
 
     const filteredMenuItems = menuItems.filter((item) =>

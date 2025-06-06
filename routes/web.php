@@ -113,12 +113,21 @@ Route::middleware(['auth','Doctor'])->group(function(){
     });
 });
 
+Route::middleware(['auth', 'AdminPhar'])->group(function () {
+    Route::prefix('inventory')->group(function(){
+        Route::get('/',[InventoryController::class,'index'])->name('admin.inventory.index');
+        //Route::get('/',[DoctorController::class,''])->name('');
+    });
+});
+
+
+
 Route::middleware(['auth','Admin'])->group(function(){
     Route::prefix('admin')->group(function(){
         Route::get('/',[AdminDashboardController::class,'index'])->name('admin');
 
 
-        Route::get('/inventory',[InventoryController::class,'index'])->name('admin.inventory.index');
+
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
 
