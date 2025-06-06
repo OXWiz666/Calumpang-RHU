@@ -9,7 +9,11 @@ use Inertia\Inertia;
 class InventoryController extends Controller
 {
     //
+    // public function index(){
+    //     return Inertia::render('Authenticated/Admin/Inventory',[]);
+    // }
+
     public function index(){
-        return Inertia::render('Authenticated/Admin/Inventory',[]);
+        return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[]);
     }
 }
