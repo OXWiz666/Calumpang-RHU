@@ -41,9 +41,9 @@ const InventoryDashboard = () => {
     // const [movements, setMovements] = useState([]);
     // const [filteredItems, setFilteredItems] = useState([]);
 
-     const [items, setItems] = useState(mockInventoryItems);
-  const [movements, setMovements] = useState(mockStockMovements);
-  const [filteredItems, setFilteredItems] = useState(mockInventoryItems);
+    const [items, setItems] = useState(mockInventoryItems);
+    const [movements, setMovements] = useState(mockStockMovements);
+    const [filteredItems, setFilteredItems] = useState(mockInventoryItems);
 
     const [selectedItem, setSelectedItem] = useState(null);
     const [isMovementFormOpen, setIsMovementFormOpen] = useState(false);
@@ -185,7 +185,7 @@ const InventoryDashboard = () => {
     };
 
     return (
-        <AdminLayout header={"asd"}
+        <AdminLayout header={"Inventory"}
         >
             {/* MAIN */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
