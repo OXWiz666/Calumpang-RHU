@@ -1,4 +1,4 @@
-##📌 Overview
+## 📌 Overview
 
 This repository contains our Capstone Project, developed as part of our academic or professional coursework. The project focuses on [briefly describe the main goal, e.g., "a web application for X using modern full-stack technologies"].
 
