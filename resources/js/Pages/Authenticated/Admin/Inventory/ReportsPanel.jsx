@@ -178,7 +178,7 @@ const ReportsPanel = ({ items, movements }) => {
                     </div>
 
                     <Tabs defaultValue="inventory">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full md:grid-cols-2 grid-cols-1">
                             <TabsTrigger value="inventory">
                                 Inventory Status
                             </TabsTrigger>

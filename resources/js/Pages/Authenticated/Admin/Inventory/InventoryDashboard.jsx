@@ -32,8 +32,8 @@ import AddItemForm from "./AddItemForm";
 import AdminLayout from "@/Layouts/AdminLayout";
 
 import {
-  mockInventoryItems,
-  mockStockMovements,
+    mockInventoryItems,
+    mockStockMovements,
 } from "./mockitems/mockInventory";
 
 const InventoryDashboard = () => {
@@ -185,9 +185,45 @@ const InventoryDashboard = () => {
     };
 
     return (
-        <AdminLayout header={"Inventory"}
-        >
+        <AdminLayout>
             {/* MAIN */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                {/* <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Inventory Management
+                    </h1>
+                    <p className="text-muted-foreground mt-1">
+                        Rural Health Unit of Barangay Calumpang
+                    </p>
+                </div> */}
+
+                <div className=" mb-5">
+                    <h1 className="text-3xl font-bold mb-2">Inventory</h1>
+                    {/* <p className="text-gray-600">
+                            Book your visit to Barangay Calumpang Health Center.
+                            Please fill out the form below with your information
+                            and preferred appointment details.
+                        </p> */}
+                    <p className="text-muted-foreground"></p>
+                </div>
+
+                <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                    <Button
+                        variant="outline"
+                        className="flex items-center gap-2"
+                    >
+                        <Filter className="h-4 w-4" />
+                        Advanced Filters
+                    </Button>
+                    <Button
+                        className="flex items-center gap-2"
+                        onClick={() => setIsAddItemFormOpen(true)}
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add New Item
+                    </Button>
+                </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <Card>
                     <CardHeader className="pb-2">
@@ -297,7 +333,7 @@ const InventoryDashboard = () => {
                                 onValueChange={handleMasterListTabChange}
                                 className="mb-6"
                             >
-                                <TabsList className="grid grid-cols-5 w-full">
+                                <TabsList className="grid md:grid-cols-2 lg:grid-cols-5 lg w-full">
                                     <TabsTrigger
                                         value="All"
                                         className="flex items-center gap-2"

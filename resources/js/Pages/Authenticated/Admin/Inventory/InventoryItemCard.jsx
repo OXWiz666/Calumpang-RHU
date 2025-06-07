@@ -149,7 +149,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                             </div>
                             {item.isVaccine && (
                                 <>
-                                    {item.batchNumber && (
+                                    {/* {item.batchNumber && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">
                                                 Batch Number
@@ -158,7 +158,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                                 {item.batchNumber}
                                             </p>
                                         </div>
-                                    )}
+                                    )} */}
                                     {item.lotNumber && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">

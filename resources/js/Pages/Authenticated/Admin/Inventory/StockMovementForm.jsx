@@ -14,6 +14,7 @@ import {
     RadioGroupItem,
 } from "@/components/tempo/components/ui/radio-group";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
+import { usePage } from "@inertiajs/react";
 
 const StockMovementForm = ({ open, onClose, item, onSave }) => {
     const [movementType, setMovementType] = useState("incoming");
@@ -59,6 +60,8 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
         setReason("");
         setPerformedBy("");
     };
+
+    const { user } = usePage().props.auth;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -163,7 +166,7 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                         <Label htmlFor="performedBy">Performed By</Label>
                         <Input
                             id="performedBy"
-                            value={performedBy}
+                            value={`${user?.firstname} ${user?.lastname}`}
                             onChange={(e) => setPerformedBy(e.target.value)}
                             placeholder="Name of staff member"
                             required
