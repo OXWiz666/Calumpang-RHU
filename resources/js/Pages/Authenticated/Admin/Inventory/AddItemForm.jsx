@@ -18,14 +18,16 @@ import {
     SelectValue,
 } from "@/components/tempo/components/ui/select";
 import { Switch } from "@/components/tempo/components/ui/switch";
-import { useForm } from "@inertiajs/react";
+import { router, useForm } from "@inertiajs/react";
+import PrintErrors from "@/components/PrintErrors";
 
-const AddItemForm = ({ open, onClose, onSave }) => {
-    const [name, setName] = useState("");
-    const [category, setCategory] = useState("Supply");
-    const [quantity, setQuantity] = useState("0");
-    const [unit, setUnit] = useState("unit");
-    const [reorderThreshold, setReorderThreshold] = useState("5");
+const AddItemForm = ({ open, onClose, onSave, categories_ }) => {
+    // const [name, setName] = useState("");
+    // const [category, setCategory] = useState("1");
+    // const [quantity, setQuantity] = useState("0");
+    // const [unit, setUnit] = useState("unit");
+    // const [reorderThreshold, setReorderThreshold] = useState("5");
+
     const [isVaccine, setIsVaccine] = useState(false);
     const [batchNumber, setBatchNumber] = useState("");
     const [lotNumber, setLotNumber] = useState("");
@@ -33,21 +35,19 @@ const AddItemForm = ({ open, onClose, onSave }) => {
     const [location, setLocation] = useState("");
     const [notes, setNotes] = useState("");
 
-   
-
-    const resetForm = () => {
-        setName("");
-        setCategory("Supply");
-        setQuantity("0");
-        setUnit("unit");
-        setReorderThreshold("5");
-        setIsVaccine(false);
-        setBatchNumber("");
-        setLotNumber("");
-        setExpirationDate("");
-        setLocation("");
-        setNotes("");
-    };
+    // const resetForm = () => {
+    //     setName("");
+    //     setCategory("1");
+    //     setQuantity("0");
+    //     setUnit("unit");
+    //     setReorderThreshold("5");
+    //     setIsVaccine(false);
+    //     setBatchNumber("");
+    //     setLotNumber("");
+    //     setExpirationDate("");
+    //     setLocation("");
+    //     setNotes("");
+    // };
 
     const { data, setData, post, recentlySuccessful, processing, errors } =
         useForm({
@@ -58,10 +58,23 @@ const AddItemForm = ({ open, onClose, onSave }) => {
             expirydate: new Date(),
         });
 
+    const textChange = (e) => {
+        setData(e.target.name, e.target.value);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        post()
+        post(route("admin.inventory.item.add"), {
+            onSuccess: () => {
+                onClose();
+            },
+            onFinish: () => {
+                router.reload({
+                    only: ["inventory"],
+                });
+            },
+        });
     };
 
     return (
@@ -74,45 +87,41 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                    <PrintErrors errors={errors} />
                     <div className="space-y-2">
                         <Label htmlFor="name" className="font-medium">
                             Item Name *
                         </Label>
                         <Input
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            name="itemname"
+                            value={data.itemname}
+                            onChange={textChange}
                             placeholder="Enter item name"
                             className="focus-visible:ring-primary"
-                            required
+                            // required
                         />
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="category" className="font-medium">
-                                Category *
-                            </Label>
+                            <Label className="font-medium">Category *</Label>
                             <Select
-                                value={category}
-                                onValueChange={(value) => setCategory(value)}
+                                value={String(data.categoryid)} // Ensure string type
+                                onValueChange={(value) =>
+                                    setData("categoryid", value)
+                                }
                             >
                                 <SelectTrigger className="focus-visible:ring-primary">
                                     <SelectValue placeholder="Select category" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Medicine">
-                                        Medicine
-                                    </SelectItem>
-                                    <SelectItem value="Vaccine">
-                                        Vaccine
-                                    </SelectItem>
-                                    <SelectItem value="Equipment">
-                                        Equipment
-                                    </SelectItem>
-                                    <SelectItem value="Supply">
-                                        Supply
-                                    </SelectItem>
+                                    {categories_.map((category) => (
+                                        <SelectItem
+                                            key={category.id}
+                                            value={String(category.id)} // Convert to string
+                                        >
+                                            {category.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -122,37 +131,33 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                                 Unit Type *
                             </Label>
                             <Input
-                                id="unit"
-                                value={unit}
-                                onChange={(e) => setUnit(e.target.value)}
+                                name="unit_type"
+                                value={data.unit_type}
+                                onChange={textChange}
                                 placeholder="e.g., box, vial, piece"
                                 className="focus-visible:ring-primary"
-                                required
+                                // required
                             />
                         </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="quantity" className="font-medium">
                                 Initial Quantity *
                             </Label>
                             <Input
-                                id="quantity"
+                                name="quantity"
                                 type="number"
                                 min="0"
-                                value={quantity}
-                                onChange={(e) => setQuantity(e.target.value)}
+                                value={data.quantity}
+                                onChange={textChange}
                                 className="focus-visible:ring-primary"
-                                required
+                                // required
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="reorderThreshold"
-                                className="font-medium"
-                            >
+                        {/* <div className="space-y-2">
+                            <Label className="font-medium">
                                 Reorder Threshold *
                             </Label>
                             <Input
@@ -160,16 +165,15 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                                 type="number"
                                 min="0"
                                 disabled
-                                value={reorderThreshold}
-                                onChange={(e) =>
-                                    setReorderThreshold(e.target.value)
-                                }
+                                // value={reorderThreshold}
+                                // onChange={(e) =>
+                                //     setReorderThreshold(e.target.value)
+                                // }
                                 className="focus-visible:ring-primary"
                                 required
                             />
-                        </div>
+                        </div> */}
                     </div>
-
                     <div className="space-y-2">
                         <Label htmlFor="expirationDate" className="font-medium">
                             Expiration Date
@@ -177,12 +181,12 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                         <Input
                             id="expirationDate"
                             type="date"
-                            value={expirationDate}
-                            onChange={(e) => setExpirationDate(e.target.value)}
+                            name="expirydate"
+                            value={data.expirydate}
+                            onChange={textChange}
                             className="focus-visible:ring-primary"
                         />
                     </div>
-
                     {/* <div className="flex items-center space-x-2 pt-2">
             <Switch
               id="isVaccine"
@@ -244,7 +248,6 @@ const AddItemForm = ({ open, onClose, onSave }) => {
               </div>
             </div>
           )} */}
-
                     {/* <div className="space-y-2">
                         <Label htmlFor="notes" className="font-medium">
                             Notes
@@ -257,7 +260,6 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                             className="focus-visible:ring-primary"
                         />
                     </div> */}
-
                     <DialogFooter className="pt-4">
                         <Button
                             type="button"
@@ -269,6 +271,7 @@ const AddItemForm = ({ open, onClose, onSave }) => {
                         <Button
                             type="submit"
                             className="bg-primary hover:bg-primary/90"
+                            disabled={processing}
                         >
                             Add Item
                         </Button>

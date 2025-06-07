@@ -11,4 +11,6 @@ class icategory extends Model
         "name"
     ];
     protected $table = "icategory";
+
+    public $timestamps = false;
 }

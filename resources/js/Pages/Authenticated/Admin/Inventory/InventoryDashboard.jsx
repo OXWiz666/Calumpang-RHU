@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Tabs,
     TabsContent,
@@ -36,14 +36,28 @@ import {
     mockStockMovements,
 } from "./mockitems/mockInventory";
 
-const InventoryDashboard = () => {
-    // const [items, setItems] = useState([]);
-    // const [movements, setMovements] = useState([]);
-    // const [filteredItems, setFilteredItems] = useState([]);
+import CustomModal from "@/components/CustomModal";
+import Modal from "@/components/Modal";
+import { Input } from "@/components/tempo/components/ui/input";
+import InputLabel from "@/components/InputLabel";
+import { router, useForm } from "@inertiajs/react";
+import PrimaryButton from "@/components/PrimaryButton";
+import PrintErrors from "@/components/PrintErrors";
 
-    const [items, setItems] = useState(mockInventoryItems);
-    const [movements, setMovements] = useState(mockStockMovements);
-    const [filteredItems, setFilteredItems] = useState(mockInventoryItems);
+const InventoryDashboard = ({ categories = [], inventory }) => {
+    const [items, setItems] = useState([]);
+    const [movements, setMovements] = useState([]);
+    const [filteredItems, setFilteredItems] = useState([]);
+
+    // const [items, setItems] = useState(mockInventoryItems);
+    // const [movements, setMovements] = useState(mockStockMovements);
+    // const [filteredItems, setFilteredItems] = useState(mockInventoryItems);
+
+    useEffect(() => {
+        if (inventory) {
+            console.log("inventory: ", inventory);
+        }
+    }, [inventory]);
 
     const [selectedItem, setSelectedItem] = useState(null);
     const [isMovementFormOpen, setIsMovementFormOpen] = useState(false);
@@ -52,7 +66,7 @@ const InventoryDashboard = () => {
     const [activeTab, setActiveTab] = useState("all");
     const [masterListTab, setMasterListTab] = useState("All");
 
-    const categories = Array.from(new Set(items.map((item) => item.category)));
+    //const categories = Array.from(new Set(items.map((item) => item.category)));
 
     const lowStockItems = items.filter(
         (item) => item.quantity <= item.reorderThreshold
@@ -72,7 +86,7 @@ const InventoryDashboard = () => {
 
     const handleCategoryFilter = (category) => {
         setActiveCategory(category);
-        setFilteredItems(items.filter((item) => item.category === category));
+        //setFilteredItems(items.filter((item) => item.category === category));
     };
 
     const handleTabChange = (value) => {
@@ -184,6 +198,37 @@ const InventoryDashboard = () => {
         return items.filter((item) => item.category === category).length;
     };
 
+    const [isModifyingCategory, setIsModifyingCategory] = useState(false);
+
+    const {
+        data,
+        setData,
+        post,
+        recentlySuccessful,
+        processing,
+        errors,
+        clearErrors,
+    } = useForm({
+        categoryname: "",
+    });
+
+    useEffect(() => {
+        clearErrors();
+    }, [isModifyingCategory]);
+
+    const categorysubmit = (e) => {
+        e.preventDefault();
+        post(route("admin.inventory.category"), {
+            onSuccess: () => {
+                setIsModifyingCategory(false);
+            },
+            onFinish: () => {
+                router.reload({
+                    only: ["flash", "categories"],
+                });
+            },
+        });
+    };
     return (
         <AdminLayout>
             {/* MAIN */}
@@ -434,7 +479,54 @@ const InventoryDashboard = () => {
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg">
-                                Categories
+                                <div className="flex justify-between space-x-2 mt-4 md:mt-0">
+                                    <div>Categories</div>
+                                    <Button
+                                        className="flex items-center gap-2"
+                                        onClick={() =>
+                                            setIsModifyingCategory(true)
+                                        }
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add
+                                    </Button>
+                                </div>
+
+                                <CustomModal
+                                    isOpen={isModifyingCategory}
+                                    onClose={() => {
+                                        setIsModifyingCategory(false);
+                                    }}
+                                    title="Add Category"
+                                    description="Add Category for Inventory."
+                                    maxWidth="sm"
+                                >
+                                    <form onSubmit={categorysubmit}>
+                                        {/* <div className=" bg-red-100">s</div> */}
+                                        <PrintErrors errors={errors} />
+                                        <div className="flex flex-col items-start">
+                                            <div className=" w-full">
+                                                <InputLabel value="Category Name:" />
+                                                <Input
+                                                    value={data.categoryname}
+                                                    onChange={(e) =>
+                                                        setData(
+                                                            "categoryname",
+                                                            e.target.value
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <PrimaryButton
+                                                disabled={processing}
+                                                className=" self-end mt-2"
+                                                type="submit"
+                                            >
+                                                Save
+                                            </PrimaryButton>
+                                        </div>
+                                    </form>
+                                </CustomModal>
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -458,18 +550,19 @@ const InventoryDashboard = () => {
                                     <Button
                                         key={category}
                                         variant={
-                                            activeCategory === category
+                                            activeCategory === category.id
                                                 ? "default"
                                                 : "outline"
                                         }
                                         className="w-full justify-start"
                                         onClick={() =>
-                                            handleCategoryFilter(category)
+                                            handleCategoryFilter(category.id)
                                         }
                                     >
                                         <div className="flex items-center">
-                                            {getCategoryIcon(category)}
-                                            {category}
+                                            {/* {getCategoryIcon(category)}
+                                            {category} */}
+                                            {category.name}
                                         </div>
                                     </Button>
                                 ))}
@@ -560,6 +653,7 @@ const InventoryDashboard = () => {
                     setItems([...items, newItem]);
                     setFilteredItems([...items, newItem]);
                 }}
+                categories_={categories}
             />
         </AdminLayout>
     );

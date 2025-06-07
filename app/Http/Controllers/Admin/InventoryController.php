@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\icategory;
 use App\Models\inventory;
+use App\Models\istock_movements;
 use App\Models\istocks;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 class InventoryController extends Controller
@@ -16,9 +19,30 @@ class InventoryController extends Controller
     // }
 
     public function index(){
-        return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[]);
+        return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[
+            'categories' => icategory::get(),
+            'inventory' => inventory::get(),
+        ]);
     }
 
+    public function add_category(Request $request){
+        $request->validate([
+            'categoryname' => 'required|min:3'
+        ]);
+
+        icategory::insert([
+            'name' => $request->categoryname
+        ]);
+
+
+        return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Category added successfully!",
+                'icon' => "success"
+            ]
+        ]);
+    }
     public function add_item(Request $request){
         $request->validate([
             'itemname' => "required",
@@ -30,19 +54,36 @@ class InventoryController extends Controller
         try{
             DB::beginTransaction();
             $stock = istocks::create([
-                ''
+                'stocks' => $request->quantity,
+                'stockname' => $request->unit_type,
+
             ]);
             $inventory = inventory::create([
                 'name' => $request->itemname,
                 'category_id' => $request->categoryid,
-                'stock_id' => $request->categoryid,
+                'stock_id' => $stock->id,
+            ]);
+
+            $stock_movement = istock_movements::create([
+                'inventory_id' => $inventory->id,
+                'staff_id' => Auth::user()->id,
+                'quantity' => $request->quantity,
+                'expiry_date' => $request->expirydate,
+                'inventory_name' => $inventory->name,
+                'stock_id' => $stock->id
             ]);
 
             DB::commit();
         }
         catch(\Exception $e){
             DB::rollBack();
-            //return redirect()->back()->with('error', $e->getMessage());
+            return back()->with([
+                'flash' => [
+                    'title' => 'Error!',
+                    'message' => 'Error: ' . $e->getMessage(),
+                    'icon' => "error"
+                ]
+            ]);
         }
 
 

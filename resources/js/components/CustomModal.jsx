@@ -33,9 +33,9 @@ import {
 // }
 
 const CustomModal = ({
-    isOpen,
-    onClose = () => {},
-    title = "",
+    isOpen, // determine if modal is open or not
+    onClose = () => {}, //close function
+    title = "", // Title of card
     description = "",
     savetext = "Save",
     hasCancel = true,

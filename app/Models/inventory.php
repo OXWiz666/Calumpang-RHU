@@ -11,4 +11,5 @@ class inventory extends Model
         "name","category_id","stock_id"
     ];
     protected $table = "inventory";
+    public $timestamps = false;
 }

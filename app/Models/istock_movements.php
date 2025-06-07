@@ -17,4 +17,5 @@ class istock_movements extends Model
         'stock_id'
     ];
     protected $table = "istock_movements";
+    public $timestamps = false;
 }

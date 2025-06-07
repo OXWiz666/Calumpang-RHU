@@ -117,12 +117,17 @@ Route::middleware(['auth', 'AdminPhar'])->group(function () {
     Route::prefix('inventory')->group(function(){
         Route::get('/',[InventoryController::class,'index'])->name('admin.inventory.index');
 
-        Route::prefix('settings')->group(function(){
+        Route::post('/category/add',[InventoryController::class,'add_category'])->name('admin.inventory.category');
+
+        Route::post('/item/add',[InventoryController::class,'add_item'])->name('admin.inventory.item.add');
+
+        //Route::get('/',[DoctorController::class,''])->name('');
+    });
+
+    Route::prefix('settings')->group(function(){
             Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
             Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
         });
-        //Route::get('/',[DoctorController::class,''])->name('');
-    });
 });
 
 
