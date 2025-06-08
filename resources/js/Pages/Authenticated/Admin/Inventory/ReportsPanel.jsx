@@ -34,7 +34,7 @@ const ReportsPanel = ({ items, movements }) => {
 
     const categories = [
         "All",
-        ...Array.from(new Set(items.map((item) => item.category))),
+        ...Array.from(new Set(items.map((item) => item.category.name))),
     ];
 
     const filteredItems = items.filter((item) => {
@@ -42,17 +42,19 @@ const ReportsPanel = ({ items, movements }) => {
         if (
             filter.category &&
             filter.category !== "All" &&
-            item.category !== filter.category
+            item.category.id !== filter.category
         ) {
             return false;
         }
 
         // Filter by stock status
         if (filter.stockStatus) {
-            const isLowStock = item.quantity <= item.reorderThreshold;
+            const isLowStock = item.stock.stocks <= 5;
+
             const isExpiring =
-                item.expirationDate &&
-                new Date(item.expirationDate).getTime() - new Date().getTime() <
+                item.stocks_movement[0].expiry_date &&
+                new Date(item.stocks_movement[0].expiry_date).getTime() -
+                    new Date().getTime() <
                     30 * 24 * 60 * 60 * 1000;
 
             if (filter.stockStatus === "Low" && !isLowStock) {
@@ -71,25 +73,25 @@ const ReportsPanel = ({ items, movements }) => {
         return true;
     });
 
-    const filteredMovements = movements.filter((movement) => {
-        // Filter by date range
-        if (dateRange) {
-            const movementDate = new Date(movement.date);
-            if (movementDate < dateRange.from || movementDate > dateRange.to) {
-                return false;
-            }
-        }
+    // const filteredMovements = movements.filter((movement) => {
+    //     // Filter by date range
+    //     if (dateRange) {
+    //         const movementDate = new Date(movement.date);
+    //         if (movementDate < dateRange.from || movementDate > dateRange.to) {
+    //             return false;
+    //         }
+    //     }
 
-        // Filter by item category
-        if (filter.category && filter.category !== "All") {
-            const item = items.find((i) => i.id === movement.itemId);
-            if (item && item.category !== filter.category) {
-                return false;
-            }
-        }
+    //     // Filter by item category
+    //     if (filter.category && filter.category !== "All") {
+    //         const item = items.find((i) => i.id === movement.itemId);
+    //         if (item && item.category !== filter.category) {
+    //             return false;
+    //         }
+    //     }
 
-        return true;
-    });
+    //     return true;
+    // });
 
     const generateReport = () => {
         // In a real app, this would generate a PDF or CSV
@@ -115,10 +117,10 @@ const ReportsPanel = ({ items, movements }) => {
                                 Category
                             </label>
                             <Select
-                                value={filter.category}
-                                onValueChange={(value) =>
-                                    setFilter({ ...filter, category: value })
-                                }
+                            // value={filter.category}
+                            // onValueChange={(value) =>
+                            //     setFilter({ ...filter, category: value })
+                            // }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select category" />
@@ -141,10 +143,10 @@ const ReportsPanel = ({ items, movements }) => {
                                 Stock Status
                             </label>
                             <Select
-                                value={filter.stockStatus}
-                                onValueChange={(value) =>
-                                    setFilter({ ...filter, stockStatus: value })
-                                }
+                            // value={filter.stockStatus}
+                            // onValueChange={(value) =>
+                            //     setFilter({ ...filter, stockStatus: value })
+                            // }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select status" />
@@ -210,15 +212,26 @@ const ReportsPanel = ({ items, movements }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {/* <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="p-4 text-center text-muted-foreground"
+                                            >
+                                                No items match the selected
+                                                filters
+                                            </td>
+                                        </tr> */}
+
                                         {filteredItems.length > 0 ? (
                                             filteredItems.map((item) => {
                                                 const isLowStock =
-                                                    item.quantity <=
-                                                    item.reorderThreshold;
+                                                    item.stock.stocks <= 5;
+
                                                 const isExpiring =
-                                                    item.expirationDate &&
+                                                    item.stocks_movement[0]
+                                                        .expiry_date &&
                                                     new Date(
-                                                        item.expirationDate
+                                                        item.stocks_movement[0].expiry_date
                                                     ).getTime() -
                                                         new Date().getTime() <
                                                         30 *
@@ -233,14 +246,22 @@ const ReportsPanel = ({ items, movements }) => {
                                                         className="border-t"
                                                     >
                                                         <td className="p-2">
-                                                            {item.name}
+                                                            {
+                                                                item
+                                                                    .stocks_movement[0]
+                                                                    .inventory_name
+                                                            }
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.category}
+                                                            {item.category.name}
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.quantity}{" "}
-                                                            {item.unit}s
+                                                            {item.stock.stocks}{" "}
+                                                            {
+                                                                item.stock
+                                                                    .stockname
+                                                            }
+                                                            s
                                                         </td>
                                                         <td className="p-2">
                                                             {isLowStock && (
@@ -265,10 +286,12 @@ const ReportsPanel = ({ items, movements }) => {
                                                                 )}
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.expirationDate
+                                                            {item
+                                                                .stocks_movement[0]
+                                                                .expiry_date
                                                                 ? format(
                                                                       new Date(
-                                                                          item.expirationDate
+                                                                          item.stocks_movement[0].expiry_date
                                                                       ),
                                                                       "MMM dd, yyyy"
                                                                   )

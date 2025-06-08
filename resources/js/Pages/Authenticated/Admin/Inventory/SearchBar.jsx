@@ -11,7 +11,9 @@ const SearchBar = ({ items, onSearch }) => {
     useEffect(() => {
         if (query.length > 1) {
             const itemNames = items.map((item) => item.name);
-            const categories = [...new Set(items.map((item) => item.category))];
+            const categories = [
+                ...new Set(items.map((item) => item.category.name)),
+            ];
 
             const matchedNames = itemNames.filter((name) =>
                 name.toLowerCase().includes(query.toLowerCase())
@@ -33,7 +35,7 @@ const SearchBar = ({ items, onSearch }) => {
         const results = items.filter(
             (item) =>
                 item.name.toLowerCase().includes(query.toLowerCase()) ||
-                item.category.toLowerCase().includes(query.toLowerCase())
+                item.category.name.toLowerCase().includes(query.toLowerCase())
         );
         onSearch(results);
         setShowSuggestions(false);
@@ -50,7 +52,8 @@ const SearchBar = ({ items, onSearch }) => {
         setShowSuggestions(false);
 
         const results = items.filter(
-            (item) => item.name === suggestion || item.category === suggestion
+            (item) =>
+                item.name === suggestion || item.category.name === suggestion
         );
         onSearch(
             results.length > 0
@@ -60,7 +63,7 @@ const SearchBar = ({ items, onSearch }) => {
                           item.name
                               .toLowerCase()
                               .includes(suggestion.toLowerCase()) ||
-                          item.category
+                          item.category.name
                               .toLowerCase()
                               .includes(suggestion.toLowerCase())
                   )

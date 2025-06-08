@@ -15,11 +15,12 @@ import { format } from "date-fns";
 const InventoryItemCard = ({ item, onUpdateClick }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const isLowStock = item.quantity <= item.reorderThreshold;
+    const isLowStock = item.stock.stocks <= 5;
 
     const isExpiring =
-        item.expirationDate &&
-        new Date(item.expirationDate).getTime() - new Date().getTime() <
+        item.stocks_movement[0].expiry_date &&
+        new Date(item.stocks_movement[0].expiry_date).getTime() -
+            new Date().getTime() <
             30 * 24 * 60 * 60 * 1000; // 30 days
 
     const getBadgeColor = (category) => {
@@ -54,8 +55,10 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                             {item.name}
                         </CardTitle>
                         <div className="flex gap-2 mt-1">
-                            <Badge className={getBadgeColor(item.category)}>
-                                {item.category}
+                            <Badge
+                                className={getBadgeColor(item.category.name)}
+                            >
+                                {item.category.name}
                             </Badge>
                             {isLowStock && (
                                 <Badge
@@ -103,23 +106,23 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                 isLowStock ? "text-red-600" : ""
                             }`}
                         >
-                            {item.quantity} {item.unit}s
+                            {item.stock.stocks} {item.stock.stockname}s
                         </p>
                     </div>
-                    <div>
+                    {/* <div>
                         <p className="text-sm text-muted-foreground">
                             Reorder At
                         </p>
                         <p className="font-medium">
                             {item.reorderThreshold} {item.unit}s
                         </p>
-                    </div>
+                    </div> */}
                 </div>
 
                 {expanded && (
                     <div className="mt-4 border-t pt-3">
                         <div className="grid grid-cols-2 gap-3">
-                            {item.expirationDate && (
+                            {item.stocks_movement[0].expiry_date && (
                                 <div>
                                     <p className="text-sm text-muted-foreground">
                                         Expiration Date
@@ -130,7 +133,9 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                         }`}
                                     >
                                         {format(
-                                            new Date(item.expirationDate),
+                                            new Date(
+                                                item.stocks_movement[0].expiry_date
+                                            ),
                                             "MMM dd, yyyy"
                                         )}
                                     </p>
@@ -142,14 +147,16 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                 </p>
                                 <p className="font-medium">
                                     {format(
-                                        new Date(item.lastUpdated),
+                                        new Date(
+                                            item.stocks_movement[0]?.updated_at
+                                        ),
                                         "MMM dd, yyyy"
                                     )}
                                 </p>
                             </div>
                             {item.isVaccine && (
                                 <>
-                                    {/* {item.batchNumber && (
+                                    {/* {item.batchNumber && ( ####time
                                         <div>
                                             <p className="text-sm text-muted-foreground">
                                                 Batch Number

@@ -21,7 +21,8 @@ class InventoryController extends Controller
     public function index(){
         return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[
             'categories' => icategory::get(),
-            'inventory' => inventory::get(),
+            'inventory' => inventory::with(['category','stock','stocks_movement'])->get(),
+            // 'movements' => istock_movements()->get(),
         ]);
     }
 

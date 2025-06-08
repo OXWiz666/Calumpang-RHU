@@ -69,11 +69,7 @@ const AddItemForm = ({ open, onClose, onSave, categories_ }) => {
             onSuccess: () => {
                 onClose();
             },
-            onFinish: () => {
-                router.reload({
-                    only: ["inventory"],
-                });
-            },
+            onFinish: () => {},
         });
     };
 

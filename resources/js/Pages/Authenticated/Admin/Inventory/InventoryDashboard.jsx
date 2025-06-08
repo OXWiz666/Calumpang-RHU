@@ -40,24 +40,34 @@ import CustomModal from "@/components/CustomModal";
 import Modal from "@/components/Modal";
 import { Input } from "@/components/tempo/components/ui/input";
 import InputLabel from "@/components/InputLabel";
-import { router, useForm } from "@inertiajs/react";
+import { router, useForm, usePage } from "@inertiajs/react";
 import PrimaryButton from "@/components/PrimaryButton";
 import PrintErrors from "@/components/PrintErrors";
 
 const InventoryDashboard = ({ categories = [], inventory }) => {
     const [items, setItems] = useState([]);
+
+    const [items_, setItems_] = useState(inventory);
+
     const [movements, setMovements] = useState([]);
-    const [filteredItems, setFilteredItems] = useState([]);
+    const [filteredItems, setFilteredItems] = useState(inventory);
+
+    useEffect(() => {
+        if (inventory) {
+            console.log("inventory:", inventory);
+        }
+    }, [inventory]);
+
+    const { flash } = usePage().props;
+    useEffect(() => {
+        router.reload({
+            only: ["inventory"],
+        });
+    }, [flash]);
 
     // const [items, setItems] = useState(mockInventoryItems);
     // const [movements, setMovements] = useState(mockStockMovements);
     // const [filteredItems, setFilteredItems] = useState(mockInventoryItems);
-
-    useEffect(() => {
-        if (inventory) {
-            console.log("inventory: ", inventory);
-        }
-    }, [inventory]);
 
     const [selectedItem, setSelectedItem] = useState(null);
     const [isMovementFormOpen, setIsMovementFormOpen] = useState(false);
@@ -68,13 +78,13 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
 
     //const categories = Array.from(new Set(items.map((item) => item.category)));
 
-    const lowStockItems = items.filter(
-        (item) => item.quantity <= item.reorderThreshold
-    );
+    const lowStockItems = items.filter((item) => item.stock.stocks <= 80);
+
     const expiringItems = items.filter(
         (item) =>
-            item.expirationDate &&
-            new Date(item.expirationDate).getTime() - new Date().getTime() <
+            item.stocks_movement.expiry_date &&
+            new Date(item.stocks_movement.expiry_date).getTime() -
+                new Date().getTime() <
                 30 * 24 * 60 * 60 * 1000
     );
 
@@ -86,8 +96,15 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
 
     const handleCategoryFilter = (category) => {
         setActiveCategory(category);
-        //setFilteredItems(items.filter((item) => item.category === category));
+        //console.log("active cat:", activeCategory);
+        setFilteredItems(items_.filter((item) => item.category.id == category));
     };
+
+    useEffect(() => {
+        if (filteredItems) {
+            console.log(filteredItems);
+        }
+    }, [filteredItems]);
 
     const handleTabChange = (value) => {
         setActiveTab(value);
@@ -124,21 +141,21 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
     const handleSaveMovement = (movement) => {
         setMovements([...movements, movement]);
 
-        const updatedItems = items.map((item) => {
-            if (item.id === movement.itemId) {
-                const newQuantity =
-                    movement.type === "incoming"
-                        ? item.quantity + movement.quantity
-                        : item.quantity - movement.quantity;
+        // const updatedItems = items.map((item) => {
+        //     if (item.id === movement.itemId) {
+        //         const newQuantity =
+        //             movement.type === "incoming"
+        //                 ? item.quantity + movement.quantity
+        //                 : item.quantity - movement.quantity;
 
-                return {
-                    ...item,
-                    quantity: Math.max(0, newQuantity),
-                    lastUpdated: new Date(),
-                };
-            }
-            return item;
-        });
+        //         return {
+        //             ...item,
+        //             quantity: Math.max(0, newQuantity),
+        //             lastUpdated: new Date(),
+        //         };
+        //     }
+        //     return item;
+        // });
 
         setItems(updatedItems);
         setFilteredItems((prevFiltered) => {
@@ -194,8 +211,9 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
     };
 
     const getCategoryCount = (category) => {
-        if (category === "All") return items.length;
-        return items.filter((item) => item.category === category).length;
+        return 0;
+        //if (category === "All") return items.length;
+        //return items.filter((item) => item.category === category).length;
     };
 
     const [isModifyingCategory, setIsModifyingCategory] = useState(false);
@@ -334,7 +352,7 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
                 </Card>
             </div>
 
-            <SearchBar items={items} onSearch={handleSearch} />
+            <SearchBar items={items_} onSearch={handleSearch} />
 
             <Tabs
                 value={activeTab}
@@ -540,15 +558,15 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
                                     className="w-full justify-start"
                                     onClick={() => {
                                         setActiveCategory(null);
-                                        setFilteredItems(items);
+                                        setFilteredItems(items_);
                                     }}
                                 >
                                     All Categories
                                 </Button>
 
-                                {categories.map((category) => (
+                                {categories.map((category, i) => (
                                     <Button
-                                        key={category}
+                                        key={i}
                                         variant={
                                             activeCategory === category.id
                                                 ? "default"
@@ -582,7 +600,7 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
                                     .slice(0, 5)
                                     .map((movement, index) => {
                                         const item = items.find(
-                                            (i) => i.id === movement.itemId
+                                            (i) => i?.id === movement?.itemId
                                         );
                                         return (
                                             <div
@@ -636,7 +654,7 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
             </div>
 
             <div className="mt-8">
-                <ReportsPanel items={items} movements={movements} />
+                <ReportsPanel items={items_} movements={movements} />
             </div>
 
             <StockMovementForm

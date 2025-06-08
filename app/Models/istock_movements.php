@@ -18,4 +18,18 @@ class istock_movements extends Model
     ];
     protected $table = "istock_movements";
     public $timestamps = false;
+
+    public function inventory(){
+        return $this->belongsTo(inventory::class,"inventory_id");
+    }
+
+    public function staff(){
+        return $this->belongsTo(User::class,"staff_id");
+    }
+
+    public function stocks(){
+        return $this->belongsTo(istocks::class,"stock_id");
+    }
+
+
 }

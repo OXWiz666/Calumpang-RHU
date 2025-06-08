@@ -15,4 +15,7 @@ class istocks extends Model
     ];
     protected $table = "istocks";
     public $timestamps = false;
+
+
+
 }
