@@ -339,7 +339,7 @@ const ReportsPanel = ({ items, movements }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredMovements.length > 0 ? (
+                                        {/* {filteredMovements.length > 0 ? (
                                             filteredMovements.map(
                                                 (movement) => {
                                                     const item = items.find(
@@ -405,7 +405,7 @@ const ReportsPanel = ({ items, movements }) => {
                                                     selected filters
                                                 </td>
                                             </tr>
-                                        )}
+                                        )} */}
                                     </tbody>
                                 </table>
                             </div>
