@@ -14,7 +14,7 @@ class MessagesController extends Controller
 
     public function index(){
 
-        $messages = messages::with(['user'])->latest()->paginate(10);
+        $messages = messages::with(['user'])->latest()->paginate(5);
         return Inertia::render("Authenticated/Admin/Mail",[
             'messages' => $messages
         ]);

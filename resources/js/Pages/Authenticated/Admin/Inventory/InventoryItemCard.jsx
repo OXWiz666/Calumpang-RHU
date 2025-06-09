@@ -38,6 +38,10 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
         }
     };
 
+    const onEditItem = (e) => {
+        e.preventDefault();
+    };
+
     return (
         <Card
             className={`mb-4 ${
@@ -118,6 +122,15 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                         </p>
                     </div> */}
                 </div>
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2 hover:bg-secondary/80 transition-colors font-medium"
+                    onClick={onEditItem}
+                >
+                    Edit Item
+                </Button>
 
                 {expanded && (
                     <div className="mt-4 border-t pt-3">

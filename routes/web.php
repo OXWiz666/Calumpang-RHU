@@ -121,6 +121,9 @@ Route::middleware(['auth', 'AdminPhar'])->group(function () {
 
         Route::post('/item/add',[InventoryController::class,'add_item'])->name('admin.inventory.item.add');
 
+        Route::delete('/category/delete/{category}',[InventoryController::class,'delete_category'])->name('admin.inventory.category.delete');
+
+        Route::put('/category/update/{category}',[InventoryController::class,'update_category'])->name('admin.inventory.category.update');
         //Route::get('/',[DoctorController::class,''])->name('');
     });
 

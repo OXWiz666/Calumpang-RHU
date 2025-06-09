@@ -22,7 +22,7 @@ class InventoryController extends Controller
         return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[
             'categories' => icategory::get(),
             'inventory' => inventory::with(['category','stock','stocks_movement'])->get(),
-            // 'movements' => istock_movements()->get(),
+            'movements_' => istock_movements::with(['inventory','staff','stocks'])->get(),
         ]);
     }
 
@@ -44,6 +44,39 @@ class InventoryController extends Controller
             ]
         ]);
     }
+
+    public function delete_category(icategory $category){
+        $category->delete();
+
+       return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Category deleted successfully!",
+                'icon' => "success"
+            ]
+        ]);
+    }
+
+    public function update_category(Request $request,icategory $category){
+        $request->validate([
+            'categoryname' => 'required|min:3'
+        ]);
+
+        $category->update([
+            'name' => $request->categoryname
+        ]);
+
+
+
+       return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Category updated successfully!",
+                'icon' => "success"
+            ]
+        ]);
+    }
+
     public function add_item(Request $request){
         $request->validate([
             'itemname' => "required",

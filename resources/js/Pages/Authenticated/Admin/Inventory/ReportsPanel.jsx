@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -25,6 +25,12 @@ import { format } from "date-fns";
 import { Download, FileText, BarChart3 } from "lucide-react";
 
 const ReportsPanel = ({ items, movements }) => {
+    useEffect(() => {
+        if (movements) {
+            console.log("movements: ", movements);
+        }
+    }, [movements]);
+
     const [filter, setFilter] = useState({
         category: "All",
         stockStatus: "All",
@@ -143,10 +149,10 @@ const ReportsPanel = ({ items, movements }) => {
                                 Stock Status
                             </label>
                             <Select
-                            // value={filter.stockStatus}
-                            // onValueChange={(value) =>
-                            //     setFilter({ ...filter, stockStatus: value })
-                            // }
+                                value={filter.stockStatus}
+                                onValueChange={(value) =>
+                                    setFilter({ ...filter, stockStatus: value })
+                                }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select status" />
@@ -339,62 +345,64 @@ const ReportsPanel = ({ items, movements }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {/* {filteredMovements.length > 0 ? (
-                                            filteredMovements.map(
-                                                (movement) => {
-                                                    const item = items.find(
-                                                        (i) =>
-                                                            i.id ===
-                                                            movement.itemId
-                                                    );
-
-                                                    return (
-                                                        <tr
-                                                            key={movement.id}
-                                                            className="border-t"
-                                                        >
-                                                            <td className="p-2">
-                                                                {format(
-                                                                    new Date(
-                                                                        movement.date
-                                                                    ),
-                                                                    "MMM dd, yyyy"
-                                                                )}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {item?.name ||
-                                                                    "Unknown Item"}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                <span
-                                                                    className={`font-medium ${
-                                                                        movement.type ===
-                                                                        "incoming"
-                                                                            ? "text-green-600"
-                                                                            : "text-red-600"
-                                                                    }`}
-                                                                >
-                                                                    {movement.type ===
-                                                                    "incoming"
-                                                                        ? "Incoming"
-                                                                        : "Outgoing"}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {
-                                                                    movement.quantity
-                                                                }{" "}
-                                                                {item?.unit}s
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {
-                                                                    movement.performedBy
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                }
-                                            )
+                                        {movements.length > 0 ? (
+                                            movements.map((movement) => {
+                                                // const item = items.find(
+                                                //     (i) => i.id === item.itemId
+                                                // );
+                                                return (
+                                                    <tr
+                                                        key={movement.id}
+                                                        className="border-t"
+                                                    >
+                                                        <td className="p-2">
+                                                            {format(
+                                                                new Date(
+                                                                    movement.created_at
+                                                                ),
+                                                                "MMM dd, yyyy"
+                                                            )}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement?.inventory_name ||
+                                                                "Unknown Item"}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span
+                                                                className={`font-medium ${
+                                                                    movement.type ===
+                                                                    "Incoming"
+                                                                        ? "text-green-600"
+                                                                        : "text-red-600"
+                                                                }`}
+                                                            >
+                                                                {movement.type ===
+                                                                "Incoming"
+                                                                    ? "Incoming"
+                                                                    : "Outgoing"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement.quantity}{" "}
+                                                            {
+                                                                movement?.stocks
+                                                                    .stockname
+                                                            }
+                                                            s
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {
+                                                                movement.staff
+                                                                    .firstname
+                                                            }{" "}
+                                                            {
+                                                                movement.staff
+                                                                    .lastname
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
                                         ) : (
                                             <tr>
                                                 <td
@@ -405,7 +413,7 @@ const ReportsPanel = ({ items, movements }) => {
                                                     selected filters
                                                 </td>
                                             </tr>
-                                        )} */}
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

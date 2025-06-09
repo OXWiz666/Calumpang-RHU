@@ -23,6 +23,7 @@ import {
     Syringe,
     Stethoscope,
     Box,
+    RefreshCcw,
 } from "lucide-react";
 import SearchBar from "./SearchBar";
 import InventoryItemCard from "./InventoryItemCard";
@@ -43,8 +44,11 @@ import InputLabel from "@/components/InputLabel";
 import { router, useForm, usePage } from "@inertiajs/react";
 import PrimaryButton from "@/components/PrimaryButton";
 import PrintErrors from "@/components/PrintErrors";
+import { Trash2 } from "lucide-react";
 
-const InventoryDashboard = ({ categories = [], inventory }) => {
+import { DialogFooter } from "@/components/tempo/components/ui/dialog";
+import { Edit2 } from "lucide-react";
+const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
     const [items, setItems] = useState([]);
 
     const [items_, setItems_] = useState(inventory);
@@ -54,11 +58,16 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
 
     useEffect(() => {
         if (inventory) {
-            console.log("inventory:", inventory);
+            // alert("asd");
+            setItems_(inventory);
+            setFilteredItems(inventory);
+
+            //console.log("inventory:", inventory);
         }
     }, [inventory]);
 
     const { flash } = usePage().props;
+
     useEffect(() => {
         router.reload({
             only: ["inventory"],
@@ -226,6 +235,9 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
         processing,
         errors,
         clearErrors,
+
+        put: updateCategory,
+        delete: destroyCategory,
     } = useForm({
         categoryname: "",
     });
@@ -247,6 +259,59 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
             },
         });
     };
+
+    const [cDeleting, setCDeleting] = useState(false);
+    const [cUpdating, setCUpdating] = useState(false);
+
+    const [selectedCategory, setSelectedCategory] = useState(null);
+
+    useEffect(() => {
+        if (selectedCategory) {
+            setData("categoryname", selectedCategory.name);
+        }
+    }, [selectedCategory]);
+
+    const deleteCategory = (e) => {
+        e.preventDefault();
+        destroyCategory(
+            route("admin.inventory.category.delete", {
+                category: selectedCategory?.id,
+            }),
+            {
+                onFinish: () => {
+                    router.reload({
+                        only: ["categories"],
+                    });
+                },
+                onSuccess: () => {
+                    setCDeleting(false);
+                    setSelectedCategory(null);
+                },
+            }
+        );
+    };
+
+    const updateCategory_ = (e) => {
+        e.preventDefault();
+
+        updateCategory(
+            route("admin.inventory.category.update", {
+                category: selectedCategory?.id,
+            }),
+            {
+                onFinish: () => {
+                    router.reload({
+                        only: ["flash", "categories"],
+                    });
+                },
+                onSuccess: () => {
+                    setCUpdating(false);
+                    //setSelectedCategory
+                },
+            }
+        );
+    };
+
     return (
         <AdminLayout>
             {/* MAIN */}
@@ -354,143 +419,156 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
 
             <SearchBar items={items_} onSearch={handleSearch} />
 
-            <Tabs
-                value={activeTab}
-                onValueChange={handleTabChange}
-                className="mb-6"
-            >
-                <TabsList>
-                    <TabsTrigger value="all">All Items</TabsTrigger>
-                    <TabsTrigger value="master">Master List</TabsTrigger>
-                    <TabsTrigger value="low">
-                        Low Stock
-                        {lowStockItems.length > 0 && (
-                            <Badge variant="destructive" className="ml-2">
-                                {lowStockItems.length}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                    <TabsTrigger value="expiring">
-                        Expiring Soon
-                        {expiringItems.length > 0 && (
-                            <Badge
-                                variant="outline"
-                                className="ml-2 bg-amber-100 text-amber-800"
-                            >
-                                {expiringItems.length}
-                            </Badge>
-                        )}
-                    </TabsTrigger>
-                </TabsList>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <Tabs
+                    value={activeTab}
+                    onValueChange={handleTabChange}
+                    className="mb-6"
+                >
+                    <TabsList>
+                        <TabsTrigger value="all">All Items</TabsTrigger>
+                        <TabsTrigger value="master">Master List</TabsTrigger>
+                        <TabsTrigger value="low">
+                            Low Stock
+                            {lowStockItems.length > 0 && (
+                                <Badge variant="destructive" className="ml-2">
+                                    {lowStockItems.length}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                        <TabsTrigger value="expiring">
+                            Expiring Soon
+                            {expiringItems.length > 0 && (
+                                <Badge
+                                    variant="outline"
+                                    className="ml-2 bg-amber-100 text-amber-800"
+                                >
+                                    {expiringItems.length}
+                                </Badge>
+                            )}
+                        </TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="master" className="mt-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-xl">
-                                Master List
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Tabs
-                                value={masterListTab}
-                                onValueChange={handleMasterListTabChange}
-                                className="mb-6"
-                            >
-                                <TabsList className="grid md:grid-cols-2 lg:grid-cols-5 lg w-full">
-                                    <TabsTrigger
-                                        value="All"
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Package className="h-4 w-4" />
-                                        All
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
+                    <TabsContent value="master" className="mt-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-xl">
+                                    Master List
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <Tabs
+                                    value={masterListTab}
+                                    onValueChange={handleMasterListTabChange}
+                                    className="mb-6"
+                                >
+                                    <TabsList className="grid md:grid-cols-2 lg:grid-cols-5 lg w-full">
+                                        <TabsTrigger
+                                            value="All"
+                                            className="flex items-center gap-2"
                                         >
-                                            {getCategoryCount("All")}
-                                        </Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="Medicine"
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Pill className="h-4 w-4" />
-                                        Medicines
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
+                                            <Package className="h-4 w-4" />
+                                            All
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                {getCategoryCount("All")}
+                                            </Badge>
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                            value="Medicine"
+                                            className="flex items-center gap-2"
                                         >
-                                            {getCategoryCount("Medicine")}
-                                        </Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="Vaccine"
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Syringe className="h-4 w-4" />
-                                        Vaccines
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
+                                            <Pill className="h-4 w-4" />
+                                            Medicines
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                {getCategoryCount("Medicine")}
+                                            </Badge>
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                            value="Vaccine"
+                                            className="flex items-center gap-2"
                                         >
-                                            {getCategoryCount("Vaccine")}
-                                        </Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="Equipment"
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Stethoscope className="h-4 w-4" />
-                                        Equipment
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
+                                            <Syringe className="h-4 w-4" />
+                                            Vaccines
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                {getCategoryCount("Vaccine")}
+                                            </Badge>
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                            value="Equipment"
+                                            className="flex items-center gap-2"
                                         >
-                                            {getCategoryCount("Equipment")}
-                                        </Badge>
-                                    </TabsTrigger>
-                                    <TabsTrigger
-                                        value="Supply"
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Box className="h-4 w-4" />
-                                        Supplies
-                                        <Badge
-                                            variant="secondary"
-                                            className="ml-1"
+                                            <Stethoscope className="h-4 w-4" />
+                                            Equipment
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                {getCategoryCount("Equipment")}
+                                            </Badge>
+                                        </TabsTrigger>
+                                        <TabsTrigger
+                                            value="Supply"
+                                            className="flex items-center gap-2"
                                         >
-                                            {getCategoryCount("Supply")}
-                                        </Badge>
-                                    </TabsTrigger>
-                                </TabsList>
+                                            <Box className="h-4 w-4" />
+                                            Supplies
+                                            <Badge
+                                                variant="secondary"
+                                                className="ml-1"
+                                            >
+                                                {getCategoryCount("Supply")}
+                                            </Badge>
+                                        </TabsTrigger>
+                                    </TabsList>
 
-                                <div className="mt-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {filteredItems.map((item) => (
-                                            <InventoryItemCard
-                                                key={item.id}
-                                                item={item}
-                                                onUpdateClick={
-                                                    handleUpdateClick
-                                                }
-                                            />
-                                        ))}
+                                    <div className="mt-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {filteredItems.map((item) => (
+                                                <InventoryItemCard
+                                                    key={item.id}
+                                                    item={item}
+                                                    onUpdateClick={
+                                                        handleUpdateClick
+                                                    }
+                                                />
+                                            ))}
 
-                                        {filteredItems.length === 0 && (
-                                            <div className="col-span-2 text-center py-12 border rounded-lg bg-muted/20">
-                                                <p className="text-muted-foreground">
-                                                    No items match your search
-                                                    criteria
-                                                </p>
-                                            </div>
-                                        )}
+                                            {filteredItems.length === 0 && (
+                                                <div className="col-span-2 text-center py-12 border rounded-lg bg-muted/20">
+                                                    <p className="text-muted-foreground">
+                                                        No items match your
+                                                        search criteria
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            </Tabs>
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+                                </Tabs>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
+                <PrimaryButton
+                    className="flex items-center gap-2"
+                    onClick={() => {
+                        router.reload({
+                            only: ["inventory"],
+                        });
+                    }}
+                >
+                    <RefreshCcw className="h-4 w-4" />
+                    Refresh
+                </PrimaryButton>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-1">
@@ -577,13 +655,116 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
                                             handleCategoryFilter(category.id)
                                         }
                                     >
-                                        <div className="flex items-center">
-                                            {/* {getCategoryIcon(category)}
-                                            {category} */}
-                                            {category.name}
+                                        <div className="flex items-center justify-between w-full">
+                                            <span className="flex-1 truncate text-left">
+                                                {category.name}
+                                            </span>
+
+                                            <div className="flex items-center space-x-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setSelectedCategory(
+                                                            category
+                                                        );
+
+                                                        // setData(
+                                                        //     "categoryname",
+                                                        //     selectedCategory.name
+                                                        // );
+                                                        setCUpdating(true);
+                                                        // Add your edit handler here
+                                                    }}
+                                                    className="p-1 text-gray-500 hover:text-blue-500 transition-colors"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </button>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        setSelectedCategory(
+                                                            category
+                                                        );
+                                                        setCDeleting(true);
+                                                    }}
+                                                    className="p-1 text-gray-500 hover:text-red-500 transition-colors"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </Button>
                                 ))}
+                                <CustomModal
+                                    isOpen={cDeleting}
+                                    onClose={(e) => {
+                                        setCDeleting(false);
+                                    }}
+                                    title={`Deleting category ${selectedCategory?.name}`}
+                                    description={`Are you sure you want to delete ${selectedCategory?.name} Category?`}
+                                    maxWidth="md"
+                                >
+                                    <DialogFooter className="pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                                setCDeleting(false);
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            type="submit"
+                                            className="bg-primary hover:bg-primary/90"
+                                            disabled={processing}
+                                            onClick={deleteCategory}
+                                        >
+                                            Delete Category
+                                        </Button>
+                                    </DialogFooter>
+                                </CustomModal>
+
+                                <CustomModal
+                                    isOpen={cUpdating}
+                                    onClose={(e) => {
+                                        setCUpdating(false);
+                                    }}
+                                    title={`Updating category ${selectedCategory?.name}`}
+                                    description={`Update ${selectedCategory?.name} Category here.`}
+                                    maxWidth="md"
+                                >
+                                    <div className=" w-full">
+                                        <InputLabel value="Category Name:" />
+                                        <Input
+                                            value={data.categoryname}
+                                            onChange={(e) =>
+                                                setData(
+                                                    "categoryname",
+                                                    e.target.value
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <DialogFooter className="pt-4">
+                                        <Button
+                                            variant="outline"
+                                            onClick={(e) => {
+                                                setCUpdating(false);
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            className="bg-primary hover:bg-primary/90"
+                                            disabled={processing}
+                                            onClick={updateCategory_}
+                                        >
+                                            Update Category
+                                        </Button>
+                                    </DialogFooter>
+                                </CustomModal>
                             </div>
                         </CardContent>
                     </Card>
@@ -654,7 +835,7 @@ const InventoryDashboard = ({ categories = [], inventory }) => {
             </div>
 
             <div className="mt-8">
-                <ReportsPanel items={items_} movements={movements} />
+                <ReportsPanel items={items_} movements={movements_} />
             </div>
 
             <StockMovementForm
