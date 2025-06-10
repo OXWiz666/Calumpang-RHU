@@ -22,11 +22,11 @@ import { DialogFooter } from "@/components/tempo/components/ui/dialog";
 const InventoryItemCard = ({ item, onUpdateClick }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const isLowStock = item.stock[0]?.stocks <= 5;
+    const isLowStock = item?.stock[0]?.stocks <= 5;
 
     const isExpiring =
-        item.stocks_movement[0]?.expiry_date &&
-        new Date(item.stocks_movement[0]?.expiry_date).getTime() -
+        item?.stocks_movement[0]?.expiry_date &&
+        new Date(item?.stocks_movement[0]?.expiry_date).getTime() -
             new Date().getTime() <
             30 * 24 * 60 * 60 * 1000; // 30 days
 
