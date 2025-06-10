@@ -25,8 +25,8 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
     const isLowStock = item.stock[0]?.stocks <= 5;
 
     const isExpiring =
-        item.stocks_movement[0].expiry_date &&
-        new Date(item.stocks_movement[0].expiry_date).getTime() -
+        item.stocks_movement[0]?.expiry_date &&
+        new Date(item.stocks_movement[0]?.expiry_date).getTime() -
             new Date().getTime() <
             30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -284,7 +284,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                 {expanded && (
                     <div className="mt-4 border-t pt-3">
                         <div className="grid grid-cols-2 gap-3">
-                            {item.stocks_movement[0].expiry_date && (
+                            {item.stocks_movement[0]?.expiry_date && (
                                 <div>
                                     <p className="text-sm text-muted-foreground">
                                         Expiration Date
@@ -296,7 +296,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                     >
                                         {format(
                                             new Date(
-                                                item.stocks_movement[0].expiry_date
+                                                item.stocks_movement[0]?.expiry_date
                                             ),
                                             "MMM dd, yyyy"
                                         )}
