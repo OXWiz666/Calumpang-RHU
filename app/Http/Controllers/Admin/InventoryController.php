@@ -77,6 +77,141 @@ class InventoryController extends Controller
         ]);
     }
 
+
+
+    public function update_stock_movement(Request $request,istock_movements $movement){
+
+        $request->validate([
+            'type' => "required|in:Incoming,Outgoing",
+            'quantity' => "required|min:0",
+            'expiry' => 'required|date|after_or_equal:today'
+            //'reason' => "",
+        ]);
+        try{
+
+            DB::beginTransaction();
+
+            $movement->update([
+                'type' => $request->type,
+                'quantity'=> $request->quantity,
+                'reason' => $request->reason,
+                'staff_id' => Auth::user()->id,
+                'expiry_date' => $request->expiry
+            ]);
+
+            $movement->stocks()->update([
+                'stocks' => $request->quantity
+            ]);
+
+
+            DB::commit();
+        }
+        catch(\Exception $e){
+            DB::rollBack();
+            return back()->with([
+                'flash' => [
+                    'title' => 'Error!',
+                    'message' => "Error: " . $e->getMessage(),
+                    'icon' => "error"
+                ]
+            ]);
+        }
+
+        return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Update successful!",
+                'icon' => "success"
+            ]
+        ]);
+    }
+
+
+    public function delete_item(inventory $inventory){
+
+        try{
+            DB::beginTransaction();
+
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+            $inventory->stocks_movement()->update([
+                'type' => "Outgoing",
+                // "quantity" => 0,
+                "staff_id" => Auth::user()->id
+            ]);
+
+            //$inventory->stocks_movement()->delete(); // If one-to-many
+            // Delete related records first if needed
+            $inventory->stock()->delete(); // If one-to-one
+
+
+            // Then delete the main inventory record
+            $inventory->delete();
+
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+            DB::commit();
+        }
+        catch(\Exception $e){
+            DB::rollBack();
+            return back()->with([
+                'flash' => [
+                    'title' => 'Error!',
+                    'message' => "Error: " . $e->getMessage(),
+                    'icon' => "error"
+                ]
+            ]);
+        }
+
+
+       return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Item deleted successfully!",
+                'icon' => "success"
+            ]
+        ]);
+    }
+    public function update_item (Request $request,inventory $inventory){
+        $request->validate([
+            'itemname' => "required",
+            'categoryid' => "required|exists:icategory,id",
+        ]);
+
+        try{
+            DB::beginTransaction();
+
+            $inventory->update([
+                'name' => $request->itemname,
+                'category_id' => $request->categoryid,
+            ]);
+
+            $inventory->stocks_movement()->update([
+                'inventory_name'=> $request->itemname,
+            ]);
+
+            DB::commit();
+        }
+        catch(\Exception $e){
+            DB::rollBack();
+            return back()->with([
+                'flash' => [
+                    'title' => 'Error!',
+                    'message' => "Error: " . $e->getMessage(),
+                    'icon' => "error"
+                ]
+            ]);
+        }
+
+
+        return back()->with([
+            'flash' => [
+                'title' => 'Success!',
+                'message' => "Item updated successfully!",
+                'icon' => "success"
+            ]
+        ]);
+    }
     public function add_item(Request $request){
         $request->validate([
             'itemname' => "required",
@@ -87,15 +222,17 @@ class InventoryController extends Controller
         ]);
         try{
             DB::beginTransaction();
-            $stock = istocks::create([
-                'stocks' => $request->quantity,
-                'stockname' => $request->unit_type,
 
-            ]);
             $inventory = inventory::create([
                 'name' => $request->itemname,
                 'category_id' => $request->categoryid,
-                'stock_id' => $stock->id,
+                //'stock_id' => $stock->id,
+            ]);
+
+            $stock = istocks::create([
+                'stocks' => $request->quantity,
+                'stockname' => $request->unit_type,
+                'inventory_id' => $inventory->id
             ]);
 
             $stock_movement = istock_movements::create([

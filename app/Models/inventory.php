@@ -19,7 +19,8 @@ class inventory extends Model
     }
 
     public function stock(){
-        return $this->belongsTo(istocks::class,"stock_id");
+        return $this->hasMany(istocks::class,"inventory_id","id");
+        //return $this->belongsTo(istocks::class,"stock_id");
     }
 
     public function stocks_movement(){

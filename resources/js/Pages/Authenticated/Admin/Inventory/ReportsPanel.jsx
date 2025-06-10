@@ -55,7 +55,7 @@ const ReportsPanel = ({ items, movements }) => {
 
         // Filter by stock status
         if (filter.stockStatus) {
-            const isLowStock = item.stock.stocks <= 5;
+            const isLowStock = item.stock[0].stocks <= 5;
 
             const isExpiring =
                 item.stocks_movement[0].expiry_date &&
@@ -231,7 +231,7 @@ const ReportsPanel = ({ items, movements }) => {
                                         {filteredItems.length > 0 ? (
                                             filteredItems.map((item) => {
                                                 const isLowStock =
-                                                    item.stock.stocks <= 5;
+                                                    item.stock[0].stocks <= 5;
 
                                                 const isExpiring =
                                                     item.stocks_movement[0]
@@ -262,10 +262,12 @@ const ReportsPanel = ({ items, movements }) => {
                                                             {item.category.name}
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.stock.stocks}{" "}
+                                                            {item.stock[0]
+                                                                .stocks ??
+                                                                0}{" "}
                                                             {
-                                                                item.stock
-                                                                    .stockname
+                                                                item?.stock[0]
+                                                                    ?.stockname
                                                             }
                                                             s
                                                         </td>
@@ -386,9 +388,8 @@ const ReportsPanel = ({ items, movements }) => {
                                                             {movement.quantity}{" "}
                                                             {
                                                                 movement?.stocks
-                                                                    .stockname
+                                                                    ?.stockname
                                                             }
-                                                            s
                                                         </td>
                                                         <td className="p-2">
                                                             {

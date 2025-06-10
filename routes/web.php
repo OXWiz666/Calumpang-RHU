@@ -116,14 +116,16 @@ Route::middleware(['auth','Doctor'])->group(function(){
 Route::middleware(['auth', 'AdminPhar'])->group(function () {
     Route::prefix('inventory')->group(function(){
         Route::get('/',[InventoryController::class,'index'])->name('admin.inventory.index');
-
         Route::post('/category/add',[InventoryController::class,'add_category'])->name('admin.inventory.category');
-
         Route::post('/item/add',[InventoryController::class,'add_item'])->name('admin.inventory.item.add');
-
         Route::delete('/category/delete/{category}',[InventoryController::class,'delete_category'])->name('admin.inventory.category.delete');
-
         Route::put('/category/update/{category}',[InventoryController::class,'update_category'])->name('admin.inventory.category.update');
+
+
+        Route::put('/item/update/{inventory}',[InventoryController::class,'update_item'])->name('admin.inventory.item.update');
+        Route::delete('/item/delete/{inventory}',[InventoryController::class,'delete_item'])->name('admin.inventory.item.delete');
+
+         Route::put('/item/stock_movement/update/{movement}',[InventoryController::class,'update_stock_movement'])->name('admin.inventory.item.stockmovement.update');
         //Route::get('/',[DoctorController::class,''])->name('');
     });
 
