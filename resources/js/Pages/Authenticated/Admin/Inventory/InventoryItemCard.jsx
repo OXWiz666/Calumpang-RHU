@@ -284,7 +284,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                 {expanded && (
                     <div className="mt-4 border-t pt-3">
                         <div className="grid grid-cols-2 gap-3">
-                            {item.stocks_movement[0]?.expiry_date && (
+                            {item?.stocks_movement[0]?.expiry_date && (
                                 <div>
                                     <p className="text-sm text-muted-foreground">
                                         Expiration Date
@@ -296,7 +296,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                     >
                                         {format(
                                             new Date(
-                                                item.stocks_movement[0]?.expiry_date
+                                                item?.stocks_movement[0]?.expiry_date
                                             ),
                                             "MMM dd, yyyy"
                                         )}
