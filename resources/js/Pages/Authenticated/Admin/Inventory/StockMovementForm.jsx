@@ -38,7 +38,7 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
         if (item) {
             setData({
                 type: item?.stocks_movement[0]?.type,
-                quantity: item?.stock[0].stocks,
+                quantity: item?.stock[0]?.stocks,
                 reason: item?.stocks_movement[0]?.reason,
                 expiry: item?.stocks_movement[0]?.expiry_date,
             });

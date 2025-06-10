@@ -55,7 +55,7 @@ const ReportsPanel = ({ items, movements }) => {
 
         // Filter by stock status
         if (filter.stockStatus) {
-            const isLowStock = item.stock[0].stocks <= 5;
+            const isLowStock = item.stock[0]?.stocks <= 5;
 
             const isExpiring =
                 item.stocks_movement[0].expiry_date &&
@@ -231,7 +231,7 @@ const ReportsPanel = ({ items, movements }) => {
                                         {filteredItems.length > 0 ? (
                                             filteredItems.map((item) => {
                                                 const isLowStock =
-                                                    item.stock[0].stocks <= 5;
+                                                    item.stock[0]?.stocks <= 5;
 
                                                 const isExpiring =
                                                     item.stocks_movement[0]

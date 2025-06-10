@@ -22,7 +22,7 @@ import { DialogFooter } from "@/components/tempo/components/ui/dialog";
 const InventoryItemCard = ({ item, onUpdateClick }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const isLowStock = item.stock[0].stocks <= 5;
+    const isLowStock = item.stock[0]?.stocks <= 5;
 
     const isExpiring =
         item.stocks_movement[0].expiry_date &&
@@ -171,7 +171,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                 isLowStock ? "text-red-600" : ""
                             }`}
                         >
-                            {item.stock[0].stocks} {item.stock[0].stockname}s
+                            {item.stock[0]?.stocks} {item.stock[0]?.stockname}s
                         </p>
                     </div>
                     {/* <div>
