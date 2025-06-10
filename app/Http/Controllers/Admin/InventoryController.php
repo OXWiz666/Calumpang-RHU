@@ -83,24 +83,31 @@ class InventoryController extends Controller
 
         $request->validate([
             'type' => "required|in:Incoming,Outgoing",
-            'quantity' => "required|min:0",
+            'quantity' => "required",
             'expiry' => 'required|date|after_or_equal:today'
             //'reason' => "",
         ]);
+
+        //dd($request);
         try{
 
             DB::beginTransaction();
 
-            $movement->update([
+            $newMovement = $movement->replicate();
+            $newMovement->save();
+
+            $newQuantity = $request->type === "Incoming" ? $movement->stocks->stocks + $request->quantity : $movement->stocks->stocks - $request->quantity;
+
+            $newMovement->update([
                 'type' => $request->type,
-                'quantity'=> $request->quantity,
+                'quantity'=>  $request->quantity,
                 'reason' => $request->reason,
                 'staff_id' => Auth::user()->id,
                 'expiry_date' => $request->expiry
             ]);
 
             $movement->stocks()->update([
-                'stocks' => $request->quantity
+                'stocks' => $newQuantity
             ]);
 
 
