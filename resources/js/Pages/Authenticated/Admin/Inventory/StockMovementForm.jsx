@@ -40,7 +40,9 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                 type: item?.stocks_movement[0]?.type,
                 quantity: 0, //item?.stock[0]?.stocks,
                 reason: item?.stocks_movement[0]?.reason,
-                expiry: item?.stocks_movement[0]?.expiry_date,
+                expiry: item?.stocks_movement?.[
+                    item?.stocks_movement?.length - 1
+                ]?.expiry_date,
             });
             console.log("item:", item, item?.stocks_movement[0]?.type);
         }

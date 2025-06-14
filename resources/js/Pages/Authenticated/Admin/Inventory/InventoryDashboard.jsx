@@ -62,7 +62,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
             setItems_(inventory);
             setFilteredItems(inventory);
 
-            //console.log("inventory:", inventory);
+            console.log("inventory:", inventory);
         }
     }, [inventory]);
 
@@ -87,7 +87,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
 
     //const categories = Array.from(new Set(items.map((item) => item.category)));
 
-    const lowStockItems = items.filter((item) => item.stock.stocks <= 80);
+    const lowStockItems = inventory.filter((item) => item.stock[0].stocks <= 5);
 
     const expiringItems = items.filter(
         (item) =>
@@ -363,7 +363,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                         <div className="flex items-center">
                             <Package className="h-5 w-5 text-muted-foreground mr-2" />
                             <div className="text-2xl font-bold">
-                                {items.length}
+                                {inventory.length}
                             </div>
                         </div>
                     </CardContent>

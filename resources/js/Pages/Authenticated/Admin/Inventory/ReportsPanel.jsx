@@ -299,7 +299,12 @@ const ReportsPanel = ({ items, movements }) => {
                                                                 .expiry_date
                                                                 ? format(
                                                                       new Date(
-                                                                          item.stocks_movement[0].expiry_date
+                                                                          item?.stocks_movement?.[
+                                                                              item
+                                                                                  ?.stocks_movement
+                                                                                  ?.length -
+                                                                                  1
+                                                                          ]?.expiry_date
                                                                       ),
                                                                       "MMM dd, yyyy"
                                                                   )
