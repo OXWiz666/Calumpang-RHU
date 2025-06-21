@@ -175,7 +175,9 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                         <Input
                             id="quantity"
                             type="number"
-                            min="1"
+                            {...(data.type == "Incoming"
+                                ? { min: "0" }
+                                : { max: "0" })}
                             name="quantity"
                             value={data.quantity}
                             //onChange={(e) => setQuantity(e.target.value)}

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Illuminate\Validation\Rule;
 class InventoryController extends Controller
 {
     //
@@ -83,8 +84,12 @@ class InventoryController extends Controller
 
         $request->validate([
             'type' => "required|in:Incoming,Outgoing",
-            'quantity' => "required",
-            'expiry' => 'required|date|after_or_equal:today'
+            'quantity' => ["required",
+            "numeric",
+            Rule::when($request->type == "Incoming", ['min:0']),
+            Rule::when($request->type == "Outgoing", ['max:0'])], // I want like min 0 if type == "Incoming"   else max 0
+
+            'expiry' => 'required|date|after_or_equal:today',
             //'reason' => "",
         ]);
 

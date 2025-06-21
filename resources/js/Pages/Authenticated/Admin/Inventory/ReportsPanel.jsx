@@ -347,6 +347,9 @@ const ReportsPanel = ({ items, movements }) => {
                                                 Quantity
                                             </th>
                                             <th className="text-left p-2">
+                                                Reason
+                                            </th>
+                                            <th className="text-left p-2">
                                                 Staff
                                             </th>
                                         </tr>
@@ -395,6 +398,10 @@ const ReportsPanel = ({ items, movements }) => {
                                                                 movement?.stocks
                                                                     ?.stockname
                                                             }
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement?.reason ??
+                                                                "(No reason)"}
                                                         </td>
                                                         <td className="p-2">
                                                             {
