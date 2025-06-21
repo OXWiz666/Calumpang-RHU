@@ -12,8 +12,13 @@ class PatientsController extends Controller
     //
 
     public function index(){
-        $patients = User::where('roleID','5')->get();
-        return Inertia::render('Authenticated/Admin/Patients',[
+        $patients = User::where('roleID','5')->with(['emercont'])->get();
+        // return Inertia::render('Authenticated/Admin/Patients',[
+        //     'patients_' => $patients
+        // ]);
+
+
+        return Inertia::render('Authenticated/Admin/Patients/page',[
             'patients_' => $patients
         ]);
     }
