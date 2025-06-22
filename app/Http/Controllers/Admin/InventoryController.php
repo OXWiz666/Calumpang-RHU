@@ -101,7 +101,7 @@ class InventoryController extends Controller
             $newMovement = $movement->replicate();
             $newMovement->save();
 
-            $newQuantity = $request->type === "Incoming" ? $movement->stocks->stocks + $request->quantity : $movement->stocks->stocks - $request->quantity;
+            $newQuantity = $request->type === "Incoming" ? $movement->stocks->stocks + $request->quantity : $movement->stocks->stocks + $request->quantity;
 
             $newMovement->update([
                 'type' => $request->type,

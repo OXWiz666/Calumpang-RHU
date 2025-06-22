@@ -111,12 +111,17 @@ const samplePatients = [
     },
 ];
 
-export default function PatientRecords({ patients_ }) {
+export default function PatientRecords({ patients_, doctors }) {
     const [patients, setPatients] = useState(patients_);
-    useEffect(() => {
-        console.log(patients);
-    }, [patients]);
+
     const [selectedPatient, setSelectedPatient] = useState(null);
+
+    useEffect(() => {
+        setPatients(patients_);
+
+        //console.log(patients);
+    }, [patients_]);
+
     const [showAddForm, setShowAddForm] = useState(false);
     const [view, setView] = useState("list");
 
@@ -279,6 +284,7 @@ export default function PatientRecords({ patients_ }) {
                                 patient={selectedPatient}
                                 onBack={() => setView("list")}
                                 onUpdate={handleUpdatePatient}
+                                doctors={doctors}
                             />
                         )}
 

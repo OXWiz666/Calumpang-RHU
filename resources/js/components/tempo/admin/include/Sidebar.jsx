@@ -46,7 +46,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         {
             title: "Patient Records",
             icon: <Users className="h-5 w-5" />,
-            route: "admin.patients",
+            route: "admin.patients.index",
             path: "/auth/patients",
             id: "patients",
             roles: ["Admin", "Doctor"],

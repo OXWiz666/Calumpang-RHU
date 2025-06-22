@@ -196,8 +196,11 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         Route::post('/appointments/unarchive',[AppointmentsController::class,'unarchiveAppointment'])->name('admin.appointments.unarchive');
         Route::get('/appointment/get/{appointment}', [AppointmentsController::class,'GetAppointment'])->name('admin.appointment.get');
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
-        Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
+        //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
+        Route::resource('patients',PatientsController::class);
+
+        Route::post('/patients/add_medical_record/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
 
         Route::post('/settings/pw/update',[SettingsController::class,'changePw'])->name('admin.settings.pw.update');
 

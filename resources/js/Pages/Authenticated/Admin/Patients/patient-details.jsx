@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 // import { Patient, MedicalRecord } from "./page";
 import { Button } from "@/components/tempo/components/ui/button";
 import {
@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 import EditPatientForm from "./edit-patient-form";
 import AddMedicalRecordForm from "./add-medical-record-form";
+import { Trash2 } from "lucide-react";
+import { router, useForm } from "@inertiajs/react";
 
 // interface PatientDetailsProps {
 //   patient: Patient
@@ -38,7 +40,7 @@ import AddMedicalRecordForm from "./add-medical-record-form";
 //   onUpdate: (patient: Patient) => void
 // }
 
-export default function PatientDetails({ patient, onBack, onUpdate }) {
+export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
     const [isEditing, setIsEditing] = useState(false);
     const [showAddRecord, setShowAddRecord] = useState(false);
 
@@ -58,21 +60,35 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
         return age;
     };
 
-    const handleAddMedicalRecord = (record) => {
-        const newRecord = {
-            ...record,
-            id: Date.now().toString(),
-        };
+    const {
+        data,
+        setData,
+        post,
+        processing,
+        recentlySuccessful,
+        errors,
+        clearErrors,
+        reset,
+    } = useForm({});
 
-        const updatedPatient = {
-            ...patient,
-            medicalHistory: [...(patient.medicalHistory || []), newRecord],
-            lastVisit: record.date,
-        };
-
-        onUpdate(updatedPatient);
-        setShowAddRecord(false);
-    };
+    useEffect(() => {
+        if (data && Object.keys(data).length > 0) {
+            post(
+                route("patients.medicalrec.store", { patientid: patient?.id }),
+                {
+                    onSuccess: () => {
+                        setShowAddRecord(false);
+                    },
+                    onFinish: () => {
+                        router.reload({
+                            only: ["patients_", "doctors", "flash"],
+                            //preserveState: false,
+                        });
+                    },
+                }
+            );
+        }
+    }, [data]);
 
     if (isEditing) {
         return (
@@ -90,9 +106,11 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
     if (showAddRecord) {
         return (
             <AddMedicalRecordForm
-                patientName={`${patient.firstName} ${patient.lastName}`}
-                onSubmit={handleAddMedicalRecord}
+                patientName={`${patient.firstname} ${patient.lastname}`}
+                onSubmit={(record) => setData(record)}
                 onCancel={() => setShowAddRecord(false)}
+                doctors={doctors}
+                errors={errors}
             />
         );
     }
@@ -250,7 +268,7 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                             <CardTitle>Emergency Contact</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">
                                         Contact Person
@@ -265,6 +283,21 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                                     </label>
                                     {patient?.emercont?.map((contact) => (
                                         <p>{contact.contactno}</p>
+                                    ))}
+                                </div>
+                                <div>
+                                    <label className="text-sm text-center font-medium text-muted-foreground">
+                                        Action
+                                    </label>
+                                    {patient?.emercont?.map((contact) => (
+                                        <p key={contact?.id}>
+                                            <Button variant="ghost" size="sm">
+                                                <Edit className="h-4 w-4 text-primary" />
+                                            </Button>
+                                            <Button variant="ghost" size="sm">
+                                                <Trash2 className="h-4 w-4 text-red-500" />
+                                            </Button>
+                                        </p>
                                     ))}
                                 </div>
                             </div>
@@ -320,10 +353,10 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {patient.medicalHistory &&
-                            patient.medicalHistory.length > 0 ? (
+                            {patient.medical_histories &&
+                            patient.medical_histories.length > 0 ? (
                                 <div className="space-y-4">
-                                    {patient.medicalHistory.map((record) => (
+                                    {patient.medical_histories.map((record) => (
                                         <Card key={record.id}>
                                             <CardContent className="pt-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -333,7 +366,7 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                                                         </label>
                                                         <p>
                                                             {new Date(
-                                                                record.date
+                                                                record.created_at
                                                             ).toLocaleDateString()}
                                                         </p>
                                                     </div>
@@ -341,7 +374,18 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                                                         <label className="text-sm font-medium text-muted-foreground">
                                                             Doctor
                                                         </label>
-                                                        <p>{record.doctor}</p>
+                                                        <p>
+                                                            {
+                                                                record?.doctor
+                                                                    ?.user
+                                                                    ?.firstname
+                                                            }{" "}
+                                                            {
+                                                                record?.doctor
+                                                                    ?.user
+                                                                    ?.lastname
+                                                            }
+                                                        </p>
                                                     </div>
                                                     <div>
                                                         <label className="text-sm font-medium text-muted-foreground">
@@ -359,13 +403,15 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                                                             {record.treatment}
                                                         </p>
                                                     </div>
-                                                    {record.notes && (
+                                                    {record.clinic_notes && (
                                                         <div className="md:col-span-2">
                                                             <label className="text-sm font-medium text-muted-foreground">
                                                                 Notes
                                                             </label>
                                                             <p>
-                                                                {record.notes}
+                                                                {
+                                                                    record.clinic_notes
+                                                                }
                                                             </p>
                                                         </div>
                                                     )}
@@ -376,7 +422,7 @@ export default function PatientDetails({ patient, onBack, onUpdate }) {
                                                             </label>
                                                             <p>
                                                                 {
-                                                                    record.followUp
+                                                                    record.followup_inst
                                                                 }
                                                             </p>
                                                         </div>

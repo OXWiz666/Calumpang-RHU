@@ -32,16 +32,16 @@ import { ArrowLeft, Save } from "lucide-react";
 
 export default function EditPatientForm({ patient, onSubmit, onCancel }) {
     const [formData, setFormData] = useState({
-        firstName: patient.firstName,
-        lastName: patient.lastName,
-        dateOfBirth: patient.dateOfBirth,
-        gender: patient.gender,
-        phoneNumber: patient.phoneNumber,
+        firstName: patient.firstname,
+        lastName: patient.lastname,
+        dateOfBirth: patient.birth,
+        gender: patient?.gender,
+        phoneNumber: patient.contactno,
         email: patient.email || "",
         address: patient.address,
-        emergencyContact: patient.emergencyContact,
-        emergencyPhone: patient.emergencyPhone,
-        bloodType: patient.bloodType || "",
+        // emergencyContact: patient.emergencyContact,
+        // emergencyPhone: patient.emergencyPhone,
+        bloodType: patient.bloodtype || "",
         allergies: patient.allergies?.join(", ") || "",
         medications: patient.medications?.join(", ") || "",
         status: patient.status,
@@ -151,10 +151,8 @@ export default function EditPatientForm({ patient, onSubmit, onCancel }) {
                                     <SelectValue placeholder="Select gender" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Male">Male</SelectItem>
-                                    <SelectItem value="Female">
-                                        Female
-                                    </SelectItem>
+                                    <SelectItem value="M">Male</SelectItem>
+                                    <SelectItem value="F">Female</SelectItem>
                                     <SelectItem value="Other">Other</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -224,7 +222,7 @@ export default function EditPatientForm({ patient, onSubmit, onCancel }) {
                 </Card>
 
                 {/* Emergency Contact */}
-                <Card>
+                {/* <Card>
                     <CardHeader>
                         <CardTitle>Emergency Contact</CardTitle>
                     </CardHeader>
@@ -263,7 +261,7 @@ export default function EditPatientForm({ patient, onSubmit, onCancel }) {
                             />
                         </div>
                     </CardContent>
-                </Card>
+                </Card> */}
 
                 {/* Medical Information */}
                 <Card>

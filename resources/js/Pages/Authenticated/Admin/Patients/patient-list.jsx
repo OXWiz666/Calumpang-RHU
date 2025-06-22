@@ -20,6 +20,8 @@ import {
     SelectValue,
 } from "@/components/tempo/components/ui/select";
 
+import moment from "moment";
+
 // interface PatientListProps {
 //   patients: Patient[]
 //   onSelectPatient: (patient: Patient) => void
@@ -148,10 +150,6 @@ export default function PatientList({ patients, onSelectPatient }) {
                                             </small>
                                         </p>
                                     </CardTitle>
-                                    <p className="text-sm text-muted-foreground">
-                                        Age: {calculateAge(patient?.birth)} •{" "}
-                                        {patient?.gender}
-                                    </p>
                                 </div>
                                 <Badge
                                     variant={
@@ -162,6 +160,14 @@ export default function PatientList({ patients, onSelectPatient }) {
                                 >
                                     {patient?.status}
                                 </Badge>
+                            </div>
+                            <div className="flex justify-between items-start">
+                                <p className="text-sm text-muted-foreground">
+                                    Join Date:{" "}
+                                    {moment(patient?.created_at).format(
+                                        "MM-DD-yyyy"
+                                    )}
+                                </p>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-3">

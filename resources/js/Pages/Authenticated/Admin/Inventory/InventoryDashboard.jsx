@@ -89,10 +89,15 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
 
     const lowStockItems = inventory.filter((item) => item.stock[0].stocks <= 5);
 
-    const expiringItems = items.filter(
+    const expiringItems = items_.filter(
         (item) =>
-            item.stocks_movement.expiry_date &&
-            new Date(item.stocks_movement.expiry_date).getTime() -
+            item?.stocks_movement?.[item?.stocks_movement?.length - 1]
+                ?.expiry_date &&
+            new Date(
+                item?.stocks_movement?.[
+                    item?.stocks_movement?.length - 1
+                ]?.expiry_date
+            ).getTime() -
                 new Date().getTime() <
                 30 * 24 * 60 * 60 * 1000
     );
@@ -120,7 +125,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
         setActiveCategory(null);
 
         if (value === "all") {
-            setFilteredItems(items);
+            setFilteredItems(items_);
         } else if (value === "low") {
             setFilteredItems(lowStockItems);
         } else if (value === "expiring") {
@@ -426,8 +431,8 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                     className="mb-6"
                 >
                     <TabsList>
-                        <TabsTrigger value="all">All Items</TabsTrigger>
-                        <TabsTrigger value="master">Master List</TabsTrigger>
+                        <TabsTrigger value="all">Master List</TabsTrigger>
+                        {/* <TabsTrigger value="master">Master List</TabsTrigger> */}
                         <TabsTrigger value="low">
                             Low Stock
                             {lowStockItems.length > 0 && (

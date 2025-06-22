@@ -15,7 +15,23 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/tempo/components/ui/card";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Clock, Save, Stethoscope } from "lucide-react";
+import moment from "moment";
+// import {
+//     Select,
+//     SelectContent,
+//     SelectItem,
+//     SelectTrigger,
+//     SelectValue,
+// } from "react-day-picker";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/tempo/components/ui/select";
+import PrintErrors from "@/components/PrintErrors";
 
 // interface AddMedicalRecordFormProps {
 //   patientName: string
@@ -27,9 +43,12 @@ export default function AddMedicalRecordForm({
     patientName,
     onSubmit,
     onCancel,
+    doctors,
+
+    errors,
 }) {
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split("T")[0],
+        date: moment(new Date()).format("yyyy-MM-DD"), //new Date().toISOString().split("T")[0],
         diagnosis: "",
         treatment: "",
         doctor: "",
@@ -70,6 +89,7 @@ export default function AddMedicalRecordForm({
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        <PrintErrors errors={errors} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label htmlFor="date">Date *</Label>
@@ -80,7 +100,9 @@ export default function AddMedicalRecordForm({
                                     onChange={(e) =>
                                         handleInputChange(
                                             "date",
-                                            e.target.value
+                                            moment(e.target.value).format(
+                                                "yyyy-MM-DD"
+                                            )
                                         )
                                     }
                                     required
@@ -91,7 +113,7 @@ export default function AddMedicalRecordForm({
                                 <Label htmlFor="doctor">
                                     Doctor/Healthcare Provider *
                                 </Label>
-                                <Input
+                                {/* <Input
                                     id="doctor"
                                     value={formData.doctor}
                                     onChange={(e) =>
@@ -102,7 +124,37 @@ export default function AddMedicalRecordForm({
                                     }
                                     placeholder="Dr. Smith"
                                     required
-                                />
+                                /> */}
+                                <Select
+                                    id="doctor"
+                                    value={formData.doctor}
+                                    onValueChange={(val) =>
+                                        handleInputChange("doctor", val)
+                                    }
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Doctor">
+                                            {doctors
+                                                ? doctors?.find(
+                                                      (d) =>
+                                                          d?.id.toString() ==
+                                                          formData.doctor.toString()
+                                                  )?.user?.firstname
+                                                : "Select Doctor"}
+                                        </SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {doctors.map((doctor) => (
+                                            <SelectItem
+                                                key={doctor}
+                                                value={doctor?.id}
+                                            >
+                                                {doctor?.user?.firstname}{" "}
+                                                {doctor?.user?.lastname}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
