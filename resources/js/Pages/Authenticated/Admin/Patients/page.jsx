@@ -14,6 +14,7 @@ import {
 } from "@/components/tempo/components/ui/card";
 import AdminLayout from "@/Layouts/AdminLayout";
 import { motion } from "framer-motion";
+import { router, usePage } from "@inertiajs/react";
 
 // export interface Patient {
 //   id: string
@@ -116,11 +117,17 @@ export default function PatientRecords({ patients_, doctors }) {
 
     const [selectedPatient, setSelectedPatient] = useState(null);
 
+    const { flash } = usePage().props;
+
     useEffect(() => {
         setPatients(patients_);
-
-        //console.log(patients);
     }, [patients_]);
+
+    // useEffect(() => {
+    //     router.visit({
+    //         only: ["patients_", "doctors", "flash"],
+    //     });
+    // }, [flash]);
 
     const [showAddForm, setShowAddForm] = useState(false);
     const [view, setView] = useState("list");

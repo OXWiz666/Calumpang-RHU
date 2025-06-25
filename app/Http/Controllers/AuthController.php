@@ -27,6 +27,10 @@ use function Laravel\Prompts\password;
 use App\Services\ActivityLogger;
 use App\Notifications\SystemNotification;
 use App\Services\NotifSender;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -80,12 +84,101 @@ class AuthController extends Controller
         //return view('Auth.register',compact('roles','questions'));
     }
 
+
+
+    public function SearchEmail(Request $request){
+        $request->validate([
+            'email' => 'required'
+        ]);
+
+        //$email = User::where('email', $request->email)->first();
+
+        $status = Password::sendResetLink(
+            $request->only('email')
+        );
+
+        if ($status == Password::RESET_LINK_SENT) {
+            //return back()->with('status', __($status));
+
+            return back()->with([
+                'flash' => [
+                    'title' => 'Email sent!',
+                    'message' => 'Please check your email',
+                    'icon' => 'success'
+                ]
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'email' => [trans($status)],
+        ]);
+
+        // return back()->with([
+        //     'flash' => [
+        //         'title' => 'Email sent!',
+        //         'message' => 'Please check your email',
+        //         'icon' => 'success'
+        //     ]
+        // ]);
+    }
+
+    public function NewPassword(Request $request){
+
+        return Inertia::render('Auth/ResetPassword2',[
+            'email' => $request->email,
+            'token' => $request->route('token'),
+        ]);
+    }
+
+    public function StoreNewPassword(Request $request): RedirectResponse{
+        $request->validate([
+            'token' => "required",
+            'email' => "required|email",//'exists:password_reset_tokens,email',
+            'password' => ['required', 'min:3'],
+            'password_confirmation' => 'same:password'
+        ]);
+
+        //$access = password_reset_tokens::where('token', Hash::make($request->route('token')))->first();
+
+
+
+
+         $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user) use ($request) {
+                $user->forceFill([
+                    'password' => Hash::make($request->password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+        if ($status == Password::PASSWORD_RESET) {
+            return redirect()->route('login')->with([
+                'flash' => [
+                    'title' => "Success!",
+                    'message' => "Password has been reset!",
+                    'icon' => 'success'
+                ]
+            ]);
+            //return redirect()->route('login')->with('status', __($status));
+        }
+        throw ValidationException::withMessages([
+            'email' => [trans($status)],
+        ]);
+    }
+
     public function showForgotPasswordForm()
     {
         //return view('auth.forgot');
         $Q = securityquestions::get();
-        return view('Auth.forgot',compact('Q'));
+        //return view('Auth.forgot',compact('Q'));
         //return view('auth.reset-password',compact('Q'));
+
+        return Inertia::render("Auth/ForgotPassword2",[
+            "" => ""
+        ]);
     }
 
     public function showResetPassword($token){

@@ -23,9 +23,9 @@ class PatientsController extends Controller
 
 
         return Inertia::render('Authenticated/Admin/Patients/page', [
-            'patients_' => User::where('roleID','5')
+            'patients_' => Inertia::always(User::where('roleID','5')
                             ->with(['emercont', 'medical_histories', 'medical_histories.doctor.user'])
-                            ->get(),
+                            ->get()),
             'doctors' => doctor_details::with(['user'])->get(),
         ]);
     }

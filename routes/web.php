@@ -50,6 +50,14 @@ Route::middleware(['Guest'])->group(function () {
     Route::get('/forgotpw-post/reset/{token}',[AuthController::class,'showResetPassword'])->name('forgotpw.reset.get');
 
     Route::post('/forgotpw/reset/{token}',[AuthController::class,'ResetPassword'])->name('forgotpw.reset.post');
+
+    Route::post('/search-email/', [AuthController::class,'SearchEmail'])->name('search.email');
+
+    Route::get('/forgotpw/new-password/{token}',[AuthController::class,'NewPassword'])->name('password.reset');
+
+    Route::post('/forgotpw/new-password/save',[AuthController::class,'StoreNewPassword'])->name('passowrd.reset.save');
+
+    //Route::post('',[AuthController::class,''])->name(
 });
 
 Route::middleware(['AdminGuest'])->group(function (){
@@ -199,6 +207,7 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
         Route::resource('patients',PatientsController::class);
+        //Route::get('auth/patients',[PatientsController::class,'index'])->name('admin.patients.index');
 
         Route::post('/patients/add_medical_record/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
 
