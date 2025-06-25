@@ -124,6 +124,10 @@ class AuthController extends Controller
 
     public function NewPassword(Request $request){
 
+        $request->validate([
+            'email' => 'exists:password_reset_tokens,email',
+            // 'token' => 'required'
+        ]);
         return Inertia::render('Auth/ResetPassword2',[
             'email' => $request->email,
             'token' => $request->route('token'),
