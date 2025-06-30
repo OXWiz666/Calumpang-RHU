@@ -9,8 +9,15 @@ import {
     Cross2Icon,
     ArrowLeftIcon,
 } from "@radix-ui/react-icons";
-
-export default function Login2({ flash }) {
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/tempo/components/ui/select";
+import InputLabel from "@/components/InputLabel";
+export default function Login2({ flash, roles }) {
     const [showPassword, setShowPassword] = useState(false);
     const { data, setData, post, processing } = useForm({
         email: "",
@@ -18,9 +25,17 @@ export default function Login2({ flash }) {
         remember: false,
     });
 
+    const [role, setRole] = useState(null);
+
+    useEffect(() => {
+        if (roles.length > 0) {
+            setRole(roles[0].id);
+        }
+    }, [roles]);
+
     const submit = (e) => {
         e.preventDefault();
-        post(route("login.submit", { role: 5 }), {
+        post(route("login.submit", { role: role }), {
             onError: (e) => {
                 console.log(e);
             },
@@ -203,6 +218,29 @@ export default function Login2({ flash }) {
                                     </button>
                                 </div>
                             </div>
+                            <div>
+                                <label
+                                    htmlFor=""
+                                    className="block text-sm font-medium text-gray-700"
+                                >
+                                    Select Role
+                                </label>
+                                <Select value={role} onValueChange={setRole}>
+                                    <SelectTrigger className="w-full sm:w-[180px]">
+                                        <SelectValue placeholder="Select Role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {roles.map((r) => (
+                                            <SelectItem
+                                                key={r.id}
+                                                value={r.id.toString()}
+                                            >
+                                                {r.roletype}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                             {/* Remember Me and Forgot Password */}
                             <div className="flex items-center justify-between">
@@ -291,7 +329,7 @@ export default function Login2({ flash }) {
                         </div>
 
                         {/* Register Link */}
-                        <div className="text-center">
+                        {/* <div className="text-center">
                             <p className="text-sm text-gray-600">
                                 Don't have an account?
                                 <NavLink
@@ -301,7 +339,7 @@ export default function Login2({ flash }) {
                                     Register now
                                 </NavLink>
                             </p>
-                        </div>
+                        </div> */}
                     </form>
                 </div>
             </div>

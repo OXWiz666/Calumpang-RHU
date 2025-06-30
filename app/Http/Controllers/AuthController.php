@@ -46,8 +46,8 @@ class AuthController extends Controller
         switch(Auth::user()->roleID){ // For Route . ->name()
              case "1":
                 return redirect()->route('doctor.home');
-            case "4":
-                return redirect()->route('midwife.dashboard');
+            // case "4":
+            //     return redirect()->route('midwife.dashboard');
             case "5":
                 return redirect()->route('home');
             case "6":
@@ -304,19 +304,36 @@ class AuthController extends Controller
     //     return redirect()->back()->with('error','Invalid Credentials');
     // }
 
-    public function login(Request $request){
-        // $credentials = $request->validate([
-        //     'email' => 'required',
-        //     'password' => 'required',
-        // ]);
+    public function stafflogin(){
+        return Inertia::render('Auth/StaffLogin',[
+            'roles' => roles::get()
+        ]);
+    }
+
+    public function login(Request $request, $role){
         if(!Auth::attempt($request->only('email','password'))){
-            //return redirect()->back()->with('error','Invalid credentials');
             return back()->withErrors([
                         'error' => 'Invalid credentials',
                     ]);
         }
+
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Check if the user's role doesn't match the expected role
+        if ($user->roleID != $role) { // Assuming the role is stored in a 'role' column
+            Auth::logout(); // Log the user out since the role doesn't match
+            return back()->with([
+                //'error' => 'You are not authorized to access this area',
+                'flash' => [
+                    'message' => 'You are not authorized to access this area',
+                    'title' => 'Error!',
+                    'icon' => 'error'
+                ]
+            ]);
+        }
+
         return redirect()->intended(route('home'));
-        //return Inertia::render("Authenticated/Patient/Dashboard",[]);
     }
 
     public function register(Request $request)

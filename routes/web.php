@@ -39,11 +39,13 @@ use Illuminate\Support\Facades\Broadcast;
 // Auth Routes
 
 Route::middleware(['Guest'])->group(function () {
-    Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+    Route::post('/login/{role}', [AuthController::class, 'login'])->name('login.submit');
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('forgot.password');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+
+    Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
 
     Route::post('/forgotpw-post',[AuthController::class,'forgotPwFormPost'])->name('forgotpw.post');
 
@@ -56,6 +58,10 @@ Route::middleware(['Guest'])->group(function () {
     Route::get('/forgotpw/new-password/{token}',[AuthController::class,'NewPassword'])->name('password.reset');
 
     Route::post('/forgotpw/new-password/save',[AuthController::class,'StoreNewPassword'])->name('passowrd.reset.save');
+
+
+
+    //Route::post('/login/{role}',[AuthController::class,'login'])->name('login.staff.submit');
 
     //Route::post('',[AuthController::class,''])->name(
 });
