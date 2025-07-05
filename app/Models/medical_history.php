@@ -19,4 +19,9 @@ class medical_history extends Model
     public function doctor(){
         return $this->belongsTo(doctor_details::class,"doctor_id");
     }
+
+
+    public function attachments(){
+        return $this->hasMany(medical_history_attachments::class,"mh_id",'id');
+    }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 
 import { useState } from "react";
 // import { MedicalRecord } from "./page";
@@ -15,7 +15,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/tempo/components/ui/card";
-import { ArrowLeft, Clock, Save, Stethoscope } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Save, Stethoscope } from "lucide-react";
 import moment from "moment";
 // import {
 //     Select,
@@ -64,6 +64,41 @@ export default function AddMedicalRecordForm({
     const handleInputChange = (field, value) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
+
+    const [attachments, setAttachments] = useState([]);
+    const [bigsizedFiles, setBigSizedFiles] = useState([]);
+    const [error, setError] = useState("");
+
+    const handleFileChange = (e) => {
+        const selectedFiles = Array.from(e.target.files);
+        setError("");
+
+        // Check file size (3MB limit)
+        const oversizedFiles = selectedFiles.filter(
+            (file) => file.size > 3 * 1024 * 1024
+        );
+
+        if (oversizedFiles.length > 0) {
+            setError("Files that exceeds 3MB will not be included.");
+            //return;
+        }
+
+        const fineFiles = selectedFiles.filter(
+            (file) => file.size <= 3 * 1024 * 1024
+        );
+
+        setBigSizedFiles(oversizedFiles);
+
+        setAttachments(fineFiles);
+    };
+
+    useEffect(() => {
+        console.log("attachments:", attachments);
+    }, [attachments]);
+
+    useEffect(() => {
+        console.log("bigsizedFiles:", bigsizedFiles);
+    }, [bigsizedFiles]);
 
     return (
         <div className="space-y-6">
@@ -219,6 +254,44 @@ export default function AddMedicalRecordForm({
                                 placeholder="Follow-up care instructions or next appointment details"
                                 rows={3}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <PrintErrors errors={error} />
+                            <Label htmlFor="attachments">
+                                <>
+                                    Attachments
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="ml-2"
+                                        asChild
+                                    >
+                                        <label className="cursor-pointer">
+                                            + Add
+                                            <input
+                                                type="file"
+                                                id="attachments"
+                                                className="hidden"
+                                                multiple
+                                                onChange={handleFileChange}
+                                            />
+                                        </label>
+                                    </Button>
+                                </>
+                            </Label>
+                            <div className="grid grid-flow-col auto-cols-max gap-4">
+                                {attachments.map((attc) => (
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="" />
+                                        {attc.name}
+                                    </div>
+                                ))}
+                                {/* <div className="flex items-center gap-2">
+                                    <FileText className="" />
+                                    asd
+                                </div> */}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

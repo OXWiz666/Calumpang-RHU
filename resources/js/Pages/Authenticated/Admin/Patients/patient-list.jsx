@@ -21,6 +21,7 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 import moment from "moment";
+import { router } from "@inertiajs/react";
 
 // interface PatientListProps {
 //   patients: Patient[]
@@ -207,7 +208,15 @@ export default function PatientList({ patients, onSelectPatient }) {
                             )}
 
                             <Button
-                                onClick={() => onSelectPatient(patient)}
+                                onClick={() => {
+                                    //onSelectPatient(patient);
+                                    // alert("asd");
+                                    router.visit(
+                                        route("patients.details.view", {
+                                            id: patient?.id,
+                                        })
+                                    );
+                                }}
                                 className="w-full mt-4"
                                 variant="outline"
                             >

@@ -39,7 +39,7 @@ import { Head, useForm, router, usePage } from "@inertiajs/react";
 
 //import { useAuth } from "../../contexts/AuthContext";
 
-const MedicalRecordsPage = ({ userData }) => {
+const MedicalRecordsPage = ({ userData, records = [] }) => {
     //const { user: authUser } = useAuth();
     const [activeTab, setActiveTab] = useState("records");
     const [searchQuery, setSearchQuery] = useState("");
@@ -201,12 +201,17 @@ const MedicalRecordsPage = ({ userData }) => {
                             <CardHeader className="pb-4">
                                 <div className="flex flex-col items-center">
                                     <Avatar className="h-24 w-24 mb-4 border-4 border-primary/10">
-                                        <AvatarImage 
-                                            src={userData?.avatar ? `/storage/avatars/${userData.avatar}` : `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth?.user.firstname}`} 
-                                            alt={`${auth?.user.firstname} ${auth?.user.lastname}`} 
+                                        <AvatarImage
+                                            src={
+                                                userData?.avatar
+                                                    ? `/storage/avatars/${userData.avatar}`
+                                                    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${auth?.user.firstname}`
+                                            }
+                                            alt={`${auth?.user.firstname} ${auth?.user.lastname}`}
                                         />
                                         <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
-                                            {auth?.user.firstname?.charAt(0)}{auth?.user.lastname?.charAt(0)}
+                                            {auth?.user.firstname?.charAt(0)}
+                                            {auth?.user.lastname?.charAt(0)}
                                         </AvatarFallback>
                                     </Avatar>
                                     <CardTitle className="text-xl">
@@ -230,12 +235,38 @@ const MedicalRecordsPage = ({ userData }) => {
                                         size="lg"
                                         onClick={() => setActiveTab("records")}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="mr-2"
+                                        >
                                             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
                                             <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                                            <line x1="10" y1="9" x2="8" y2="9"></line>
+                                            <line
+                                                x1="16"
+                                                y1="13"
+                                                x2="8"
+                                                y2="13"
+                                            ></line>
+                                            <line
+                                                x1="16"
+                                                y1="17"
+                                                x2="8"
+                                                y2="17"
+                                            ></line>
+                                            <line
+                                                x1="10"
+                                                y1="9"
+                                                x2="8"
+                                                y2="9"
+                                            ></line>
                                         </svg>
                                         Medical Records
                                     </Button>
@@ -267,7 +298,18 @@ const MedicalRecordsPage = ({ userData }) => {
                                             setActiveTab("immunizations")
                                         }
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="20"
+                                            height="20"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            className="mr-2"
+                                        >
                                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path>
                                         </svg>
                                         Immunization Records
@@ -292,7 +334,8 @@ const MedicalRecordsPage = ({ userData }) => {
                                     variant="outline"
                                     className="w-full justify-center text-sm px-5 py-2 shadow-md"
                                     onClick={() =>
-                                        (window.location.href = "/patient/profile")
+                                        (window.location.href =
+                                            "/patient/profile")
                                     }
                                 >
                                     View Profile
@@ -374,7 +417,7 @@ const MedicalRecordsPage = ({ userData }) => {
                                         value="records"
                                         className="space-y-4"
                                     >
-                                        {filteredRecords.length > 0 ? (
+                                        {records?.length > 0 ? (
                                             <div className="rounded-md border">
                                                 <div className="p-4 bg-muted/50 flex justify-between items-center">
                                                     <h3 className="font-medium">
@@ -388,6 +431,84 @@ const MedicalRecordsPage = ({ userData }) => {
                                                     </Button>
                                                 </div>
                                                 <div className="divide-y">
+                                                    {records?.map((record) => (
+                                                        <div
+                                                            key={record?.id}
+                                                            className="p-4 hover:bg-muted/20 transition-colors"
+                                                        >
+                                                            <div className="flex justify-between items-start mb-2">
+                                                                <div>
+                                                                    <h4 className="font-medium flex items-center">
+                                                                        {
+                                                                            record.diagnosis
+                                                                        }
+                                                                        <span className="text-xs text-muted-foreground ml-2">
+                                                                            {
+                                                                                record.id
+                                                                            }
+                                                                        </span>
+                                                                    </h4>
+                                                                    <p className="text-sm text-muted-foreground">
+                                                                        {
+                                                                            record
+                                                                                ?.doctor
+                                                                                ?.user
+                                                                                ?.firstname
+                                                                        }{" "}
+                                                                        {
+                                                                            record
+                                                                                ?.doctor
+                                                                                ?.user
+                                                                                ?.lastname
+                                                                        }
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex items-center">
+                                                                    <span className="text-sm text-muted-foreground mr-2">
+                                                                        {
+                                                                            record.created_at
+                                                                        }
+                                                                    </span>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-8 w-8 p-0"
+                                                                    >
+                                                                        <ChevronRight className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                            <p className="text-sm mb-2">
+                                                                {
+                                                                    record.clinic_notes
+                                                                }
+                                                            </p>
+                                                            {record?.attachments
+                                                                ?.length >
+                                                                0 && (
+                                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                                    {record?.attachments?.map(
+                                                                        (
+                                                                            attc,
+                                                                            index
+                                                                        ) => (
+                                                                            <div
+                                                                                key={
+                                                                                    index
+                                                                                }
+                                                                                className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full flex items-center"
+                                                                            >
+                                                                                <FileText className="h-3 w-3 mr-1" />
+                                                                                {
+                                                                                    attc?.attachment
+                                                                                }
+                                                                            </div>
+                                                                        )
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
                                                     {/* {filteredRecords.map(
                                                         (record) => (
                                                             <div
@@ -503,7 +624,7 @@ const MedicalRecordsPage = ({ userData }) => {
                                                     </Button>
                                                 </div>
                                                 <div className="divide-y">
-                                                    {filteredPrescriptions.map(
+                                                    {filteredPrescriptions?.map(
                                                         (prescription) => (
                                                             <div
                                                                 key={
@@ -544,7 +665,7 @@ const MedicalRecordsPage = ({ userData }) => {
                                                                     </div>
                                                                 </div>
                                                                 <div className="space-y-2 mt-3">
-                                                                    {prescription.medications.map(
+                                                                    {prescription?.medications?.map(
                                                                         (
                                                                             med,
                                                                             index
@@ -632,7 +753,7 @@ const MedicalRecordsPage = ({ userData }) => {
                                                     </Button>
                                                 </div>
                                                 <div className="divide-y">
-                                                    {filteredLabResults.map(
+                                                    {filteredLabResults?.map(
                                                         (result) => (
                                                             <div
                                                                 key={result.id}

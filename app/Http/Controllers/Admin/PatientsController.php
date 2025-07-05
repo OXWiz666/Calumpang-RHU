@@ -30,6 +30,18 @@ class PatientsController extends Controller
         ]);
     }
 
+
+    public function PatientDetails(User $id){
+
+        return Inertia::render('Authenticated/Admin/Patients/details', [
+                'patient' => User::with([
+                    'emercont',
+                    'medical_histories',
+                    'medical_histories.doctor.user'
+                ])->findOrFail($id->id),
+                'doctors' => doctor_details::with(['user'])->get(),
+        ]);
+    }
     /*
         HTTP Method	URI	Action	Route Name
         GET	        /posts	            index	posts.index

@@ -212,7 +212,13 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
         //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
-        Route::resource('patients',PatientsController::class);
+        Route::get('/patients',[PatientsController::class,'index'])->name('patients.index');
+        Route::post('/patients/add-medical/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
+        //add_medical_rec(Request $request, User $patientid)
+
+        Route::get('/patients/details/{id}',[PatientsController::class,'PatientDetails'])->name('patients.details.view');
+
+        //Route::resource('patients',PatientsController::class);
         //Route::get('auth/patients',[PatientsController::class,'index'])->name('admin.patients.index');
 
         Route::post('/patients/add_medical_record/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
