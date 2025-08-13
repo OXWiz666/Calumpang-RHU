@@ -82,62 +82,65 @@ class InventoryController extends Controller
 
     public function update_stock_movement(Request $request,istock_movements $movement){
 
-        $request->validate([
-            'type' => "required|in:Incoming,Outgoing",
-            'quantity' => ["required",
+    $request->validate([
+        'type' => "required|in:Incoming,Outgoing",
+        'quantity' => ["required",
             "numeric",
-            Rule::when($request->type == "Incoming", ['min:0']),
-            Rule::when($request->type == "Outgoing", ['max:0'])], // I want like min 0 if type == "Incoming"   else max 0
-
-            'expiry' => 'required|date|after_or_equal:today',
-            //'reason' => "",
-        ]);
+            "min:1",
+            Rule::when($request->type == "Outgoing", [
+                'max' => function () use ($movement) {
+                    return $movement->stocks->stocks;
+                }
+            ])
+        ],
+        'expiry' => 'required|date|after_or_equal:today',
+    ]);
 
         //dd($request);
-        try{
+    try {
+        DB::beginTransaction();
 
-            DB::beginTransaction();
+        $newMovement = $movement->replicate();
+        $newMovement->save();
 
-            $newMovement = $movement->replicate();
-            $newMovement->save();
+        // Fix the calculation logic here
+        $newQuantity = $request->type === "Incoming" 
+            ? $movement->stocks->stocks + $request->quantity 
+            : $movement->stocks->stocks - $request->quantity;
 
-            $newQuantity = $request->type === "Incoming" ? $movement->stocks->stocks + $request->quantity : $movement->stocks->stocks + $request->quantity;
+        $newMovement->update([
+            'type' => $request->type,
+            'quantity' => $request->quantity,
+            'reason' => $request->reason,
+            'staff_id' => Auth::user()->id,
+            'expiry_date' => $request->expiry
+        ]);
 
-            $newMovement->update([
-                'type' => $request->type,
-                'quantity'=>  $request->quantity,
-                'reason' => $request->reason,
-                'staff_id' => Auth::user()->id,
-                'expiry_date' => $request->expiry
-            ]);
+        $movement->stocks()->update([
+            'stocks' => $newQuantity
+        ]);
 
-            $movement->stocks()->update([
-                'stocks' => $newQuantity
-            ]);
-
-
-            DB::commit();
-        }
-        catch(\Exception $e){
-            DB::rollBack();
-            return back()->with([
-                'flash' => [
-                    'title' => 'Error!',
-                    'message' => "Error: " . $e->getMessage(),
-                    'icon' => "error"
-                ]
-            ]);
-        }
-
+        DB::commit();
+    }
+    catch(\Exception $e) {
+        DB::rollBack();
         return back()->with([
             'flash' => [
-                'title' => 'Success!',
-                'message' => "Update successful!",
-                'icon' => "success"
+                'title' => 'Error!',
+                'message' => "Error: " . $e->getMessage(),
+                'icon' => "error"
             ]
         ]);
     }
 
+    return back()->with([
+        'flash' => [
+            'title' => 'Success!',
+            'message' => "Update successful!",
+            'icon' => "success"
+        ]
+    ]);
+}
 
     public function delete_item(inventory $inventory){
 

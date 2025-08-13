@@ -55,6 +55,12 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
 
+            if (data.type === "Outgoing") {
+        if (parseInt(data.quantity) > item?.stock[0]?.stocks) {
+            alert("Cannot remove more items than current stock");
+            return;
+        }
+    }
         put(
             route("admin.inventory.item.stockmovement.update", {
                 movement: item?.stocks_movement[0]?.id,
@@ -170,21 +176,25 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            {...(data.type == "Incoming"
-                                ? { min: "0" }
-                                : { max: "0" })}
-                            name="quantity"
-                            value={data.quantity}
-                            //onChange={(e) => setQuantity(e.target.value)}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
+<div className="space-y-2">
+    <Label htmlFor="quantity">Quantity</Label>
+    <Input
+        id="quantity"
+        type="number"
+        min="1"
+        max={data.type === "Outgoing" ? item?.stock[0]?.stocks : undefined}
+        name="quantity"
+        value={data.quantity}
+        onChange={handleChange}
+        required
+    />
+    {data.type === "Outgoing" && (
+        <p className="text-sm text-muted-foreground">
+            Maximum quantity that can be removed: {item?.stock[0]?.stocks}
+        </p>
+    )}
+</div>
+
 
                     {/* {item?.isVaccine && (
                         <>
