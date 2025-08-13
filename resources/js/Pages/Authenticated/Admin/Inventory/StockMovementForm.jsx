@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Dialog,
     DialogContent,
@@ -14,51 +14,103 @@ import {
     RadioGroupItem,
 } from "@/components/tempo/components/ui/radio-group";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
+import { router, useForm, usePage } from "@inertiajs/react";
+import PrintErrors from "@/components/PrintErrors";
 
 const StockMovementForm = ({ open, onClose, item, onSave }) => {
-    const [movementType, setMovementType] = useState("incoming");
-    const [quantity, setQuantity] = useState("1");
-    const [batchNumber, setBatchNumber] = useState("");
-    const [lotNumber, setLotNumber] = useState("");
-    const [reason, setReason] = useState("");
-    const [performedBy, setPerformedBy] = useState("");
+    // const [data.type, setMovementType] = useState("incoming");
+    // const [quantity, setQuantity] = useState("1");
+    // const [batchNumber, setBatchNumber] = useState("");
+    // const [lotNumber, setLotNumber] = useState("");
+    // const [reason, setReason] = useState("");
+    // const [performedBy, setPerformedBy] = useState("");
+
+    const { data, setData, post, processing, recentlySuccessful, errors, put } =
+        useForm({
+            type: "", //item?.stocks_movement[0]?.type,
+            quantity: "",
+            reason: "",
+            expiry: "",
+            //performedBy:
+        });
+
+    useEffect(() => {
+        if (item) {
+            setData({
+                type: item?.stocks_movement[0]?.type,
+                quantity: 0, //item?.stock[0]?.stocks,
+                reason: item?.stocks_movement[0]?.reason,
+                expiry: item?.stocks_movement?.[
+                    item?.stocks_movement?.length - 1
+                ]?.expiry_date,
+            });
+            console.log("item:", item, item?.stocks_movement[0]?.type);
+        }
+    }, [item]);
+
+    const handleChange = (e) => {
+        setData(e.target.name, e.target.value);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        if (!item) return;
-
-        const movement = {
-            id: `mov-${Date.now()}`,
-            itemId: item.id,
-            type: movementType,
-            quantity: parseInt(quantity),
-            date: new Date(),
-            performedBy,
-        };
-
-        if (item.isVaccine) {
-            movement.batchNumber = batchNumber;
-            movement.lotNumber = lotNumber;
+            if (data.type === "Outgoing") {
+        if (parseInt(data.quantity) > item?.stock[0]?.stocks) {
+            alert("Cannot remove more items than current stock");
+            return;
         }
+    }
+        put(
+            route("admin.inventory.item.stockmovement.update", {
+                movement: item?.stocks_movement[0]?.id,
+            }),
+            {
+                onFinish: () => {
+                    router.reload({
+                        only: ["flash", "inventory", "movements_"],
+                    });
+                },
+                onSuccess: () => {
+                    onClose();
+                },
+            }
+        );
+        // if (!item) return;
 
-        if (reason) {
-            movement.reason = reason;
-        }
+        // const movement = {
+        //     id: `mov-${Date.now()}`,
+        //     itemId: item.id,
+        //     type: data.type,
+        //     quantity: parseInt(quantity),
+        //     date: new Date(),
+        //     performedBy,
+        // };
 
-        onSave(movement);
-        resetForm();
-        onClose();
+        // if (item.isVaccine) {
+        //     movement.batchNumber = batchNumber;
+        //     movement.lotNumber = lotNumber;
+        // }
+
+        // if (reason) {
+        //     movement.reason = reason;
+        // }
+
+        // onSave(movement);
+        // resetForm();
+        // onClose();
     };
 
-    const resetForm = () => {
-        setMovementType("incoming");
-        setQuantity("1");
-        setBatchNumber("");
-        setLotNumber("");
-        setReason("");
-        setPerformedBy("");
-    };
+    // const resetForm = () => {
+    //     setMovementType("incoming");
+    //     setQuantity("1");
+    //     setBatchNumber("");
+    //     setLotNumber("");
+    //     setReason("");
+    //     setPerformedBy("");
+    // };
+
+    const { user } = usePage().props.auth;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -66,53 +118,85 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                 <DialogHeader>
                     <DialogTitle>Record Stock Movement</DialogTitle>
                 </DialogHeader>
-
+                <PrintErrors errors={errors} />
                 <form onSubmit={handleSubmit} className="space-y-4 pt-4">
                     <div className="space-y-2">
                         <Label>Item</Label>
                         <p className="font-medium">{item?.name}</p>
                         <p className="text-sm text-muted-foreground">
-                            Current stock: {item?.quantity} {item?.unit}s
+                            Current stock: {item?.stock[0]?.stocks}{" "}
+                            {item?.stock[0]?.stockname}s
                         </p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Movement Type</Label>
-                        <RadioGroup
-                            value={movementType}
-                            onValueChange={(value) => setMovementType(value)}
-                            className="flex space-x-4"
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                    value="incoming"
-                                    id="incoming"
-                                />
-                                <Label htmlFor="incoming">Incoming</Label>
+                        <div className="grid grid-cols-2">
+                            <div>
+                                <Label>Movement Type</Label>
+                                <RadioGroup
+                                    value={data.type}
+                                    onValueChange={(value) =>
+                                        setData("type", value)
+                                    }
+                                    className="flex items-center space-x-2"
+                                >
+                                    <div className="flex items-center space-x-1">
+                                        <RadioGroupItem
+                                            value="Incoming"
+                                            id="Incoming"
+                                        />
+                                        <Label htmlFor="Incoming">
+                                            Incoming
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-1">
+                                        <RadioGroupItem
+                                            value="Outgoing"
+                                            id="Outgoing"
+                                        />
+                                        <Label htmlFor="outgoing">
+                                            Outgoing
+                                        </Label>
+                                    </div>
+                                </RadioGroup>
                             </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem
-                                    value="outgoing"
-                                    id="outgoing"
+                            <div>
+                                <Label>Expiry Date</Label>
+                                <Input
+                                    id="expirationDate"
+                                    type="date"
+                                    name="expirydate"
+                                    value={data.expiry}
+                                    onChange={(e) =>
+                                        setData("expiry", e.target.value)
+                                    }
+                                    // className="focus-visible:ring-primary"
                                 />
-                                <Label htmlFor="outgoing">Outgoing</Label>
                             </div>
-                        </RadioGroup>
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            min="1"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                            required
-                        />
-                    </div>
+<div className="space-y-2">
+    <Label htmlFor="quantity">Quantity</Label>
+    <Input
+        id="quantity"
+        type="number"
+        min="1"
+        max={data.type === "Outgoing" ? item?.stock[0]?.stocks : undefined}
+        name="quantity"
+        value={data.quantity}
+        onChange={handleChange}
+        required
+    />
+    {data.type === "Outgoing" && (
+        <p className="text-sm text-muted-foreground">
+            Maximum quantity that can be removed: {item?.stock[0]?.stocks}
+        </p>
+    )}
+</div>
 
-                    {item?.isVaccine && (
+
+                    {/* {item?.isVaccine && (
                         <>
                             <div className="space-y-2">
                                 <Label htmlFor="batchNumber">
@@ -140,22 +224,23 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                                 />
                             </div>
                         </>
-                    )}
+                    )} */}
 
                     <div className="space-y-2">
                         <Label htmlFor="reason">
-                            Reason {movementType === "outgoing" && "(Required)"}
+                            Reason {data.type === "Outgoing" && "(Required)"}
                         </Label>
                         <Textarea
                             id="reason"
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value)}
+                            name="reason"
+                            value={data.reason}
+                            onChange={handleChange}
                             placeholder={
-                                movementType === "incoming"
+                                data.type === "Incoming"
                                     ? "Optional"
                                     : "Why is this item being removed from inventory?"
                             }
-                            required={movementType === "outgoing"}
+                            required={data.type === "Outgoing"}
                         />
                     </div>
 
@@ -163,8 +248,8 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                         <Label htmlFor="performedBy">Performed By</Label>
                         <Input
                             id="performedBy"
-                            value={performedBy}
-                            onChange={(e) => setPerformedBy(e.target.value)}
+                            value={`${user?.firstname} ${user?.lastname}`}
+                            //onChange={(e) => setPerformedBy(e.target.value)}
                             placeholder="Name of staff member"
                             required
                         />
@@ -181,6 +266,7 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                         <Button
                             type="submit"
                             className="bg-primary hover:bg-primary/90"
+                            disabled={processing}
                         >
                             Save Changes
                         </Button>

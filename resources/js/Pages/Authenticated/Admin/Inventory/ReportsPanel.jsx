@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -25,6 +25,12 @@ import { format } from "date-fns";
 import { Download, FileText, BarChart3 } from "lucide-react";
 
 const ReportsPanel = ({ items, movements }) => {
+    useEffect(() => {
+        if (movements) {
+            console.log("movements: ", movements);
+        }
+    }, [movements]);
+
     const [filter, setFilter] = useState({
         category: "All",
         stockStatus: "All",
@@ -34,7 +40,7 @@ const ReportsPanel = ({ items, movements }) => {
 
     const categories = [
         "All",
-        ...Array.from(new Set(items.map((item) => item.category))),
+        ...Array.from(new Set(items.map((item) => item.category.name))),
     ];
 
     const filteredItems = items.filter((item) => {
@@ -42,17 +48,19 @@ const ReportsPanel = ({ items, movements }) => {
         if (
             filter.category &&
             filter.category !== "All" &&
-            item.category !== filter.category
+            item.category.id !== filter.category
         ) {
             return false;
         }
 
         // Filter by stock status
         if (filter.stockStatus) {
-            const isLowStock = item.quantity <= item.reorderThreshold;
+            const isLowStock = item.stock[0]?.stocks <= 5;
+
             const isExpiring =
-                item.expirationDate &&
-                new Date(item.expirationDate).getTime() - new Date().getTime() <
+                item.stocks_movement[0].expiry_date &&
+                new Date(item.stocks_movement[0].expiry_date).getTime() -
+                    new Date().getTime() <
                     30 * 24 * 60 * 60 * 1000;
 
             if (filter.stockStatus === "Low" && !isLowStock) {
@@ -71,25 +79,25 @@ const ReportsPanel = ({ items, movements }) => {
         return true;
     });
 
-    const filteredMovements = movements.filter((movement) => {
-        // Filter by date range
-        if (dateRange) {
-            const movementDate = new Date(movement.date);
-            if (movementDate < dateRange.from || movementDate > dateRange.to) {
-                return false;
-            }
-        }
+    // const filteredMovements = movements.filter((movement) => {
+    //     // Filter by date range
+    //     if (dateRange) {
+    //         const movementDate = new Date(movement.date);
+    //         if (movementDate < dateRange.from || movementDate > dateRange.to) {
+    //             return false;
+    //         }
+    //     }
 
-        // Filter by item category
-        if (filter.category && filter.category !== "All") {
-            const item = items.find((i) => i.id === movement.itemId);
-            if (item && item.category !== filter.category) {
-                return false;
-            }
-        }
+    //     // Filter by item category
+    //     if (filter.category && filter.category !== "All") {
+    //         const item = items.find((i) => i.id === movement.itemId);
+    //         if (item && item.category !== filter.category) {
+    //             return false;
+    //         }
+    //     }
 
-        return true;
-    });
+    //     return true;
+    // });
 
     const generateReport = () => {
         // In a real app, this would generate a PDF or CSV
@@ -115,10 +123,10 @@ const ReportsPanel = ({ items, movements }) => {
                                 Category
                             </label>
                             <Select
-                                value={filter.category}
-                                onValueChange={(value) =>
-                                    setFilter({ ...filter, category: value })
-                                }
+                            // value={filter.category}
+                            // onValueChange={(value) =>
+                            //     setFilter({ ...filter, category: value })
+                            // }
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select category" />
@@ -178,7 +186,7 @@ const ReportsPanel = ({ items, movements }) => {
                     </div>
 
                     <Tabs defaultValue="inventory">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full md:grid-cols-2 grid-cols-1">
                             <TabsTrigger value="inventory">
                                 Inventory Status
                             </TabsTrigger>
@@ -210,15 +218,26 @@ const ReportsPanel = ({ items, movements }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        {/* <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="p-4 text-center text-muted-foreground"
+                                            >
+                                                No items match the selected
+                                                filters
+                                            </td>
+                                        </tr> */}
+
                                         {filteredItems.length > 0 ? (
                                             filteredItems.map((item) => {
                                                 const isLowStock =
-                                                    item.quantity <=
-                                                    item.reorderThreshold;
+                                                    item.stock[0]?.stocks <= 5;
+
                                                 const isExpiring =
-                                                    item.expirationDate &&
+                                                    item.stocks_movement[0]
+                                                        .expiry_date &&
                                                     new Date(
-                                                        item.expirationDate
+                                                        item.stocks_movement[0].expiry_date
                                                     ).getTime() -
                                                         new Date().getTime() <
                                                         30 *
@@ -233,14 +252,24 @@ const ReportsPanel = ({ items, movements }) => {
                                                         className="border-t"
                                                     >
                                                         <td className="p-2">
-                                                            {item.name}
+                                                            {
+                                                                item
+                                                                    .stocks_movement[0]
+                                                                    .inventory_name
+                                                            }
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.category}
+                                                            {item.category.name}
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.quantity}{" "}
-                                                            {item.unit}s
+                                                            {item.stock[0]
+                                                                .stocks ??
+                                                                0}{" "}
+                                                            {
+                                                                item?.stock[0]
+                                                                    ?.stockname
+                                                            }
+                                                            s
                                                         </td>
                                                         <td className="p-2">
                                                             {isLowStock && (
@@ -265,10 +294,17 @@ const ReportsPanel = ({ items, movements }) => {
                                                                 )}
                                                         </td>
                                                         <td className="p-2">
-                                                            {item.expirationDate
+                                                            {item
+                                                                .stocks_movement[0]
+                                                                .expiry_date
                                                                 ? format(
                                                                       new Date(
-                                                                          item.expirationDate
+                                                                          item?.stocks_movement?.[
+                                                                              item
+                                                                                  ?.stocks_movement
+                                                                                  ?.length -
+                                                                                  1
+                                                                          ]?.expiry_date
                                                                       ),
                                                                       "MMM dd, yyyy"
                                                                   )
@@ -311,67 +347,75 @@ const ReportsPanel = ({ items, movements }) => {
                                                 Quantity
                                             </th>
                                             <th className="text-left p-2">
+                                                Reason
+                                            </th>
+                                            <th className="text-left p-2">
                                                 Staff
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredMovements.length > 0 ? (
-                                            filteredMovements.map(
-                                                (movement) => {
-                                                    const item = items.find(
-                                                        (i) =>
-                                                            i.id ===
-                                                            movement.itemId
-                                                    );
-
-                                                    return (
-                                                        <tr
-                                                            key={movement.id}
-                                                            className="border-t"
-                                                        >
-                                                            <td className="p-2">
-                                                                {format(
-                                                                    new Date(
-                                                                        movement.date
-                                                                    ),
-                                                                    "MMM dd, yyyy"
-                                                                )}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {item?.name ||
-                                                                    "Unknown Item"}
-                                                            </td>
-                                                            <td className="p-2">
-                                                                <span
-                                                                    className={`font-medium ${
-                                                                        movement.type ===
-                                                                        "incoming"
-                                                                            ? "text-green-600"
-                                                                            : "text-red-600"
-                                                                    }`}
-                                                                >
-                                                                    {movement.type ===
-                                                                    "incoming"
-                                                                        ? "Incoming"
-                                                                        : "Outgoing"}
-                                                                </span>
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {
-                                                                    movement.quantity
-                                                                }{" "}
-                                                                {item?.unit}s
-                                                            </td>
-                                                            <td className="p-2">
-                                                                {
-                                                                    movement.performedBy
-                                                                }
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                }
-                                            )
+                                        {movements.length > 0 ? (
+                                            movements.map((movement) => {
+                                                // const item = items.find(
+                                                //     (i) => i.id === item.itemId
+                                                // );
+                                                return (
+                                                    <tr
+                                                        key={movement.id}
+                                                        className="border-t"
+                                                    >
+                                                        <td className="p-2">
+                                                            {format(
+                                                                new Date(
+                                                                    movement.created_at
+                                                                ),
+                                                                "MMM dd, yyyy"
+                                                            )}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement?.inventory_name ||
+                                                                "Unknown Item"}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            <span
+                                                                className={`font-medium ${
+                                                                    movement.type ===
+                                                                    "Incoming"
+                                                                        ? "text-green-600"
+                                                                        : "text-red-600"
+                                                                }`}
+                                                            >
+                                                                {movement.type ===
+                                                                "Incoming"
+                                                                    ? "Incoming"
+                                                                    : "Outgoing"}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement.quantity}{" "}
+                                                            {
+                                                                movement?.stocks
+                                                                    ?.stockname
+                                                            }
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {movement?.reason ??
+                                                                "(No reason)"}
+                                                        </td>
+                                                        <td className="p-2">
+                                                            {
+                                                                movement.staff
+                                                                    .firstname
+                                                            }{" "}
+                                                            {
+                                                                movement.staff
+                                                                    .lastname
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
                                         ) : (
                                             <tr>
                                                 <td

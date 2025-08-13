@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\SendNotification;
 use App\Models\appointments;
+use App\Models\medical_history;
 use App\Models\servicetypes;
 use App\Models\subservices;
 use App\Notifications\SystemNotification;
@@ -137,7 +138,8 @@ class PatientController extends Controller
         return Inertia::render("Authenticated/Patient/MedicalRecordsPage",[
             'userData' => [
                 'avatar' => $user->avatar
-            ]
+            ],
+            'records' => medical_history::with(['attachments','doctor','doctor.user'])->where('user_id', $user->id)->orderBy('created_at','desc')->get(),
         ]);
     }
 

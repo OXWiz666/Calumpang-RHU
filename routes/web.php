@@ -39,17 +39,31 @@ use Illuminate\Support\Facades\Broadcast;
 // Auth Routes
 
 Route::middleware(['Guest'])->group(function () {
-    Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+    Route::post('/login/{role}', [AuthController::class, 'login'])->name('login.submit');
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('forgot.password');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+
+    Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
 
     Route::post('/forgotpw-post',[AuthController::class,'forgotPwFormPost'])->name('forgotpw.post');
 
     Route::get('/forgotpw-post/reset/{token}',[AuthController::class,'showResetPassword'])->name('forgotpw.reset.get');
 
     Route::post('/forgotpw/reset/{token}',[AuthController::class,'ResetPassword'])->name('forgotpw.reset.post');
+
+    Route::post('/search-email/', [AuthController::class,'SearchEmail'])->name('search.email');
+
+    Route::get('/forgotpw/new-password/{token}',[AuthController::class,'NewPassword'])->name('password.reset');
+
+    Route::post('/forgotpw/new-password/save',[AuthController::class,'StoreNewPassword'])->name('passowrd.reset.save');
+
+
+
+    //Route::post('/login/{role}',[AuthController::class,'login'])->name('login.staff.submit');
+
+    //Route::post('',[AuthController::class,''])->name(
 });
 
 Route::middleware(['AdminGuest'])->group(function (){
@@ -113,12 +127,36 @@ Route::middleware(['auth','Doctor'])->group(function(){
     });
 });
 
+Route::middleware(['auth', 'AdminPhar'])->group(function () {
+    Route::prefix('inventory')->group(function(){
+        Route::get('/',[InventoryController::class,'index'])->name('admin.inventory.index');
+        Route::post('/category/add',[InventoryController::class,'add_category'])->name('admin.inventory.category');
+        Route::post('/item/add',[InventoryController::class,'add_item'])->name('admin.inventory.item.add');
+        Route::delete('/category/delete/{category}',[InventoryController::class,'delete_category'])->name('admin.inventory.category.delete');
+        Route::put('/category/update/{category}',[InventoryController::class,'update_category'])->name('admin.inventory.category.update');
+
+
+        Route::put('/item/update/{inventory}',[InventoryController::class,'update_item'])->name('admin.inventory.item.update');
+        Route::delete('/item/delete/{inventory}',[InventoryController::class,'delete_item'])->name('admin.inventory.item.delete');
+
+         Route::put('/item/stock_movement/update/{movement}',[InventoryController::class,'update_stock_movement'])->name('admin.inventory.item.stockmovement.update');
+        //Route::get('/',[DoctorController::class,''])->name('');
+    });
+
+    Route::prefix('settings')->group(function(){
+            Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
+            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
+        });
+});
+
+
+
 Route::middleware(['auth','Admin'])->group(function(){
     Route::prefix('admin')->group(function(){
         Route::get('/',[AdminDashboardController::class,'index'])->name('admin');
 
 
-        Route::get('/inventory',[InventoryController::class,'index'])->name('admin.inventory.index');
+
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
 
@@ -150,10 +188,7 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
         });
 
-        Route::prefix('settings')->group(function(){
-            Route::get('/',[SettingsController::class,'index'])->name('admin.settings.index');
-            Route::get('/password',[SettingsController::class,'pwsettings'])->name('admin.settings.pw');
-        });
+
 
         Route::prefix('landing-page')->group(function(){
             Route::get('/messages',[MessagesController::class,'index'])->name('admin.landing.messages');
@@ -175,8 +210,18 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         Route::post('/appointments/unarchive',[AppointmentsController::class,'unarchiveAppointment'])->name('admin.appointments.unarchive');
         Route::get('/appointment/get/{appointment}', [AppointmentsController::class,'GetAppointment'])->name('admin.appointment.get');
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
-        Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
+        //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
+        Route::get('/patients',[PatientsController::class,'index'])->name('patients.index');
+        Route::post('/patients/add-medical/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
+        //add_medical_rec(Request $request, User $patientid)
+
+        Route::get('/patients/details/{id}',[PatientsController::class,'PatientDetails'])->name('patients.details.view');
+
+        //Route::resource('patients',PatientsController::class);
+        //Route::get('auth/patients',[PatientsController::class,'index'])->name('admin.patients.index');
+
+        Route::post('/patients/add_medical_record/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
 
         Route::post('/settings/pw/update',[SettingsController::class,'changePw'])->name('admin.settings.pw.update');
 
@@ -211,33 +256,3 @@ Route::middleware(['auth:sanctum','Midwife'])->group(function(){
         Route::get('/',[MidwifeController::class, 'index'])->name('midwife.dashboard');
     });
 });
-
-
-
-
-
-
-
-
-
-
-// Route::get('/', function () {
-//     return Inertia::render('Welcome', [
-//         'canLogin' => Route::has('login'),
-//         'canRegister' => Route::has('register'),
-//         'laravelVersion' => Application::VERSION,
-//         'phpVersion' => PHP_VERSION,
-//     ]);
-// });
-
-// Route::get('/dashboard', function () {
-//     return Inertia::render('Dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
-
-// Route::middleware('auth')->group(function () {
-//     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-//     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-//     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-// });
-
-//require __DIR__.'/auth.php';

@@ -3,6 +3,7 @@
 use App\Http\Middleware\AdminDoctorMiddleware;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\AdminOrGuest;
+use App\Http\Middleware\AdminPharmacistMiddleware;
 use App\Http\Middleware\DoctorMiddleware;
 use App\Http\Middleware\GuestMiddleware;
 use Illuminate\Foundation\Application;
@@ -14,6 +15,7 @@ use App\Http\Middleware\GuestOrPatient;
 use App\Http\Middleware\MidwifeMiddleware;
 use App\Http\Middleware\PatientMiddlware;
 use App\Http\Middleware\PharmacistMiddleware;
+
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -46,7 +48,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'Patient' => PatientMiddlware::class,
             'Admin' => AdminMiddleware::class,
             'AdminDoctor' => AdminDoctorMiddleware::class,
-            'AdminGuest' => AdminOrGuest::class
+            'AdminGuest' => AdminOrGuest::class,
+
+            'AdminPhar' => AdminPharmacistMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

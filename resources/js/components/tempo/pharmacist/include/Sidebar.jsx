@@ -1,0 +1,208 @@
+import React, { useState } from "react";
+import { Link, usePage } from "@inertiajs/react";
+import NavLink from "@/components/NavLink";
+import {
+    Users,
+    Calendar,
+    HeartPulse,
+    Package,
+    MessageSquare,
+    BarChart3,
+    Settings,
+    LogOut,
+    Menu,
+    X,
+    Home,
+    Stethoscope,
+    UsersRound,
+    Layers,
+    Mail,
+    Boxes,
+} from "lucide-react";
+import { cn } from "@/components/tempo/lib/utils";
+import { Button } from "@/components/tempo/components/ui/button";
+import { router } from "@inertiajs/react";
+// interface SidebarProps {
+//   activePage?: string;
+//   userRole?: "Admin" | "Doctor" | "Pharmacist";
+// }
+
+import { useSidebarState } from "@/Layouts/AdminLayout";
+
+const Sidebar = ({ activePage, userRole = "Admin" }) => {
+    const { sidebarstate, setSidebarstate } = useSidebarState();
+
+    //const [sidebarstate, setCollapsed] = useState(sidebarstate);
+
+    const menuItems = [
+        {
+            title: "Inventory",
+            icon: <Boxes className="h-5 w-5" />,
+            route: "admin.inventory.index",
+            path: route("admin.inventory.index"),
+            id: "Inventory",
+            roles: ["Admin"],
+        },
+        {
+            title: "Settings",
+            icon: <Settings className="h-5 w-5" />,
+            route: "admin.settings*", // FOR ACTIVE NAV
+            path: route("admin.settings.index"),
+            id: "settings",
+            roles: ["Admin"],
+        },
+    ];
+
+    const filteredMenuItems = menuItems.filter((item) =>
+        item.roles.includes(userRole)
+    );
+
+    const landingPageLinks = [
+        {
+            title: "Messages",
+            icon: <Mail className="h-5 w-5" />,
+            route: "admin.landing.messages", // FOR ACTIVE NAV
+            path: route("admin.landing.messages"),
+            id: "messages",
+        },
+    ];
+
+    const user = usePage().props.auth.user;
+    const role = usePage().props.auth.role;
+    //const [activePage, setActivePage] = useState('dashboard');
+    return (
+        <div
+            className={cn(
+                "flex flex-col h-full bg-white border-r transition-all duration-300 shadow-sm",
+                sidebarstate ? "w-20" : "w-64 md:w-72"
+            )}
+        >
+            {/* Header with logo */}
+            <div className="flex items-center justify-between p-4 border-b">
+                <div className="flex items-center">
+                    {!sidebarstate && (
+                        <div className="flex flex-col">
+                            <h1 className="font-bold text-lg text-primary">
+                                RHU Calumpang
+                            </h1>
+                            <p className="text-xs text-muted-foreground">
+                                Management System
+                            </p>
+                        </div>
+                    )}
+                    {sidebarstate && (
+                        <div className="mx-auto">
+                            <span className="font-bold text-xl text-primary">
+                                RHU
+                            </span>
+                        </div>
+                    )}
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={
+                        () => setSidebarstate(!sidebarstate)
+                        //setCollapsed(!sidebarstate)
+                    }
+                    className="ml-auto"
+                >
+                    {sidebarstate ? (
+                        <Menu className="h-5 w-5" />
+                    ) : (
+                        <X className="h-5 w-5" />
+                    )}
+                </Button>
+            </div>
+
+            {/* Navigation menu */}
+            <nav className="flex-1 overflow-y-auto py-4">
+                <ul className="space-y-1 px-2">
+                    <div>
+                        <b>Menu</b>
+                    </div>
+                    {filteredMenuItems.map((item) => (
+                        <li key={item.id}>
+                            <Link
+                                href={item.path}
+                                className={cn(
+                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                    route().current(item.route) && item.route
+                                        ? "bg-primary text-primary-foreground"
+                                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                                    sidebarstate && "justify-center px-0"
+                                )}
+                            >
+                                {item.icon}
+                                {!sidebarstate && (
+                                    <span className="ml-3">{item.title}</span>
+                                )}
+                            </Link>
+                        </li>
+                    ))}
+                    <div>
+                        <b>Landing Page</b>
+                    </div>
+                    {landingPageLinks.map((item) => (
+                        <li key={item.id}>
+                            <Link
+                                href={item.path}
+                                className={cn(
+                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                                    route().current(item.route) && item.route
+                                        ? "bg-primary text-primary-foreground"
+                                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                                    sidebarstate && "justify-center px-0"
+                                )}
+                            >
+                                {item.icon}
+                                {!sidebarstate && (
+                                    <span className="ml-3">{item.title}</span>
+                                )}
+                            </Link>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            {/* User role indicator */}
+            <div className="mt-auto border-t p-4">
+                <div
+                    className={cn(
+                        "flex items-center",
+                        sidebarstate && "justify-center"
+                    )}
+                >
+                    <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+                        {userRole[0]}
+                    </div>
+                    {!sidebarstate && (
+                        <div className="ml-3">
+                            <p className="text-sm font-medium">
+                                {user.firstname} {user.lastname}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {role.roletype}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Logout button */}
+                <Button
+                    variant="ghost"
+                    className={cn(
+                        "w-full mt-4 text-muted-foreground hover:text-foreground",
+                        sidebarstate && "px-0"
+                    )}
+                    onClick={(e) => router.post("/logout")}
+                >
+                    <LogOut className="h-5 w-5" />
+                    {!sidebarstate && <span className="ml-2">Logout</span>}
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+export default Sidebar;

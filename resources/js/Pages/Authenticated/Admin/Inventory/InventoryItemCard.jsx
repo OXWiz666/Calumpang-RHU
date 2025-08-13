@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Card,
     CardContent,
@@ -11,15 +11,28 @@ import { Button } from "@/components/tempo/components/ui/button";
 import { ChevronDown, ChevronUp, AlertTriangle, Clock } from "lucide-react";
 
 import { format } from "date-fns";
+import CustomModal from "@/components/CustomModal";
+import { router, useForm } from "@inertiajs/react";
+import InputLabel from "@/components/InputLabel";
+import { Label } from "@/components/tempo/components/ui/label";
+import { Input } from "@/components/tempo/components/ui/input";
+
+import { DialogFooter } from "@/components/tempo/components/ui/dialog";
 
 const InventoryItemCard = ({ item, onUpdateClick }) => {
     const [expanded, setExpanded] = useState(false);
 
-    const isLowStock = item.quantity <= item.reorderThreshold;
+    const isLowStock = item?.stock[0]?.stocks <= 5;
 
     const isExpiring =
-        item.expirationDate &&
-        new Date(item.expirationDate).getTime() - new Date().getTime() <
+        item?.stocks_movement?.[item?.stocks_movement?.length - 1]
+            ?.expiry_date &&
+        new Date(
+            item?.stocks_movement?.[
+                item?.stocks_movement?.length - 1
+            ]?.expiry_date
+        ).getTime() -
+            new Date().getTime() <
             30 * 24 * 60 * 60 * 1000; // 30 days
 
     const getBadgeColor = (category) => {
@@ -35,6 +48,64 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
             default:
                 return "bg-gray-100 text-gray-800";
         }
+    };
+    // useEffect(() => {
+    //     console.log("item:", item);
+    // }, [item]);
+    const {
+        data,
+        setData,
+        post,
+        recentlySuccessful,
+        processing,
+        errors,
+        put: updateItem,
+        delete: destroyItem,
+    } = useForm({
+        itemname: item?.name,
+        categoryid: item?.category_id,
+        // unit_type: "",
+        // quantity: 0,
+        // expirydate: new Date(),
+    });
+
+    const [cDeleting, setCDeleting] = useState(false);
+    const [cUpdating, setCUpdating] = useState(false);
+
+    const Edit_Item = (e) => {
+        e.preventDefault();
+
+        updateItem(
+            route("admin.inventory.item.update", { inventory: item.id }),
+            {
+                onFinish: () => {
+                    router.reload({
+                        only: ["flash", "inventory"],
+                    });
+                },
+                onSuccess: () => {
+                    setCUpdating(false);
+                },
+            }
+        );
+    };
+
+    const Delete_Item = (e) => {
+        e.preventDefault();
+
+        destroyItem(
+            route("admin.inventory.item.delete", { inventory: item.id }),
+            {
+                onFinish: () => {
+                    router.reload({
+                        only: ["flash", "inventory"],
+                    });
+                },
+                onSuccess: () => {
+                    setCUpdating(false);
+                },
+            }
+        );
     };
 
     return (
@@ -54,8 +125,10 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                             {item.name}
                         </CardTitle>
                         <div className="flex gap-2 mt-1">
-                            <Badge className={getBadgeColor(item.category)}>
-                                {item.category}
+                            <Badge
+                                className={getBadgeColor(item.category.name)}
+                            >
+                                {item.category.name}
                             </Badge>
                             {isLowStock && (
                                 <Badge
@@ -103,23 +176,115 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                 isLowStock ? "text-red-600" : ""
                             }`}
                         >
-                            {item.quantity} {item.unit}s
+                            {item.stock[0]?.stocks} {item.stock[0]?.stockname}s
                         </p>
                     </div>
-                    <div>
+                    {/* <div>
                         <p className="text-sm text-muted-foreground">
                             Reorder At
                         </p>
                         <p className="font-medium">
                             {item.reorderThreshold} {item.unit}s
                         </p>
-                    </div>
+                    </div> */}
+                </div>
+
+                <div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-1/2 mt-2 hover:bg-secondary/80 transition-colors font-medium"
+                        onClick={() => {
+                            setCUpdating(true);
+                        }}
+                    >
+                        Edit Item
+                    </Button>
+
+                    <CustomModal
+                        isOpen={cUpdating}
+                        onClose={(e) => {
+                            setCUpdating(false);
+                        }}
+                        title={`Updating an Item`}
+                        description={`Update ${item?.name} item here.`}
+                        maxWidth="md"
+                    >
+                        <div>
+                            <InputLabel value={"Item Name*"} />
+                            <Input
+                                value={data?.itemname}
+                                onChange={(e) =>
+                                    setData("itemname", e.target.value)
+                                }
+                            />
+                        </div>
+                        <DialogFooter className="pt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={(e) => {
+                                    setCUpdating(false);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                className="bg-primary hover:bg-primary/90"
+                                disabled={processing}
+                                onClick={Edit_Item}
+                            >
+                                Update Item
+                            </Button>
+                        </DialogFooter>
+                    </CustomModal>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-1/2"
+                        onClick={(e) => {
+                            setCDeleting(true);
+                        }}
+                    >
+                        Delete Item
+                    </Button>
+
+                    <CustomModal
+                        isOpen={cDeleting}
+                        onClose={(e) => {
+                            setCDeleting(false);
+                        }}
+                        title={`Deleting an Item.`}
+                        description={`Are you sure you want to delete this item ${item?.name}?`}
+                        maxWidth="md"
+                    >
+                        <DialogFooter className="pt-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={(e) => {
+                                    setCDeleting(false);
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                className="bg-primary hover:bg-primary/90"
+                                disabled={processing}
+                                onClick={Delete_Item}
+                            >
+                                Delete Item
+                            </Button>
+                        </DialogFooter>
+                    </CustomModal>
                 </div>
 
                 {expanded && (
                     <div className="mt-4 border-t pt-3">
-                        <div className="grid grid-cols-2 gap-3">
-                            {item.expirationDate && (
+                        <div className="grid grid-cols-3 gap-3">
+                            {item?.stocks_movement?.[0]?.expiry_date && (
                                 <div>
                                     <p className="text-sm text-muted-foreground">
                                         Expiration Date
@@ -130,7 +295,12 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                         }`}
                                     >
                                         {format(
-                                            new Date(item.expirationDate),
+                                            new Date(
+                                                item?.stocks_movement?.[
+                                                    item?.stocks_movement
+                                                        ?.length - 1
+                                                ]?.expiry_date
+                                            ),
                                             "MMM dd, yyyy"
                                         )}
                                     </p>
@@ -142,14 +312,16 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                 </p>
                                 <p className="font-medium">
                                     {format(
-                                        new Date(item.lastUpdated),
+                                        new Date(
+                                            item.stocks_movement[0]?.updated_at
+                                        ),
                                         "MMM dd, yyyy"
                                     )}
                                 </p>
                             </div>
                             {item.isVaccine && (
                                 <>
-                                    {item.batchNumber && (
+                                    {/* {item.batchNumber && ( ####time
                                         <div>
                                             <p className="text-sm text-muted-foreground">
                                                 Batch Number
@@ -158,7 +330,7 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
                                                 {item.batchNumber}
                                             </p>
                                         </div>
-                                    )}
+                                    )} */}
                                     {item.lotNumber && (
                                         <div>
                                             <p className="text-sm text-muted-foreground">

@@ -80,4 +80,8 @@ class User extends Authenticatable
         ->with('program_schedule.program_type.service');
     }
 
+    public function medical_histories(){
+        return $this->hasMany(medical_history::class,'user_id','id');
+    }
+
 }

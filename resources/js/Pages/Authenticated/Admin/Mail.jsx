@@ -44,6 +44,7 @@ import DangerButton from "@/components/DangerButton";
 
 import { Pencil, Trash2 } from "lucide-react";
 import moment from "moment";
+import CreatePageLinks from "@/components/CreatePageLinks";
 export default function Mail({ messages }) {
     const [mssgs, setMssgs] = useState(messages.data);
 
@@ -114,6 +115,8 @@ export default function Mail({ messages }) {
             button: true,
         },
     ];
+
+    const { links } = usePage().props.messages; // Get pagination links
     return (
         <AdminLayout header="Mail">
             <motion.div
@@ -139,6 +142,7 @@ export default function Mail({ messages }) {
                         />
                         {/* <div>aszxcd</div> */}
                     </div>
+                    <CreatePageLinks links={links} />
                 </div>
             </motion.div>
         </AdminLayout>

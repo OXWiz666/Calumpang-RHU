@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, usePage, Head, useForm } from "@inertiajs/react";
+import { Link, usePage, Head, useForm, router } from "@inertiajs/react";
 import LoginLayout from "@/Layouts/LoginLayout";
 import { toast } from "react-toastify";
 import NavLink from "@/Components/NavLink";
@@ -20,7 +20,7 @@ export default function Login2({ flash }) {
 
     const submit = (e) => {
         e.preventDefault();
-        post(route("login.submit"), {
+        post(route("login.submit", { role: 5 }), {
             onError: (e) => {
                 console.log(e);
             },
@@ -29,18 +29,6 @@ export default function Login2({ flash }) {
 
     // Handle flash messages
     const { errors } = usePage().props;
-
-    //   useEffect(() => {
-    //     if (errors.error) {
-    //       alert_toast('Error', errors.error, 'error');
-    //     }
-    //   }, [errors]);
-
-    // useEffect(() => {
-    //     if (flash) {
-    //         alert_toast(flash.title, flash.message, flash.icon);
-    //     }
-    // }, [flash]);
 
     return (
         <LoginLayout>
@@ -238,7 +226,10 @@ export default function Login2({ flash }) {
                                         Remember me
                                     </label>
                                 </div>
-                                <Link className="text-sm font-medium text-black hover:text-gray-800 transition-colors">
+                                <Link
+                                    className="text-sm font-medium text-black hover:text-gray-800 transition-colors"
+                                    href="/forgot-password"
+                                >
                                     Forgot your password?
                                 </Link>
                             </div>
