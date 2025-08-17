@@ -45,7 +45,7 @@ Route::middleware(['Guest'])->group(function () {
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('forgot.password');
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 
-    Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
+    //Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
 
     Route::post('/forgotpw-post',[AuthController::class,'forgotPwFormPost'])->name('forgotpw.post');
 
@@ -59,7 +59,7 @@ Route::middleware(['Guest'])->group(function () {
 
     Route::post('/forgotpw/new-password/save',[AuthController::class,'StoreNewPassword'])->name('passowrd.reset.save');
 
-
+    // Route
 
     //Route::post('/login/{role}',[AuthController::class,'login'])->name('login.staff.submit');
 
