@@ -6,26 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('program_sessions', function (Blueprint $table) {
-            $table->integer('id',true,true); // Equivalent to INT AUTO_INCREMENT PRIMARY KEY
+            $table->id(); // Changed from integer to bigIncrements to match Laravel's default
             $table->foreignId('registration_id')->constrained('program_registrations');
             $table->date('session_date');
             $table->string('conducted_by', 100);
             $table->text('notes')->nullable();
             $table->unsignedInteger('session_number');
             $table->enum('status', ['Completed', 'Scheduled', 'Missed'])->default('Scheduled');
-            $table->timestamps(); // Adds created_at and updated_at columns
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('program_sessions');

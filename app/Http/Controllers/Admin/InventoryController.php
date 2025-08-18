@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+
 class InventoryController extends Controller
 {
     //
@@ -23,7 +24,11 @@ class InventoryController extends Controller
         return Inertia::render('Authenticated/Admin/Inventory/InventoryDashboard',[
             'categories' => icategory::get(),
             'inventory' => inventory::with(['category','stock','stocks_movement'])->get(),
-            'movements_' => istock_movements::with(['inventory','staff','stocks'])->get(),
+            'movements_' => istock_movements::with(['inventory','staff','stocks'])
+            ->select(['id', 'created_at', 'type', 'quantity', 'reason', 'batch_number', 'inventory_name', 'staff_id', 'stock_id'])
+            ->orderBy('created_at', 'desc')
+            ->get(),
+            'items' => Inventory::with(['category', 'stock', 'stocks_movement'])->get(),
         ]);
     }
 
@@ -35,7 +40,6 @@ class InventoryController extends Controller
         icategory::insert([
             'name' => $request->categoryname
         ]);
-
 
         return back()->with([
             'flash' => [
@@ -67,8 +71,6 @@ class InventoryController extends Controller
             'name' => $request->categoryname
         ]);
 
-
-
        return back()->with([
             'flash' => [
                 'title' => 'Success!',
@@ -77,8 +79,6 @@ class InventoryController extends Controller
             ]
         ]);
     }
-
-
 
     public function update_stock_movement(Request $request,istock_movements $movement){
 
@@ -94,6 +94,9 @@ class InventoryController extends Controller
             ])
         ],
         'expiry' => 'required|date|after_or_equal:today',
+        'batchNumber' => [
+            Rule::when($request->type == "Incoming", ['required', 'string', 'min:3']),
+        ]
     ]);
 
         //dd($request);
@@ -113,7 +116,8 @@ class InventoryController extends Controller
             'quantity' => $request->quantity,
             'reason' => $request->reason,
             'staff_id' => Auth::user()->id,
-            'expiry_date' => $request->expiry
+            'expiry_date' => $request->expiry,
+            'batch_number' => $request->type === "Incoming" ? $request->batchNumber : null,
         ]);
 
         $movement->stocks()->update([
@@ -159,7 +163,6 @@ class InventoryController extends Controller
             // Delete related records first if needed
             $inventory->stock()->delete(); // If one-to-one
 
-
             // Then delete the main inventory record
             $inventory->delete();
 
@@ -178,7 +181,6 @@ class InventoryController extends Controller
             ]);
         }
 
-
        return back()->with([
             'flash' => [
                 'title' => 'Success!',
@@ -187,6 +189,7 @@ class InventoryController extends Controller
             ]
         ]);
     }
+    
     public function update_item (Request $request,inventory $inventory){
         $request->validate([
             'itemname' => "required",
@@ -218,7 +221,6 @@ class InventoryController extends Controller
             ]);
         }
 
-
         return back()->with([
             'flash' => [
                 'title' => 'Success!',
@@ -227,6 +229,7 @@ class InventoryController extends Controller
             ]
         ]);
     }
+    
     public function add_item(Request $request){
         $request->validate([
             'itemname' => "required",
@@ -234,6 +237,7 @@ class InventoryController extends Controller
             'unit_type' => 'required|min:3',
             'quantity' => "required|min:0",
             'expirydate' => "required|date|after_or_equal:today",
+            'batchNumber' => "required|string|min:3",
         ]);
         try{
             DB::beginTransaction();
@@ -256,7 +260,8 @@ class InventoryController extends Controller
                 'quantity' => $request->quantity,
                 'expiry_date' => $request->expirydate,
                 'inventory_name' => $inventory->name,
-                'stock_id' => $stock->id
+                'stock_id' => $stock->id,
+                'batch_number' => $request->batchNumber,
             ]);
 
             DB::commit();
@@ -271,7 +276,6 @@ class InventoryController extends Controller
                 ]
             ]);
         }
-
 
         return back()->with([
             'flash' => [

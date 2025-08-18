@@ -40,7 +40,6 @@ export const useSidebarState = create((set) => ({
 
 export default function AdminLayout({ header, children, tools }) {
     const role = usePage().props.auth.role;
-
     const { auth } = usePage().props;
     const [datas, setDatas] = useState(auth);
     useEffect(() => {
@@ -87,14 +86,6 @@ export default function AdminLayout({ header, children, tools }) {
                         {header && (
                             <h1 className="text-2xl font-bold">{header}</h1>
                         )}
-                        <div className="relative max-w-md hidden md:block">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="search"
-                                placeholder="Search..."
-                                className="pl-8 w-[300px] bg-white"
-                            />
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-4">

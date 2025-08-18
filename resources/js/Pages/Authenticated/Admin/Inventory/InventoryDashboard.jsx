@@ -332,11 +332,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
 
                 <div className=" mb-5">
                     <h1 className="text-3xl font-bold mb-2">Inventory</h1>
-                    {/* <p className="text-gray-600">
-                            Book your visit to Barangay Calumpang Health Center.
-                            Please fill out the form below with your information
-                            and preferred appointment details.
-                        </p> */}
+
                     <p className="text-muted-foreground"></p>
                 </div>
 
@@ -857,7 +853,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                     setItems([...items, newItem]);
                     setFilteredItems([...items, newItem]);
                 }}
-                categories_={categories}
+                categories={categories}
             />
         </AdminLayout>
     );

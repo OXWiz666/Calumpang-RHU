@@ -338,6 +338,9 @@ const ReportsPanel = ({ items, movements }) => {
                                                 Date
                                             </th>
                                             <th className="text-left p-2">
+                                                Batch Number
+                                            </th>
+                                            <th className="text-left p-2">
                                                 Item
                                             </th>
                                             <th className="text-left p-2">
@@ -374,6 +377,10 @@ const ReportsPanel = ({ items, movements }) => {
                                                             )}
                                                         </td>
                                                         <td className="p-2">
+                                                            {movement?.batch_number ||
+                                                                "N/A"}
+                                                        </td>
+                                                        <td className="p-2">
                                                             {movement?.inventory_name ||
                                                                 "Unknown Item"}
                                                         </td>
@@ -400,8 +407,11 @@ const ReportsPanel = ({ items, movements }) => {
                                                             }
                                                         </td>
                                                         <td className="p-2">
-                                                            {movement?.reason ??
-                                                                "(No reason)"}
+                                                            {movement.reason ? (
+                                                                <span>{movement.reason}</span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">(No reason)</span>
+                                                            )}
                                                         </td>
                                                         <td className="p-2">
                                                             {
