@@ -317,21 +317,21 @@ class AuthController extends Controller
                     ]);
         }
 
-        // Get the authenticated user
-        $user = Auth::user();
+        // // Get the authenticated user
+        // $user = Auth::user();
 
-        // Check if the user's role doesn't match the expected role
-        if ($user->roleID != $role) { // Assuming the role is stored in a 'role' column
-            Auth::logout(); // Log the user out since the role doesn't match
-            return back()->with([
-                //'error' => 'You are not authorized to access this area',
-                'flash' => [
-                    'message' => 'You are not authorized to access this area',
-                    'title' => 'Error!',
-                    'icon' => 'error'
-                ]
-            ]);
-        }
+        // // Check if the user's role doesn't match the expected role
+        // if ($user->roleID != $role) { // Assuming the role is stored in a 'role' column
+        //     Auth::logout(); // Log the user out since the role doesn't match
+        //     return back()->with([
+        //         //'error' => 'You are not authorized to access this area',
+        //         'flash' => [
+        //             'message' => 'You are not authorized to access this area',
+        //             'title' => 'Error!',
+        //             'icon' => 'error'
+        //         ]
+        //     ]);
+        // }
 
         return redirect()->intended(route('home'));
     }
