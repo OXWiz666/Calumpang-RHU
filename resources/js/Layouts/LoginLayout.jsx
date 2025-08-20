@@ -3,7 +3,7 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 import Dropdown from "@/Components/Dropdown";
 import NavLink from "@/Components/NavLink";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink";
-import { Link, Head, Head, usePage } from "@inertiajs/react";
+import { Link, Head, usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 export default function LoginLayout({ children }) {
   const { flash } = usePage().props;
