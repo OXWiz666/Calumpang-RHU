@@ -14,8 +14,11 @@ const SearchBar = ({ items, onSearch }) => {
             const categories = [
                 ...new Set(items.map((item) => item.category.name)),
             ];
-
+            const batchNumbers= items
+            .map((item) => item.stocks_movement?.[0]?.batch_number)
+            .filter(Boolean); // Filter out null/undefined values
             const matchedNames = itemNames.filter((name) =>
+
                 name.toLowerCase().includes(query.toLowerCase())
             );
 
@@ -23,7 +26,11 @@ const SearchBar = ({ items, onSearch }) => {
                 category.toLowerCase().includes(query.toLowerCase())
             );
 
-            setSuggestions([...matchedNames, ...matchedCategories]);
+             const matchedBatchNumbers = batchNumbers.filter((batch) =>
+            batch.toLowerCase().includes(query.toLowerCase())
+            );
+
+            setSuggestions([...matchedNames, ...matchedCategories, ...matchedBatchNumbers]);
             setShowSuggestions(true);
         } else {
             setSuggestions([]);
@@ -35,7 +42,8 @@ const SearchBar = ({ items, onSearch }) => {
         const results = items.filter(
             (item) =>
                 item.name.toLowerCase().includes(query.toLowerCase()) ||
-                item.category.name.toLowerCase().includes(query.toLowerCase())
+                item.category.name.toLowerCase().includes(query.toLowerCase()) ||
+                item.stocks_movement?.[0]?.batch_number?.toLowerCase().includes(query.toLowerCase())
         );
         onSearch(results);
         setShowSuggestions(false);
@@ -53,7 +61,9 @@ const SearchBar = ({ items, onSearch }) => {
 
         const results = items.filter(
             (item) =>
-                item.name === suggestion || item.category.name === suggestion
+                item.name === suggestion ||
+                item.category.name === suggestion ||
+                item.stocks_movement?.[0]?.batch_number === suggestion
         );
         onSearch(
             results.length > 0
@@ -65,6 +75,9 @@ const SearchBar = ({ items, onSearch }) => {
                               .includes(suggestion.toLowerCase()) ||
                           item.category.name
                               .toLowerCase()
+                              .includes(suggestion.toLowerCase()) ||
+                          item.stocks_movement?.[0]?.batch_number
+                              .toLowerCase()
                               .includes(suggestion.toLowerCase())
                   )
         );
@@ -75,7 +88,7 @@ const SearchBar = ({ items, onSearch }) => {
             <div className="flex">
                 <Input
                     type="text"
-                    placeholder="Search by medicine name or category..."
+                    placeholder="Search by medicine name, batch number or category..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -94,8 +107,12 @@ const SearchBar = ({ items, onSearch }) => {
                             key={index}
                             className="px-4 py-2 hover:bg-muted cursor-pointer"
                             onClick={() => handleSuggestionClick(suggestion)}
+                            
                         >
-                            {suggestion}
+                           <span>{suggestion}</span>
+                           {items.some(item => item.stocks_movement?.[0]?.batch_number === suggestion) && (
+                               <span className="text-xs text-muted-foreground">Batch Number</span>
+                           )}
                         </div>
                     ))}
                 </div>

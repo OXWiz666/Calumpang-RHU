@@ -28,9 +28,11 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
     const { data, setData, post, processing, recentlySuccessful, errors, put } =
         useForm({
             type: "", //item?.stocks_movement[0]?.type,
+            batchNumber: "",
             quantity: "",
             reason: "",
             expiry: "",
+            
             //performedBy:
         });
 
@@ -43,6 +45,7 @@ const StockMovementForm = ({ open, onClose, item, onSave }) => {
                 expiry: item?.stocks_movement?.[
                     item?.stocks_movement?.length - 1
                 ]?.expiry_date,
+                 batchNumber: item?.stocks_movement[0]?.batch_number || '',
             });
             console.log("item:", item, item?.stocks_movement[0]?.type);
         }

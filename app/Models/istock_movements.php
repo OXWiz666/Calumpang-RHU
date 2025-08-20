@@ -14,7 +14,9 @@ class istock_movements extends Model
         'expiry_date',
         'type',
         'inventory_name',
-        'stock_id'
+        'batch_number',
+        'stock_id',
+        'reason',
     ];
     protected $table = "istock_movements";
     public $timestamps = false;

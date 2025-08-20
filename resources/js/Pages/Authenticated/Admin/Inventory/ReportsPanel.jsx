@@ -275,6 +275,7 @@ const ReportsPanel = ({ items, movements }) => {
                   <thead className="bg-muted">
                     <tr>
                       <th className="text-left p-2">Date</th>
+                      <th className="text-left p-2">Batch Number</th>
                       <th className="text-left p-2">Item</th>
                       <th className="text-left p-2">Type</th>
                       <th className="text-left p-2">Quantity</th>
@@ -297,6 +298,9 @@ const ReportsPanel = ({ items, movements }) => {
                               )}
                             </td>
                             <td className="p-2">
+                              {movement?.batch_number || "N/A"}
+                            </td>
+                            <td className="p-2">
                               {movement?.inventory_name || "Unknown Item"}
                             </td>
                             <td className="p-2">
@@ -316,7 +320,13 @@ const ReportsPanel = ({ items, movements }) => {
                               {movement.quantity} {movement?.stocks?.stockname}
                             </td>
                             <td className="p-2">
-                              {movement?.reason ?? "(No reason)"}
+                              {movement.reason ? (
+                                <span>{movement.reason}</span>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  (No reason)
+                                </span>
+                              )}
                             </td>
                             <td className="p-2">
                               {movement.staff.firstname}{" "}

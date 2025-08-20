@@ -121,9 +121,19 @@ const InventoryItemCard = ({ item, onUpdateClick }) => {
             <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                     <div>
-                        <CardTitle className="text-lg font-medium">
-                            {item.name}
-                        </CardTitle>
+                    <CardTitle className="text-lg font-medium">
+                    {item.name}
+                    {item?.stocks_movement?.[0]?.batch_number && (
+                        <div>
+                           <p className="text-sm text-muted-foreground">
+                            Batch Number:
+                            </p>
+                            <p className="font-medium">
+                                {item?.stocks_movement?.[0]?.batch_number}
+                            </p>
+                        </div>
+                    )}
+                    </CardTitle>
                         <div className="flex gap-2 mt-1">
                             <Badge
                                 className={getBadgeColor(item.category.name)}
