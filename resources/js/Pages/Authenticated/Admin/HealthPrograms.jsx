@@ -4,6 +4,16 @@ import { useForm } from "@inertiajs/react";
 import axios from "axios";
 import InputError from "@/components/InputError";
 
+import {
+    Trash2,
+    ArrowUpCircle,
+    Eye,
+    Calendar,
+    Clock3,
+    MapPin,
+    User as UserIcon,
+    Hash,
+} from "lucide-react";
 // UI Components
 import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
@@ -37,6 +47,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/tempo/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/tempo/components/ui/alert-dialog";
 
 // Statistics Card Component
 const StatisticCard = ({
@@ -126,9 +146,16 @@ const HealthPrograms = ({
         direction: "ascending",
     });
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+    const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [selectedProgram, setSelectedProgram] = useState(null);
     const [successMessage, setSuccessMessage] = useState(flash?.success || "");
     const [errorMessage, setErrorMessage] = useState(flash?.error || "");
     const [isLoading, setIsLoading] = useState(false);
+    const [confirmDialog, setConfirmDialog] = useState({
+        isOpen: false,
+        type: null, // 'archive' | 'unarchive'
+        programId: null,
+    });
 
     // Update localPrograms when programs prop changes
     useEffect(() => {
@@ -310,6 +337,12 @@ const HealthPrograms = ({
                 return (
                     <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">
                         Full
+                    </Badge>
+                );
+            case "Archived":
+                return (
+                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
+                        Archived
                     </Badge>
                 );
             default:
@@ -926,9 +959,7 @@ const HealthPrograms = ({
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                {program.status}
-                                            </span>
+                                            {getStatusBadge(program.status)}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex space-x-2">
@@ -936,22 +967,28 @@ const HealthPrograms = ({
                                                     variant="ghost"
                                                     size="sm"
                                                     className="text-sm px-3 py-1 shadow-sm flex items-center justify-center"
+                                                    onClick={() => {
+                                                        setSelectedProgram(program);
+                                                        setIsViewDialogOpen(true);
+                                                    }}
                                                 >
+                                                    <Eye className="h-4 w-4 mr-2" />
                                                     <span>View</span>
                                                 </Button>
-                                                {program.status ===
-                                                "Archived" ? (
+                                                {program.status === "Archived" ? (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         className="text-sm px-3 py-1 shadow-sm flex items-center justify-center text-green-600 hover:text-green-700 hover:bg-green-50"
                                                         onClick={() =>
-                                                            handleArchiveProgram(
-                                                                program.id,
-                                                                true
-                                                            )
+                                                            setConfirmDialog({
+                                                                isOpen: true,
+                                                                type: 'unarchive',
+                                                                programId: program.id,
+                                                            })
                                                         }
                                                     >
+                                                        <ArrowUpCircle className="h-4 w-4 mr-2" />
                                                         <span>Unarchive</span>
                                                     </Button>
                                                 ) : (
@@ -960,12 +997,14 @@ const HealthPrograms = ({
                                                         size="sm"
                                                         className="text-sm px-3 py-1 shadow-sm flex items-center justify-center text-red-600 hover:text-red-700 hover:bg-red-50"
                                                         onClick={() =>
-                                                            handleArchiveProgram(
-                                                                program.id,
-                                                                false
-                                                            )
+                                                            setConfirmDialog({
+                                                                isOpen: true,
+                                                                type: 'archive',
+                                                                programId: program.id,
+                                                            })
                                                         }
                                                     >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
                                                         <span>Archive</span>
                                                     </Button>
                                                 )}
@@ -977,6 +1016,117 @@ const HealthPrograms = ({
                         </TableBody>
                     </Table>
                 </div>
+                {/* View Program Dialog */}
+                <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+                    <DialogContent className="sm:max-w-[620px] max-h-[85vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="text-xl font-semibold">Program Details</DialogTitle>
+                            <DialogDescription className="text-muted-foreground">
+                                Overview of the selected health program.
+                            </DialogDescription>
+                        </DialogHeader>
+                        {selectedProgram && (
+                            <div className="space-y-5">
+                                <div className="bg-accent/30 rounded-md p-4 border">
+                                    <div className="text-lg font-medium">{selectedProgram.name}</div>
+                                    <div className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                                        {selectedProgram.description}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <Calendar className="h-4 w-4 mt-0.5 text-primary" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Date</div>
+                                            <div className="text-sm font-medium">{selectedProgram.date}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <Clock3 className="h-4 w-4 mt-0.5 text-primary" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Time</div>
+                                            <div className="text-sm font-medium">{selectedProgram.startTime} - {selectedProgram.endTime}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <MapPin className="h-4 w-4 mt-0.5 text-primary" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Location</div>
+                                            <div className="text-sm font-medium">{selectedProgram.location}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <Hash className="h-4 w-4 mt-0.5 text-primary" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Slots</div>
+                                            <div className="text-sm font-medium">{selectedProgram.availableSlots}/{selectedProgram.totalSlots}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <UserIcon className="h-4 w-4 mt-0.5 text-primary" />
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Coordinator</div>
+                                            <div className="text-sm font-medium">{selectedProgram.coordinator}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-3 p-3 rounded-md border">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mt-0.5 text-primary"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+                                        <div>
+                                            <div className="text-xs text-muted-foreground">Status</div>
+                                            <div className="mt-1">{getStatusBadge(selectedProgram.status)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                {/* Confirmation Dialog */}
+                <AlertDialog
+                    open={confirmDialog.isOpen}
+                    onOpenChange={(isOpen) =>
+                        setConfirmDialog({ isOpen, type: null, programId: null })
+                    }
+                >
+                    <AlertDialogContent className="max-w-[400px]">
+                        <AlertDialogHeader>
+                            <AlertDialogTitle className="text-lg font-semibold">
+                                {confirmDialog.type === 'archive' ? 'Archive Program' : 'Unarchive Program'}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription className="text-gray-600">
+                                {confirmDialog.type === 'archive'
+                                    ? 'Are you sure you want to archive this program? This will remove it from the active list.'
+                                    : 'Are you sure you want to unarchive this program? This will return it to the active list.'}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel className="border-gray-200 hover:bg-gray-50">
+                                Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => {
+                                    if (confirmDialog.programId) {
+                                        handleArchiveProgram(
+                                            confirmDialog.programId,
+                                            confirmDialog.type === 'unarchive'
+                                        );
+                                    }
+                                    setConfirmDialog({ isOpen: false, type: null, programId: null });
+                                }}
+                                className={`${
+                                    confirmDialog.type === 'archive'
+                                        ? 'bg-red-600 hover:bg-red-700'
+                                        : 'bg-green-600 hover:bg-green-700'
+                                } text-white`}
+                            >
+                                {confirmDialog.type === 'archive' ? 'Archive' : 'Unarchive'}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </AdminLayout>
     );

@@ -496,7 +496,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                         </p> */}
                 <p className="text-muted-foreground"></p>
             </div>
-            <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex flex-col md:flex-row gap-6">
                 <Sidebar activeTab={"doctors"} />
                 <div className=" bg-accent  rounded-lg shadow-sm p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -556,7 +556,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                         </div>
                     </div>
 
-                    <div className="rounded-md border">
+                    <div className="rounded-md border text-sm">
                         <SortableTable
                             data={doctorsitems}
                             defaultSort={{
@@ -625,22 +625,22 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                     {getStatusBadge(d)}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex space-x-2">
+                                                    <div className="flex gap-2">
                                                         <PrimaryButton
-                                                            className="btn-sm w-32 text-sm px-5 py-2 shadow-md flex items-center justify-center"
+                                                            className="h-8 px-3 text-xs shadow-sm flex items-center justify-center rounded-md"
                                                             onClick={() =>
                                                                 openStatusModal(d)
                                                             }
                                                         >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                             </svg>
-                                                            Edit Status
+                                                            Edit
                                                         </PrimaryButton>
                                                         
                                                         {d.status === 5 ? (
                                                             <PrimaryButton
-                                                                className="btn-sm w-32 bg-green-600 hover:bg-green-700 text-sm px-5 py-2 shadow-md flex items-center justify-center"
+                                                                className="h-8 px-3 bg-green-600 hover:bg-green-700 text-xs shadow-sm flex items-center justify-center rounded-md"
                                                                 onClick={() =>
                                                                     openConfirmDialog(
                                                                         "Unarchive Doctor",
@@ -650,7 +650,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                                     )
                                                                 }
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                                                 </svg>
                                                                 Unarchive
@@ -658,25 +658,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                         ) : (
                                                             <>
                                                                 <PrimaryButton
-                                                                    className="btn-sm w-32 bg-blue-600 hover:bg-blue-700 text-sm px-5 py-2 shadow-md flex items-center justify-center"
-                                                                    onClick={() =>
-                                                                        openConfirmDialog(
-                                                                            "Unarchive Doctor",
-                                                                            `Are you sure you want to unarchive ${d.user.firstname} ${d.user.lastname}'s account?`,
-                                                                            () => unarchiveDoctor(d),
-                                                                            'unarchive'
-                                                                        )
-                                                                    }
-                                                                    disabled={d.status !== 5}
-                                                                    title={d.status !== 5 ? "Only archived accounts can be unarchived" : ""}
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                                    </svg>
-                                                                    Unarchive
-                                                                </PrimaryButton>
-                                                                <PrimaryButton
-                                                                    className="btn-sm w-32 bg-red-600 hover:bg-red-700 text-sm px-5 py-2 shadow-md flex items-center justify-center ml-2"
+                                                                    className="h-8 px-3 bg-red-600 hover:bg-red-700 text-xs shadow-sm flex items-center justify-center rounded-md"
                                                                     onClick={() =>
                                                                         openConfirmDialog(
                                                                             "Archive Doctor",
@@ -686,7 +668,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                                         )
                                                                     }
                                                                 >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                                                     </svg>
                                                                     Archive
