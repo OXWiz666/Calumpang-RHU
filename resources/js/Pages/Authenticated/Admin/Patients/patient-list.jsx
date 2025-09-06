@@ -126,105 +126,79 @@ export default function PatientList({ patients, onSelectPatient }) {
                 </CardContent>
             </Card>
 
-            {/* Patient Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Header row (desktop) */}
+            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide border rounded-md bg-accent/20">
+                <div>Patient</div>
+                <div>Phone</div>
+                <div>Address</div>
+                <div>Last Visit</div>
+                <div className="text-center">Status</div>
+                <div className="text-right pr-2">Action</div>
+            </div>
+
+            {/* Patient List (compact rows) */}
+            <div className="space-y-2">
                 {filteredPatients.map((patient) => (
-                    <Card
+                    <div
                         key={patient?.id}
-                        className="hover:shadow-lg transition-shadow"
+                        className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center gap-3 rounded-lg border bg-white px-4 py-3 hover:shadow-sm hover:bg-accent/30 transition"
                     >
-                        <CardHeader className="pb-3">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <CardTitle className="text-lg">
-                                        {/* {patient?.firstname}{" "}
-                                        {patient?.firstname} */}
-
-                                        <p className="">
-                                            {patient?.firstname}{" "}
-                                            {patient?.lastname}{" "}
-                                        </p>
-                                        <p className=" text-muted-foreground">
-                                            <small>
-                                                Patient ID: {patient.id} • Age:{" "}
-                                                {calculateAge(patient.birth)}
-                                            </small>
-                                        </p>
-                                    </CardTitle>
-                                </div>
-                                <Badge
-                                    variant={
-                                        patient?.status === "active"
-                                            ? "default"
-                                            : "secondary"
-                                    }
-                                >
-                                    {patient?.status}
-                                </Badge>
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+                                {`${patient?.firstname?.[0] ?? ''}${patient?.lastname?.[0] ?? ''}`}
                             </div>
-                            <div className="flex justify-between items-start">
-                                <p className="text-sm text-muted-foreground">
-                                    Join Date:{" "}
-                                    {moment(patient?.created_at).format(
-                                        "MM-DD-yyyy"
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="font-medium truncate">
+                                        {patient?.firstname} {patient?.lastname}
+                                    </div>
+                                    {patient?.gender && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                            {patient.gender.toLowerCase() === 'm' ? 'Male' : patient.gender.toLowerCase() === 'f' ? 'Female' : patient.gender}
+                                        </Badge>
                                     )}
-                                </p>
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                    ID: {patient.id} • Age: {calculateAge(patient.birth)} • Joined {moment(patient?.created_at).format("MM-DD-yyyy")}
+                                </div>
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex items-center gap-2 text-sm">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{patient?.contactno}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-muted-foreground" />
-                                <span className="truncate">
-                                    {patient?.address ?? "Not Set"}
-                                </span>
-                            </div>
-
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                            <Phone className="h-4 w-4" />
+                            <span className="truncate max-w-[160px]">{patient?.contactno || 'Not Set'}</span>
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                            <MapPin className="h-4 w-4" />
+                            <span className="truncate max-w-[220px]">{patient?.address ?? 'Not Set'}</span>
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
                             {patient?.lastVisit && (
-                                <div className="flex items-center gap-2 text-sm">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <>
+                                    <Calendar className="h-4 w-4" />
                                     <span>
-                                        Last visit:{" "}
-                                        {new Date(
-                                            patient?.lastVisit
-                                        ).toLocaleDateString()}
+                                        {new Date(patient?.lastVisit).toLocaleDateString()}
                                     </span>
-                                </div>
+                                </>
                             )}
-
-                            {patient?.bloodType && (
-                                <div className="flex items-center gap-2">
-                                    <Badge
-                                        variant="outline"
-                                        className="text-xs"
-                                    >
-                                        Blood Type: {patient?.bloodType}
-                                    </Badge>
-                                </div>
-                            )}
-
-                            <Button
-                                onClick={() => {
-                                    //onSelectPatient(patient);
-                                    // alert("asd");
-                                    router.visit(
-                                        route("patients.details.view", {
-                                            id: patient?.id,
-                                        })
-                                    );
-                                }}
-                                className="w-full mt-4"
-                                variant="outline"
+                        </div>
+                        <div className="hidden md:flex shrink-0 justify-center">
+                            <Badge
+                                variant={patient?.status === 'active' ? 'default' : 'secondary'}
+                                className="text-[10px] px-2 py-0.5 rounded-full"
                             >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
+                                {patient?.status}
+                            </Badge>
+                        </div>
+                        <div className="flex md:justify-end shrink-0">
+                            <Button
+                                onClick={() => router.visit(route('patients.details.view', { id: patient?.id }))}
+                                variant="outline"
+                                className="h-8 px-3 text-xs"
+                            >
+                                <Eye className="h-3.5 w-3.5 mr-2" /> View
                             </Button>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 ))}
             </div>
 

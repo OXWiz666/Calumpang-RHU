@@ -14,6 +14,7 @@ import {
     Pencil,
     Trash2,
     Eye,
+    ArrowUpCircle,
 } from "lucide-react";
 import {
     Card,
@@ -64,6 +65,18 @@ import PrimaryButton from "@/components/PrimaryButton";
 import DangerButton from "@/components/DangerButton";
 import Label from "@/components/InputLabel";
 import InputError from "@/components/InputError";
+import toast, { Toaster } from "react-hot-toast";
+import axios from "axios";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/tempo/components/ui/alert-dialog";
 // Mock data for appointments
 const mockAppointments = [
     {
@@ -184,21 +197,53 @@ export default function appointments({ appointments_ }) {
         setSortConfig({ key, direction });
     };
 
-    // Get status badge color
+    // Update the status badge styles
     const getStatusBadge = (status) => {
+        const baseStyle =
+            "px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center justify-center transition-all duration-200";
         switch (status) {
             case 2:
-                return <Badge className="bg-green-600">Completed</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-green-50 text-green-700 border border-green-200 hover:bg-green-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-600 mr-2"></div>
+                        Completed
+                    </Badge>
+                );
             case 1:
-                return <Badge className="bg-blue-500">Scheduled</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-600 mr-2"></div>
+                        Scheduled
+                    </Badge>
+                );
             case 3:
-                return <Badge className="bg-red-500">Cancelled</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-red-50 text-red-700 border border-red-200 hover:bg-red-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-600 mr-2"></div>
+                        Cancelled
+                    </Badge>
+                );
             case 4:
-                return <Badge className="bg-red-600">Declined</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-red-50 text-red-700 border border-red-200 hover:bg-red-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-red-600 mr-2"></div>
+                        Declined
+                    </Badge>
+                );
             case 5:
-                return <Badge className="bg-green-500">Confirmed</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-green-50 text-green-700 border border-green-200 hover:bg-green-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-green-600 mr-2"></div>
+                        Confirmed
+                    </Badge>
+                );
             case 6:
-                return <Badge className="bg-blue-600">Pending</Badge>;
+                return (
+                    <Badge className={`${baseStyle} bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100`}>
+                        <div className="h-1.5 w-1.5 rounded-full bg-amber-600 mr-2"></div>
+                        Archived
+                    </Badge>
+                );
             default:
                 return <Badge>{status}</Badge>;
         }
@@ -236,45 +281,44 @@ export default function appointments({ appointments_ }) {
     };
     const { inertia } = usePage();
 
-    // Function to handle archive appointment
-    const handleArchiveAppointment = async (appointmentId) => {
+    // Add new state for confirmation dialog
+    const [confirmDialog, setConfirmDialog] = useState({
+        isOpen: false,
+        type: null, // 'archive' or 'unarchive'
+        appointmentId: null
+    });
+
+    // Update archive function (mirror Services' axios pattern)
+    const handleArchiveAppointment = async (id) => {
         try {
-            const response = await axios.post("/auth/appointments/archive", {
-                appointment_id: appointmentId,
+            const response = await axios.post('/auth/appointments/archive', {
+                appointment_id: id,
             });
 
-            if (response.data.appointments) {
-                // Update the appointments with the new data
-                setAppointments(response.data.appointments.data);
-                alert(response.data.message);
-            }
+            toast.success(response.data?.message || 'Appointment archived successfully');
+            router.reload({ only: ["appointments_"] });
         } catch (error) {
-            console.error("Error archiving appointment:", error);
-            alert(
-                error.response?.data?.message ||
-                    "An error occurred while archiving the appointment"
-            );
+            console.error('Error archiving appointment:', error);
+            toast.error(error.response?.data?.message || 'Failed to archive appointment');
+        } finally {
+            setConfirmDialog({ isOpen: false, type: null, appointmentId: null });
         }
     };
 
-    // Function to handle unarchive appointment
-    const handleUnarchiveAppointment = async (appointmentId) => {
+    // Update unarchive function (mirror Services' axios pattern)
+    const handleUnarchiveAppointment = async (id) => {
         try {
-            const response = await axios.post("/auth/appointments/unarchive", {
-                appointment_id: appointmentId,
+            const response = await axios.post('/auth/appointments/unarchive', {
+                appointment_id: id,
             });
 
-            if (response.data.appointments) {
-                // Update the appointments with the new data
-                setAppointments(response.data.appointments.data);
-                alert(response.data.message);
-            }
+            toast.success(response.data?.message || 'Appointment restored successfully');
+            router.reload({ only: ["appointments_"] });
         } catch (error) {
-            console.error("Error unarchiving appointment:", error);
-            alert(
-                error.response?.data?.message ||
-                    "An error occurred while unarchiving the appointment"
-            );
+            console.error('Error restoring appointment:', error);
+            toast.error(error.response?.data?.message || 'Failed to restore appointment');
+        } finally {
+            setConfirmDialog({ isOpen: false, type: null, appointmentId: null });
         }
     };
 
@@ -309,45 +353,70 @@ export default function appointments({ appointments_ }) {
 
     return (
         <AdminLayout header="Appointments" tools={tools()}>
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        background: '#fff',
+                        color: '#363636',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    },
+                }}
+            />
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
+                className="space-y-6"
             >
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                    {/* Filters */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 className="text-xl font-semibold text-primary">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-lg shadow-sm">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800">
                             All Appointments
                         </h2>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">
-                                    Filter by:
-                                </span>
-                            </div>
-                            <Select
-                                value={statusFilter}
-                                onValueChange={setStatusFilter}
-                            >
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Statuses
-                                    </SelectItem>
-                                    <SelectItem value={1}>Scheduled</SelectItem>
-                                    <SelectItem value={2}>Completed</SelectItem>
-                                    <SelectItem value={3}>Cancelled</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Manage and track all appointment records
+                        </p>
                     </div>
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {/* Search Input */}
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                            <Input
+                                type="text"
+                                placeholder="Search appointments..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-full md:w-[250px] bg-gray-50 border-gray-200 focus:border-primary"
+                            />
+                        </div>
+                        {/* Status Filter */}
+                        <Select
+                            value={statusFilter}
+                            onValueChange={setStatusFilter}
+                        >
+                            <SelectTrigger className="w-[180px] bg-gray-50 border-gray-200">
+                                <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                                <SelectValue placeholder="Filter by status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">
+                                    All Statuses
+                                </SelectItem>
+                                <SelectItem value={1}>Scheduled</SelectItem>
+                                <SelectItem value={2}>Completed</SelectItem>
+                                <SelectItem value={3}>Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
 
-                    {/* Table */}
-                    <div className="rounded-md border">
+                {/* Table Section */}
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
                         <SortableTable
                             data={appointments}
                             defaultSort={{
@@ -389,7 +458,10 @@ export default function appointments({ appointments_ }) {
                                             </div>
                                         )}
                                         {sortedData.map((aa, i) => (
-                                            <TableRow key={i}>
+                                            <TableRow
+                                                key={i}
+                                                className="hover:bg-gray-50 transition-colors duration-150"
+                                            >
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         <Avatar>
@@ -447,15 +519,48 @@ export default function appointments({ appointments_ }) {
                                                 <TableCell>
                                                     {getStatusBadge(aa.status)}
                                                 </TableCell>
-                                                <TableCell className="">
-                                                    <PrimaryButton
-                                                        onClick={(e) => {
-                                                            openModal(e, aa.id);
-                                                        }}
-                                                        className=" m-1"
-                                                    >
-                                                        <Eye />
-                                                    </PrimaryButton>
+                                                <TableCell className="flex items-center gap-3">
+                                                    <div className="flex items-center space-x-2">
+                                                        <PrimaryButton
+                                                            onClick={(e) => {
+                                                                openModal(e, aa.id);
+                                                            }}
+                                                            className="inline-flex items-center p-2 rounded-full hover:bg-gray-100"
+                                                            disabled={aa.status === 5}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </PrimaryButton>
+
+                                                        {aa.status !== 6 ? (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => setConfirmDialog({
+                                                                    isOpen: true,
+                                                                    type: 'archive',
+                                                                    appointmentId: aa.id
+                                                                })}
+                                                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors duration-200"
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Archive
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => setConfirmDialog({
+                                                                    isOpen: true,
+                                                                    type: 'unarchive',
+                                                                    appointmentId: aa.id
+                                                                })}
+                                                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors duration-200"
+                                                            >
+                                                                <ArrowUpCircle className="h-4 w-4 mr-2" />
+                                                                Restore
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -465,23 +570,23 @@ export default function appointments({ appointments_ }) {
                         </SortableTable>
                     </div>
                 </div>
-                <CardFooter className="  mt-2">
-                    <div className="text-sm text-muted-foreground">
-                        Showing {appointments_.from} to {appointments_.to} of{" "}
-                        {appointments_.total} Results
+
+                {/* Pagination Section */}
+                <div className="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                        Showing <span className="font-medium">{appointments_.from}</span> to{" "}
+                        <span className="font-medium">{appointments_.to}</span> of{" "}
+                        <span className="font-medium">{appointments_.total}</span> Results
                     </div>
-                    <div className="flex ml-2 space-x-2">
+                    <div className="flex gap-2">
                         {links.map((link, index) => (
                             <Button
                                 key={index}
                                 variant={link.active ? "default" : "outline"}
                                 size="sm"
                                 disabled={!link.url || link.active}
-                                onClick={() => {
-                                    if (link.url) {
-                                        router.get(link.url);
-                                    }
-                                }}
+                                onClick={() => link.url && router.get(link.url)}
+                                className="min-w-[40px] h-[36px]"
                             >
                                 {link.label.includes("Previous") ? (
                                     <ChevronLeft className="h-4 w-4" />
@@ -493,7 +598,7 @@ export default function appointments({ appointments_ }) {
                             </Button>
                         ))}
                     </div>
-                </CardFooter>
+                </div>
             </motion.div>
             <Modal
                 isOpen={isModalOpen}
@@ -614,6 +719,50 @@ export default function appointments({ appointments_ }) {
                     <InputError message={errors.status} />
                 </CardFooter>
             </Modal>
+
+            {/* Add the confirmation dialog */}
+            <AlertDialog 
+                open={confirmDialog.isOpen} 
+                onOpenChange={(isOpen) => 
+                    setConfirmDialog({ isOpen, type: null, appointmentId: null })
+                }
+            >
+                <AlertDialogContent className="max-w-[400px]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-semibold">
+                            {confirmDialog.type === 'archive' 
+                                ? 'Archive Appointment' 
+                                : 'Restore Appointment'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-gray-600">
+                            {confirmDialog.type === 'archive'
+                                ? 'Are you sure you want to archive this appointment? This will remove it from the active list.'
+                                : 'Are you sure you want to restore this appointment? This will return it to the active list.'}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="border-gray-200 hover:bg-gray-50">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => {
+                                if (confirmDialog.type === 'archive') {
+                                    handleArchiveAppointment(confirmDialog.appointmentId);
+                                } else {
+                                    handleUnarchiveAppointment(confirmDialog.appointmentId);
+                                }
+                            }}
+                            className={`${
+                                confirmDialog.type === 'archive' 
+                                    ? 'bg-red-600 hover:bg-red-700' 
+                                    : 'bg-green-600 hover:bg-green-700'
+                            } text-white`}
+                        >
+                            {confirmDialog.type === 'archive' ? 'Archive' : 'Restore'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AdminLayout>
     );
 }
