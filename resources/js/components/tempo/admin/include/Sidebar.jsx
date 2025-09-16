@@ -61,14 +61,6 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             roles: ["Admin", "Doctor"],
         },
         {
-            title: "Inventory",
-            icon: <Boxes className="h-5 w-5" />,
-            route: "admin.inventory.index",
-            path: route("admin.inventory.index"),
-            id: "Inventory",
-            roles: ["Admin"],
-        },
-        {
             title: "Appointments",
             icon: <Calendar className="h-5 w-5" />,
             route: "admin.appointments",

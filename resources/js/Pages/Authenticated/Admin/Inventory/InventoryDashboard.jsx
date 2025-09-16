@@ -24,9 +24,14 @@ import {
     Stethoscope,
     Box,
     RefreshCcw,
+    TrendingUp,
+    TrendingDown,
+    Activity,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import SearchBar from "./SearchBar";
 import InventoryItemCard from "./InventoryItemCard";
+import InventoryListItem from "./InventoryListItem";
 import StockMovementForm from "./StockMovementForm";
 import ReportsPanel from "./ReportsPanel";
 import AddItemForm from "./AddItemForm";
@@ -35,7 +40,7 @@ import AdminLayout from "@/Layouts/AdminLayout";
 import {
     mockInventoryItems,
     mockStockMovements,
-} from "./mockitems/mockInventory";
+} from "./mockitems/mockInventory.ts";
 
 import CustomModal from "@/components/CustomModal";
 import Modal from "@/components/Modal";
@@ -50,9 +55,7 @@ import { DialogFooter } from "@/components/tempo/components/ui/dialog";
 import { Edit2 } from "lucide-react";
 const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
     const [items, setItems] = useState([]);
-
     const [items_, setItems_] = useState(inventory);
-
     const [movements, setMovements] = useState([]);
     const [filteredItems, setFilteredItems] = useState(inventory);
 
@@ -345,7 +348,10 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                         Advanced Filters
                     </Button>
                     <Button
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 text-white"
+                        style={{ backgroundColor: '#2C3E50' }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
                         onClick={() => setIsAddItemFormOpen(true)}
                     >
                         <Plus className="h-4 w-4" />
@@ -353,69 +359,106 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                     </Button>
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Total Items
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center">
-                            <Package className="h-5 w-5 text-muted-foreground mr-2" />
-                            <div className="text-2xl font-bold">
-                                {inventory.length}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                >
+                <Card className="hover:shadow-md transition-all duration-300 border-gray-100 hover:shadow-gray-200/50">
+                        <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-600">
+                                <Package className="h-4 w-4" />
+                                Total Items
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                <div className="text-3xl font-bold text-gray-900">
+                                    {inventory.length}
+                                </div>
+                <div className="p-3 rounded-lg bg-blue-50">
+                    <Package className="h-6 w-6 text-blue-600" />
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Categories
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center">
-                            <div className="text-2xl font-bold">
-                                {categories.length}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                    <Card className="hover:shadow-md transition-shadow duration-200 border-gray-100">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                                <Activity className="h-4 w-4" />
+                                Categories
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                                <div className="text-3xl font-bold text-gray-900">
+                                    {categories.length}
+                                </div>
+                                <div className="p-3 bg-green-50 rounded-lg">
+                                    <Activity className="h-6 w-6 text-green-600" />
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Low Stock Items
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center">
-                            <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
-                            <div className="text-2xl font-bold">
-                                {lowStockItems.length}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                >
+                <Card className="hover:shadow-md transition-all duration-300 border-gray-100 hover:shadow-gray-200/50">
+                        <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-600">
+                                <AlertTriangle className="h-4 w-4" />
+                                Low Stock Items
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                                <div className="text-3xl font-bold text-amber-600">
+                                    {lowStockItems.length}
+                                </div>
+                                <div className="p-3 rounded-lg bg-amber-50">
+                                    <TrendingDown className="h-6 w-6 text-amber-600" />
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Expiring Soon
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center">
-                            <Clock className="h-5 w-5 text-amber-500 mr-2" />
-                            <div className="text-2xl font-bold">
-                                {expiringItems.length}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                >
+                <Card className="hover:shadow-md transition-all duration-300 border-gray-100 hover:shadow-gray-200/50">
+                        <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2 text-gray-600">
+                                <Clock className="h-4 w-4" />
+                                Expiring Soon
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between">
+                                <div className="text-3xl font-bold text-red-600">
+                                    {expiringItems.length}
+                                </div>
+                                <div className="p-3 rounded-lg bg-red-50">
+                                    <Clock className="h-6 w-6 text-red-600" />
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </motion.div>
             </div>
 
             <SearchBar items={items_} onSearch={handleSearch} />
@@ -426,7 +469,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                     onValueChange={handleTabChange}
                     className="mb-6"
                 >
-                    <TabsList>
+                    <TabsList className="bg-white border-gray-200">
                         <TabsTrigger value="all">Master List</TabsTrigger>
                         {/* <TabsTrigger value="master">Master List</TabsTrigger> */}
                         <TabsTrigger value="low">
@@ -579,7 +622,10 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                                 <div className="flex justify-between space-x-2 mt-4 md:mt-0">
                                     <div>Categories</div>
                                     <Button
-                                        className="flex items-center gap-2"
+                                        className="flex items-center gap-2 text-white"
+                                        style={{ backgroundColor: '#2C3E50' }}
+                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                                        onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
                                         onClick={() =>
                                             setIsModifyingCategory(true)
                                         }
@@ -616,7 +662,10 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                                             </div>
                                             <PrimaryButton
                                                 disabled={processing}
-                                                className=" self-end mt-2"
+                                                className="self-end mt-2 text-white"
+                                                style={{ backgroundColor: '#2C3E50' }}
+                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                                                onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
                                                 type="submit"
                                             >
                                                 Save
@@ -718,7 +767,7 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                                         </Button>
                                         <Button
                                             type="submit"
-                                            className="bg-primary hover:bg-primary/90"
+                                            className="bg-red-600 hover:bg-red-700 text-white"
                                             disabled={processing}
                                             onClick={deleteCategory}
                                         >
@@ -758,7 +807,10 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
                                             Cancel
                                         </Button>
                                         <Button
-                                            className="bg-primary hover:bg-primary/90"
+                                            className="text-white"
+                                            style={{ backgroundColor: '#2C3E50' }}
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
                                             disabled={processing}
                                             onClick={updateCategory_}
                                         >
@@ -814,22 +866,42 @@ const InventoryDashboard = ({ categories = [], inventory, movements_ }) => {
 
                 <div className="lg:col-span-3">
                     {activeTab !== "master" && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {filteredItems.map((item) => (
-                                <InventoryItemCard
-                                    key={item.id}
-                                    item={item}
-                                    onUpdateClick={handleUpdateClick}
-                                />
-                            ))}
-
-                            {filteredItems.length === 0 && (
-                                <div className="col-span-2 text-center py-12 border rounded-lg bg-muted/20">
-                                    <p className="text-muted-foreground">
-                                        No items match your search criteria
-                                    </p>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            {/* List Header */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-gray-900">Inventory Items</h3>
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                        <Package className="h-4 w-4" />
+                                        <span>{filteredItems.length} items</span>
+                                    </div>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* List Content */}
+                            <div className="divide-y divide-gray-100">
+                                {filteredItems.length > 0 ? (
+                                    filteredItems.map((item) => (
+                                        <InventoryListItem
+                                            key={item.id}
+                                            item={item}
+                                            onUpdateClick={handleUpdateClick}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="p-12 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <Package className="h-12 w-12 text-gray-300" />
+                                            <div className="font-medium text-gray-500">
+                                                No items found
+                                            </div>
+                                            <div className="text-sm text-gray-400">
+                                                Try adjusting your search or filter criteria
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

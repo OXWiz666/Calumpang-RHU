@@ -79,9 +79,9 @@ export default function PatientList({ patients, onSelectPatient }) {
     return (
         <div className="space-y-6">
             {/* Search and Filters */}
-            <Card>
+    <Card>
                 <CardHeader>
-                    <CardTitle>Search & Filter Patients</CardTitle>
+            <CardTitle>Search & Filter Patients</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -127,7 +127,7 @@ export default function PatientList({ patients, onSelectPatient }) {
             </Card>
 
             {/* Header row (desktop) */}
-            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide border rounded-md bg-accent/20">
+            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center px-4 py-2 text-xs font-medium uppercase tracking-wide border rounded-md bg-accent/20 text-muted-foreground">
                 <div>Patient</div>
                 <div>Phone</div>
                 <div>Address</div>
@@ -141,45 +141,44 @@ export default function PatientList({ patients, onSelectPatient }) {
                 {filteredPatients.map((patient) => (
                     <div
                         key={patient?.id}
-                        className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center gap-3 rounded-lg border bg-white px-4 py-3 hover:shadow-sm hover:bg-accent/30 transition"
+                        className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center gap-3 rounded-lg border px-4 py-3 hover:shadow-sm transition bg-white hover:bg-accent/30"
                     >
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+                            <div className="h-10 w-10 rounded-full flex items-center justify-center font-semibold shrink-0 bg-primary/10 text-primary">
                                 {`${patient?.firstname?.[0] ?? ''}${patient?.lastname?.[0] ?? ''}`}
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <div className="font-medium truncate">
+                                    <div className="font-medium truncate text-gray-900">
                                         {patient?.firstname} {patient?.lastname}
                                     </div>
                                     {patient?.gender && (
-                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5"> 
                                             {patient.gender.toLowerCase() === 'm' ? 'Male' : patient.gender.toLowerCase() === 'f' ? 'Female' : patient.gender}
                                         </Badge>
                                     )}
                                 </div>
-                                <div className="text-xs text-muted-foreground truncate">
+                                <div className="text-xs truncate text-muted-foreground">
                                     ID: {patient.id} • Age: {calculateAge(patient.birth)} • Joined {moment(patient?.created_at).format("MM-DD-yyyy")}
                                 </div>
                             </div>
                         </div>
-                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                        <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <Phone className="h-4 w-4" />
-                            <span className="truncate max-w-[160px]">{patient?.contactno || 'Not Set'}</span>
+                            <span className="truncate w-[160px]">{patient?.contactno || 'Not Set'}</span>
                         </div>
-                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                        <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <MapPin className="h-4 w-4" />
-                            <span className="truncate max-w-[220px]">{patient?.address ?? 'Not Set'}</span>
+                            <span className="truncate w-[220px]">{patient?.address ?? 'Not Set'}</span>
                         </div>
-                        <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-                            {patient?.lastVisit && (
-                                <>
-                                    <Calendar className="h-4 w-4" />
-                                    <span>
-                                        {new Date(patient?.lastVisit).toLocaleDateString()}
-                                    </span>
-                                </>
-                            )}
+                        <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
+                            <Calendar className="h-4 w-4" />
+                            <span className="truncate w-[140px]">
+                                {(() => {
+                                    const lv = patient?.lastVisit ?? patient?.last_visit ?? patient?.lastvisit;
+                                    return lv ? moment(lv).format('MM-DD-YYYY') : 'Not Set';
+                                })()}
+                            </span>
                         </div>
                         <div className="hidden md:flex shrink-0 justify-center">
                             <Badge
@@ -203,7 +202,7 @@ export default function PatientList({ patients, onSelectPatient }) {
             </div>
 
             {filteredPatients.length === 0 && (
-                <Card>
+    <Card>
                     <CardContent className="text-center py-8">
                         <p className="text-muted-foreground">
                             No patients found matching your search criteria.

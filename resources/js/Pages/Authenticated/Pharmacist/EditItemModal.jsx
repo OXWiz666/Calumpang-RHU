@@ -1,0 +1,416 @@
+import React, { useState, useEffect } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/tempo/components/ui/dialog";
+import { Button } from "@/components/tempo/components/ui/button";
+import { Input } from "@/components/tempo/components/ui/input";
+import { Label } from "@/components/tempo/components/ui/label";
+import { Textarea } from "@/components/tempo/components/ui/textarea";
+import { useForm } from "@inertiajs/react";
+import { motion } from "framer-motion";
+import { 
+    Package, 
+    Calendar, 
+    Hash, 
+    Building2, 
+    MapPin, 
+    Tag
+} from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/tempo/components/ui/select";
+
+const EditItemModal = ({ open, onClose, item, categories = [] }) => {
+    const [formData, setFormData] = useState({
+        itemname: "",
+        categoryid: "",
+        manufacturer: "",
+        description: "",
+        quantity: 0,
+        unit_type: "",
+        minimum_stock: 0,
+        maximum_stock: 0,
+        storage_location: "",
+        batch_number: "",
+        expiry_date: "",
+    });
+
+    useEffect(() => {
+        if (item) {
+            setFormData({
+                itemname: item.name || "Invalid Name",
+                categoryid: item.categoryId || "Invalid Category",
+                manufacturer: item.manufacturer || "Invalid Manufacturer",
+                description: item.description || "Invalid Description",
+                quantity: item.quantity || 0,
+                unit_type: item.unit || "Invalid Unit",
+                minimum_stock: item.minimumStock || 0,
+                maximum_stock: item.maximumStock || 0,
+                storage_location: item.storageLocation || "Invalid Storage Location",
+                batch_number: item.batchNumber || "Invalid Batch Number",
+                expiry_date: item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date' 
+                    ? new Date(item.expiryDate).toISOString().split('T')[0] 
+                    : "",
+            });
+        }
+    }, [item]);
+
+    const { data, setData, put, processing, errors } = useForm(formData);
+
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setData(name, value);
+    };
+
+    const handleSelectChange = (name, value) => {
+        setData(name, value);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        
+        // Client-side validation
+        if (!data.itemname.trim()) {
+            return;
+        }
+        if (!data.categoryid) {
+            return;
+        }
+        if (!data.unit_type) {
+            return;
+        }
+        if (data.quantity < 0) {
+            return;
+        }
+        if (data.minimum_stock < 0) {
+            return;
+        }
+        if (data.maximum_stock < 0) {
+            return;
+        }
+        if (data.minimum_stock > data.maximum_stock) {
+            return;
+        }
+        if (data.expiry_date && new Date(data.expiry_date) <= new Date()) {
+            return;
+        }
+        
+        put(route("pharmacist.inventory.item.update", item.id), {
+            onSuccess: () => {
+                onClose();
+            },
+            onError: (errors) => {
+                console.error("Validation errors:", errors);
+            }
+        });
+    };
+
+    const unitOptions = [
+        { value: "pieces", label: "Pieces" },
+        { value: "tablets", label: "Tablets" },
+        { value: "capsules", label: "Capsules" },
+        { value: "bottles", label: "Bottles" },
+        { value: "vials", label: "Vials" },
+        { value: "tubes", label: "Tubes" },
+        { value: "boxes", label: "Boxes" },
+        { value: "packs", label: "Packs" },
+    ];
+
+    if (!item) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-semibold text-gray-900">
+                        Edit Item
+                    </DialogTitle>
+                    <p className="text-sm text-gray-600">
+                        Update the information for this inventory item
+                    </p>
+                </DialogHeader>
+
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Basic Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                            Basic Information
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="itemname" className="text-sm font-medium">
+                                    Item Name *
+                                </Label>
+                                <Input
+                                    id="itemname"
+                                    name="item name"
+                                    value={data.itemname}
+                                    onChange={handleChange}
+                                    placeholder="Enter item name"
+                                    className="w-full"
+                                />
+                                {errors.itemname && (
+                                    <p className="text-sm text-red-600">{errors.itemname}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="categoryid" className="text-sm font-medium">
+                                    Category *
+                                </Label>
+                                <Select
+                                    value={data.categoryid}
+                                    onValueChange={(value) => handleSelectChange('categoryid', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {categories.map((category) => (
+                                            <SelectItem key={category.id} value={category.id.toString()}>
+                                                {category.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.categoryid && (
+                                    <p className="text-sm text-red-600">{errors.categoryid}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="manufacturer" className="text-sm font-medium">
+                                    Manufacturer
+                                </Label>
+                                <div className="relative">
+                                    <Building2 className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="manufacturer"
+                                        name="manufacturer"
+                                        value={data.manufacturer}
+                                        onChange={handleChange}
+                                        placeholder="Enter manufacturer"
+                                        className="w-full pl-10"
+                                    />
+                                </div>
+                                {errors.manufacturer && (
+                                    <p className="text-sm text-red-600">{errors.manufacturer}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="unit_type" className="text-sm font-medium">
+                                    Unit of Measure *
+                                </Label>
+                                <Select
+                                    value={data.unit_type}
+                                    onValueChange={(value) => handleSelectChange('unit_type', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {unitOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.unit_type && (
+                                    <p className="text-sm text-red-600">{errors.unit_type}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="description" className="text-sm font-medium">
+                                Description
+                            </Label>
+                            <Textarea
+                                id="description"
+                                name="description"
+                                value={data.description}
+                                onChange={handleChange}
+                                placeholder="Enter item description"
+                                rows={3}
+                                className="w-full"
+                            />
+                            {errors.description && (
+                                <p className="text-sm text-red-600">{errors.description}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Stock Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                            Stock Information
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="quantity" className="text-sm font-medium">
+                                    Current Quantity *
+                                </Label>
+                                <Input
+                                    id="quantity"
+                                    name="quantity"
+                                    type="number"
+                                    min="0"
+                                    value={data.quantity}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    className="w-full"
+                                />
+                                {errors.quantity && (
+                                    <p className="text-sm text-red-600">{errors.quantity}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="minimum_stock" className="text-sm font-medium">
+                                    Minimum Stock Level
+                                </Label>
+                                <Input
+                                    id="minimum_stock"
+                                    name="minimum_stock"
+                                    type="number"
+                                    min="0"
+                                    value={data.minimum_stock}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    className="w-full"
+                                />
+                                {errors.minimum_stock && (
+                                    <p className="text-sm text-red-600">{errors.minimum_stock}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="maximum_stock" className="text-sm font-medium">
+                                    Maximum Stock Level
+                                </Label>
+                                <Input
+                                    id="maximum_stock"
+                                    name="maximum_stock"
+                                    type="number"
+                                    min="0"
+                                    value={data.maximum_stock}
+                                    onChange={handleChange}
+                                    placeholder="0"
+                                    className="w-full"
+                                />
+                                {errors.maximum_stock && (
+                                    <p className="text-sm text-red-600">{errors.maximum_stock}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="storage_location" className="text-sm font-medium">
+                                Storage Location
+                            </Label>
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <Input
+                                    id="storage_location"
+                                    name="storage_location"
+                                    value={data.storage_location}
+                                    onChange={handleChange}
+                                    placeholder="e.g., A-1-01"
+                                    className="w-full pl-10"
+                                />
+                            </div>
+                            {errors.storage_location && (
+                                <p className="text-sm text-red-600">{errors.storage_location}</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Batch & Expiry Information */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
+                            Batch & Expiry Information
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="batch_number" className="text-sm font-medium">
+                                    Batch/Lot Number
+                                </Label>
+                                <div className="relative">
+                                    <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="batch_number"
+                                        name="batch_number"
+                                        value={data.batch_number}
+                                        onChange={handleChange}
+                                        placeholder="e.g., RX12001121"
+                                        className="w-full pl-10"
+                                    />
+                                </div>
+                                {errors.batch_number && (
+                                    <p className="text-sm text-red-600">{errors.batch_number}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="expiry_date" className="text-sm font-medium">
+                                    Expiry Date
+                                </Label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="expiry_date"
+                                        name="expiry_date"
+                                        type="date"
+                                        value={data.expiry_date}
+                                        onChange={handleChange}
+                                        className="w-full pl-10"
+                                    />
+                                </div>
+                                {errors.expiry_date && (
+                                    <p className="text-sm text-red-600">{errors.expiry_date}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex gap-3 pt-6">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                            className="flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={processing}
+                            className="flex-1"
+                            style={{ backgroundColor: '#2C3E50' }}
+                        >
+                            {processing ? "Updating..." : "Update Item"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+export default EditItemModal;

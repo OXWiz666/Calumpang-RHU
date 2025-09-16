@@ -7,12 +7,16 @@ import { Link, Head, usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
 export default function LoginLayout({ children }) {
   const { flash } = usePage().props;
+  
   useEffect(() => {
     if (flash) {
-      //console.log("this toast:", flash);
-      alert_toast(flash.title, flash.message, flash.icon);
+        if (flash.toast) {
+            window.show_toast(flash.title, flash.message, flash.icon);
+        } else {
+            alert_toast(flash.title, flash.message, flash.icon);
+        }
     }
-  }, [flash]);
+}, [flash]);
 
   return (
     <div>

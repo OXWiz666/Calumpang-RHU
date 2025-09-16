@@ -53,12 +53,6 @@
                         Appointments
                     </a>
 
-                    <a href="{{ route('inventory') }}" class="flex items-center px-4 py-2 text-sm font-medium rounded-md {{ request()->routeIs('inventory*') ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/50' }}">
-                        <svg class="mr-3 h-5 w-5 {{ request()->routeIs('inventory*') ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                        Inventory
-                    </a>
 
                     <a href="{{ route('patients') }}" class="flex items-center px-4 py-2 text-sm font-medium rounded-md {{ request()->routeIs('patients*') ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/50 dark:text-blue-200' : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/50' }}">
                         <svg class="mr-3 h-5 w-5 {{ request()->routeIs('patients*') ? 'text-blue-500 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400' }}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

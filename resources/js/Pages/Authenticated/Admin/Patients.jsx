@@ -195,9 +195,9 @@ export default function Patients({ patients_ }) {
                 ></div>
                 
                 {/* Modal */}
-                <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-auto max-h-[90vh] transform transition-all">
+                <div className="relative rounded-lg shadow-xl w-full max-w-4xl mx-4 overflow-auto max-h-[90vh] transform transition-all bg-white">
                     {/* Header */}
-                    <div className="sticky top-0 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center z-10">
+                    <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center z-10 bg-gray-100 border-gray-200">
                         <h3 className="text-lg font-medium text-white flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -216,9 +216,9 @@ export default function Patients({ patients_ }) {
                     
                     {/* Medical Record Content */}
                     <div className="p-6">
-                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
+                        <div className="border rounded-lg overflow-hidden shadow-sm bg-white border-gray-200">
                             {/* 1. Patient Information */}
-                            <div className="border-b border-gray-200 dark:border-gray-700 p-5 bg-gray-50 dark:bg-gray-800">
+                            <div className="border-b p-5 border-gray-200 bg-gray-50">
                                 <h4 className="font-bold text-white flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -271,7 +271,7 @@ export default function Patients({ patients_ }) {
                             </div>
 
                             {/* 2. Vital Signs & Initial Assessment */}
-                            <div className="border-b border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+                            <div className="border-b p-5 border-gray-200 bg-white">
                                 <h4 className="font-bold text-white flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m0 0V5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -351,7 +351,7 @@ export default function Patients({ patients_ }) {
                             </div>
 
                             {/* 4. Consultation Details */}
-                            <div className="p-5 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                            <div className="p-5 border-b bg-white border-gray-200">
                                 <h4 className="font-bold text-white flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -384,7 +384,7 @@ export default function Patients({ patients_ }) {
                             </div>
 
                             {/* 5. Maternal & Child Health */}
-                            <div className="border-b border-gray-200 dark:border-gray-700 p-5 bg-white dark:bg-gray-800">
+                            <div className="border-b p-5 border-gray-200 bg-white">
                                 <h4 className="font-bold text-white flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -420,7 +420,7 @@ export default function Patients({ patients_ }) {
                             </div>
 
                             {/* 6. Follow-Up & Health Worker's Notes */}
-                            <div className="p-5 bg-white dark:bg-gray-800">
+                            <div className="p-5 bg-white">
                                 <h4 className="font-bold text-white flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -486,7 +486,7 @@ export default function Patients({ patients_ }) {
                 ></div>
                 
                 {/* Modal */}
-                <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-auto max-h-[90vh] transform transition-all">
+                <div className="relative rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-auto max-h-[90vh] transform transition-all bg-white">
                     {/* Header */}
                     <div className="sticky top-0 bg-primary border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-between items-center z-10">
                         <h3 className="text-lg font-medium text-white flex items-center">
@@ -515,7 +515,7 @@ export default function Patients({ patients_ }) {
                                 <textarea
                                     id="diagnosis-notes"
                                     rows={10}
-                                    className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary focus:ring-primary"
+                                    className="w-full rounded-md border px-4 py-2 focus:border-primary focus:ring-primary border-gray-300 bg-white text-gray-900"
                                     placeholder="Enter detailed diagnosis notes here..."
                                     value={diagnosisModal.notes}
                                     onChange={(e) => updateDiagnosisNotes(e.target.value)}
@@ -554,7 +554,7 @@ export default function Patients({ patients_ }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
             >
-                <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="rounded-lg shadow-sm p-6 bg-white">
                     {/* Filters */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                         <h2 className="text-xl font-semibold text-primary">

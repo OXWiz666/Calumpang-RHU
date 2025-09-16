@@ -17,6 +17,10 @@ class istock_movements extends Model
         'batch_number',
         'stock_id',
         'reason',
+        'patient_name',
+        'prescription_number',
+        'dispensed_by',
+        'notes',
     ];
     protected $table = "istock_movements";
     public $timestamps = false;
