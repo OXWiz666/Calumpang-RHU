@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Button } from "@/components/tempo/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Package, Tag, Hash } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const SearchBar = ({ items, onSearch }) => {
     const [query, setQuery] = useState("");
@@ -84,39 +85,75 @@ const SearchBar = ({ items, onSearch }) => {
     };
 
     return (
-        <div className="relative w-full max-w-2xl mx-auto mb-6">
-            <div className="flex">
+        <div className="relative w-full max-w-3xl mx-auto mb-8">
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-gray-400" />
+                </div>
                 <Input
                     type="text"
                     placeholder="Search by medicine name, batch number or category..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-grow rounded-r-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="pl-10 pr-4 h-12 text-base border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                 />
-                <Button onClick={handleSearch} className="rounded-l-none">
-                    <Search className="h-4 w-4 mr-2" />
+                <Button 
+                    onClick={handleSearch} 
+                    className="absolute right-1 top-1 h-10 text-white"
+                    style={{ backgroundColor: '#2C3E50' }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
+                >
                     Search
                 </Button>
             </div>
 
-            {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
-                    {suggestions.map((suggestion, index) => (
-                        <div
-                            key={index}
-                            className="px-4 py-2 hover:bg-muted cursor-pointer"
-                            onClick={() => handleSuggestionClick(suggestion)}
+            <AnimatePresence>
+                {showSuggestions && suggestions.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute z-10 w-full rounded-lg shadow-xl mt-2 max-h-60 overflow-y-auto bg-white border-gray-200"
+                    >
+                        {suggestions.map((suggestion, index) => {
+                            const isBatchNumber = items.some(item => item.stocks_movement?.[0]?.batch_number === suggestion);
+                            const isCategory = items.some(item => item.category.name === suggestion);
                             
-                        >
-                           <span>{suggestion}</span>
-                           {items.some(item => item.stocks_movement?.[0]?.batch_number === suggestion) && (
-                               <span className="text-xs text-muted-foreground">Batch Number</span>
-                           )}
-                        </div>
-                    ))}
-                </div>
-            )}
+                            return (
+                                <motion.div
+                                    key={index}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="px-4 py-3 cursor-pointer border-b last:border-b-0 transition-colors hover:bg-blue-50 border-gray-100"
+                                    onClick={() => handleSuggestionClick(suggestion)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-1 rounded bg-gray-100">
+                                            {isBatchNumber ? (
+                                                <Hash className="h-4 w-4 text-gray-600" />
+                                            ) : isCategory ? (
+                                                <Tag className="h-4 w-4 text-gray-600" />
+                                            ) : (
+                                                <Package className="h-4 w-4 text-gray-600" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className="font-medium text-gray-900">{suggestion}</span>
+                                            <div className="text-xs text-gray-500">
+                                                {isBatchNumber ? "Batch Number" : isCategory ? "Category" : "Item Name"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

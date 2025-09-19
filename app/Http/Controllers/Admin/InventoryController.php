@@ -28,7 +28,7 @@ class InventoryController extends Controller
             ->select(['id', 'created_at', 'type', 'quantity', 'reason', 'batch_number', 'inventory_name', 'staff_id', 'stock_id'])
             ->orderBy('created_at', 'desc')
             ->get(),
-            'items' => Inventory::with(['category', 'stock', 'stocks_movement'])->get(),
+            'items' => inventory::with(['category', 'stock', 'stocks_movement'])->get(),
         ]);
     }
 

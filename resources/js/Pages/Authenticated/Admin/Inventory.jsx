@@ -10,6 +10,10 @@ import {
     Download,
     AlertTriangle,
     RefreshCw,
+    Package,
+    TrendingUp,
+    TrendingDown,
+    Clock,
 } from "lucide-react";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
@@ -207,235 +211,343 @@ const Inventory = () => {
         // In a real application, you would also make an API call to update the backend
     };
 
+    // Calculate statistics
+    const totalItems = inventoryItems.length;
+    const inStockItems = inventoryItems.filter(item => item.status === "In Stock").length;
+    const lowStockItems = inventoryItems.filter(item => item.status === "Low Stock").length;
+    const expiringSoonItems = inventoryItems.filter(item => isExpiryApproaching(item.expiryDate)).length;
+
     return (
         <AdminLayout header="Inventory">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
+                className="space-y-6"
             >
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                    {/* Filters */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 className="text-xl font-semibold text-primary">
-                            All Inventory Items
-                        </h2>
-                        <div className="flex flex-wrap items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">
-                                    Filter by:
-                                </span>
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Total Items</p>
+                                <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+                            </div>
+                            <div className="p-3 bg-blue-50 rounded-lg">
+                                <Package className="h-6 w-6 text-blue-600" />
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">In Stock</p>
+                                <p className="text-2xl font-bold text-green-600">{inStockItems}</p>
+                            </div>
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <TrendingUp className="h-6 w-6 text-green-600" />
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Low Stock</p>
+                                <p className="text-2xl font-bold text-amber-600">{lowStockItems}</p>
+                            </div>
+                            <div className="p-3 bg-amber-50 rounded-lg">
+                                <TrendingDown className="h-6 w-6 text-amber-600" />
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.4 }}
+                        className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
+                                <p className="text-2xl font-bold text-red-600">{expiringSoonItems}</p>
+                            </div>
+                            <div className="p-3 bg-red-50 rounded-lg">
+                                <Clock className="h-6 w-6 text-red-600" />
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* Main Content */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    {/* Header Section */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900">Inventory Management</h2>
+                                <p className="text-gray-600 mt-1">Manage your medical supplies and medications</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button 
+                                    className="text-white"
+                                    style={{ backgroundColor: '#2C3E50' }}
+                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#34495E'}
+                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#2C3E50'}
+                                >
+                                    <PlusCircle className="h-4 w-4 mr-2" />
+                                    Add Item
+                                </Button>
+                                <Button variant="outline" className="border-gray-300">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search and Filters */}
+                    <div className="p-6 border-b border-gray-100">
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            {/* Search Bar */}
+                            <div className="flex-1">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        placeholder="Search items, ID, or supplier..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10 h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                                    />
+                                </div>
                             </div>
 
-                            <Select
-                                value={statusFilter}
-                                onValueChange={setStatusFilter}
-                            >
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Statuses
-                                    </SelectItem>
-                                    <SelectItem value="In Stock">
-                                        In Stock
-                                    </SelectItem>
-                                    <SelectItem value="Low Stock">
-                                        Low Stock
-                                    </SelectItem>
-                                    <SelectItem value="Out of Stock">
-                                        Out of Stock
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                            {/* Filters */}
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Filter className="h-4 w-4" />
+                                    <span className="font-medium">Filters:</span>
+                                </div>
 
-                            <Select
-                                value={categoryFilter}
-                                onValueChange={setCategoryFilter}
-                            >
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Categories
-                                    </SelectItem>
-                                    <SelectItem value="Medication">
-                                        Medication
-                                    </SelectItem>
-                                    <SelectItem value="Supplies">
-                                        Supplies
-                                    </SelectItem>
-                                    <SelectItem value="Equipment">
-                                        Equipment
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={setStatusFilter}
+                                >
+                                    <SelectTrigger className="w-[160px] h-11 border-gray-300">
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="In Stock">In Stock</SelectItem>
+                                        <SelectItem value="Low Stock">Low Stock</SelectItem>
+                                        <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <Select
+                                    value={categoryFilter}
+                                    onValueChange={setCategoryFilter}
+                                >
+                                    <SelectTrigger className="w-[160px] h-11 border-gray-300">
+                                        <SelectValue placeholder="Category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Categories</SelectItem>
+                                        <SelectItem value="Medication">Medication</SelectItem>
+                                        <SelectItem value="Supplies">Supplies</SelectItem>
+                                        <SelectItem value="Equipment">Equipment</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
 
                     {/* Table */}
-                    <div className="rounded-md border">
+                    <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow>
+                                <TableRow className="bg-gray-50 hover:bg-gray-50">
                                     <TableHead
-                                        className="cursor-pointer"
+                                        className="cursor-pointer font-semibold text-gray-900 py-4"
                                         onClick={() => requestSort("name")}
                                     >
-                                        <div className="flex items-center">
+                                        <div className="flex items-center gap-2">
+                                            <Package className="h-4 w-4 text-gray-500" />
                                             Item
                                             {sortConfig.key === "name" && (
                                                 <span className="ml-1">
                                                     {sortConfig.direction ===
                                                     "ascending" ? (
-                                                        <ChevronUp className="h-4 w-4" />
+                                                        <ChevronUp className="h-4 w-4 text-blue-600" />
                                                     ) : (
-                                                        <ChevronDown className="h-4 w-4" />
+                                                        <ChevronDown className="h-4 w-4 text-blue-600" />
                                                     )}
                                                 </span>
                                             )}
                                         </div>
                                     </TableHead>
-                                    <TableHead>Category</TableHead>
+                                    <TableHead className="font-semibold text-gray-900">Category</TableHead>
                                     <TableHead
-                                        className="cursor-pointer"
+                                        className="cursor-pointer font-semibold text-gray-900"
                                         onClick={() => requestSort("quantity")}
                                     >
-                                        <div className="flex items-center">
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp className="h-4 w-4 text-gray-500" />
                                             Quantity
                                             {sortConfig.key === "quantity" && (
                                                 <span className="ml-1">
                                                     {sortConfig.direction ===
                                                     "ascending" ? (
-                                                        <ChevronUp className="h-4 w-4" />
+                                                        <ChevronUp className="h-4 w-4 text-blue-600" />
                                                     ) : (
-                                                        <ChevronDown className="h-4 w-4" />
+                                                        <ChevronDown className="h-4 w-4 text-blue-600" />
                                                     )}
                                                 </span>
                                             )}
                                         </div>
                                     </TableHead>
                                     <TableHead
-                                        className="cursor-pointer"
+                                        className="cursor-pointer font-semibold text-gray-900"
                                         onClick={() =>
                                             requestSort("expiryDate")
                                         }
                                     >
-                                        <div className="flex items-center">
+                                        <div className="flex items-center gap-2">
+                                            <Clock className="h-4 w-4 text-gray-500" />
                                             Expiry Date
                                             {sortConfig.key ===
                                                 "expiryDate" && (
                                                 <span className="ml-1">
                                                     {sortConfig.direction ===
                                                     "ascending" ? (
-                                                        <ChevronUp className="h-4 w-4" />
+                                                        <ChevronUp className="h-4 w-4 text-blue-600" />
                                                     ) : (
-                                                        <ChevronDown className="h-4 w-4" />
+                                                        <ChevronDown className="h-4 w-4 text-blue-600" />
                                                     )}
                                                 </span>
                                             )}
                                         </div>
                                     </TableHead>
-                                    <TableHead>Supplier</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">
+                                    <TableHead className="font-semibold text-gray-900">Supplier</TableHead>
+                                    <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                                    <TableHead className="text-right font-semibold text-gray-900">
                                         Actions
                                     </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedItems.length > 0 ? (
-                                    sortedItems.map((item) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar>
-                                                        <AvatarImage
-                                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.avatar}`}
-                                                            alt={item.name}
-                                                        />
-                                                        <AvatarFallback>
-                                                            {item.name
-                                                                .split(" ")
-                                                                .map(
-                                                                    (n) => n[0]
-                                                                )
-                                                                .join("")}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                    sortedItems.map((item, index) => (
+                                        <TableRow 
+                                            key={item.id}
+                                            className="hover:bg-gray-50 transition-colors duration-150 border-b border-gray-100"
+                                        >
+                                            <TableCell className="py-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative">
+                                                        <Avatar className="h-12 w-12 border-2 border-gray-100">
+                                                            <AvatarImage
+                                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${item.avatar}`}
+                                                                alt={item.name}
+                                                            />
+                                                            <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold">
+                                                                {item.name
+                                                                    .split(" ")
+                                                                    .map(
+                                                                        (n) => n[0]
+                                                                    )
+                                                                    .join("")}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        {item.quantity <= item.reorderLevel && (
+                                                            <div className="absolute -top-1 -right-1 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                                                <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     <div>
-                                                        <div className="font-medium">
+                                                        <div className="font-semibold text-gray-900 text-base">
                                                             {item.name}
                                                         </div>
-                                                        <div className="text-sm text-muted-foreground">
-                                                            {item.id}
+                                                        <div className="text-sm text-gray-500 font-mono">
+                                                            ID: {item.id}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
-                                                {item.category}
+                                            <TableCell className="py-4">
+                                                <Badge variant="outline" className="border-gray-300 text-gray-700">
+                                                    {item.category}
+                                                </Badge>
                                             </TableCell>
-                                            <TableCell>
-                                                <div className="font-medium">
-                                                    {item.quantity} {item.unit}
-                                                </div>
-                                                {item.quantity <=
-                                                    item.reorderLevel && (
-                                                    <div className="text-sm text-amber-600 flex items-center gap-1">
-                                                        <AlertTriangle className="h-3 w-3" />
-                                                        <span>
-                                                            Reorder needed
-                                                        </span>
+                                            <TableCell className="py-4">
+                                                <div className="space-y-1">
+                                                    <div className="font-semibold text-gray-900">
+                                                        {item.quantity} {item.unit}
                                                     </div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div
-                                                    className={
-                                                        isExpiryApproaching(
-                                                            item.expiryDate
-                                                        )
-                                                            ? "text-amber-600"
-                                                            : ""
-                                                    }
-                                                >
-                                                    {new Date(
-                                                        item.expiryDate
-                                                    ).toLocaleDateString()}
-                                                    {isExpiryApproaching(
-                                                        item.expiryDate
-                                                    ) && (
-                                                        <div className="text-sm flex items-center gap-1">
+                                                    {item.quantity <= item.reorderLevel && (
+                                                        <div className="text-xs text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-full w-fit">
                                                             <AlertTriangle className="h-3 w-3" />
-                                                            <span>
-                                                                Expiring soon
-                                                            </span>
+                                                            <span className="font-medium">Reorder needed</span>
                                                         </div>
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
-                                                {item.supplier}
+                                            <TableCell className="py-4">
+                                                <div className="space-y-1">
+                                                    <div className={`font-medium ${
+                                                        isExpiryApproaching(item.expiryDate)
+                                                            ? "text-amber-600"
+                                                            : "text-gray-900"
+                                                    }`}>
+                                                        {new Date(item.expiryDate).toLocaleDateString()}
+                                                    </div>
+                                                    {isExpiryApproaching(item.expiryDate) && (
+                                                        <div className="text-xs text-amber-600 flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-full w-fit">
+                                                            <Clock className="h-3 w-3" />
+                                                            <span className="font-medium">Expiring soon</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="py-4">
+                                                <div className="text-gray-700 font-medium">
+                                                    {item.supplier}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="py-4">
                                                 {getStatusBadge(item.status)}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right py-4">
                                                 <div className="flex justify-end gap-2">
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
+                                                        className="text-gray-600 hover:text-blue-600 hover:bg-blue-50"
                                                     >
                                                         View
                                                     </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        className="flex items-center gap-1"
+                                                        className="flex items-center gap-1 border-gray-300 hover:border-blue-500 hover:text-blue-600"
                                                         onClick={() =>
                                                             handleReorderClick(
                                                                 item
@@ -453,9 +565,13 @@ const Inventory = () => {
                                     <TableRow>
                                         <TableCell
                                             colSpan={7}
-                                            className="text-center h-24 text-muted-foreground"
+                                            className="text-center py-12"
                                         >
-                                            No inventory items found
+                                            <div className="flex flex-col items-center gap-3">
+                                                <Package className="h-12 w-12 text-gray-300" />
+                                                <div className="text-gray-500 font-medium">No inventory items found</div>
+                                                <div className="text-sm text-gray-400">Try adjusting your search or filter criteria</div>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 )}

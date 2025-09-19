@@ -53,13 +53,16 @@ export default function AdminLayout({ header, children, tools }) {
 
     useEffect(() => {
         if (flash) {
-            //console.log("this toast:", flash);
-            alert_toast(flash.title, flash.message, flash.icon);
+            if (flash.toast) {
+                window.show_toast(flash.title, flash.message, flash.icon);
+            } else {
+                alert_toast(flash.title, flash.message, flash.icon);
+            }
         }
     }, [flash]);
 
     return (
-        <div className="flex h-screen bg-background">
+        <div className="flex h-screen bg-background text-gray-900">
             <PusherListener
                 channelName="notification"
                 eventName="notification-event"
@@ -81,25 +84,19 @@ export default function AdminLayout({ header, children, tools }) {
             {/* Main Content */}
             <div className="flex-1 overflow-auto">
                 {/* Header */}
-                <header className="sticky top-0 z-10 border-b bg-white p-4 flex justify-between items-center shadow-sm">
+                <header className="sticky top-0 z-10 border-b p-4 flex justify-between items-center shadow-sm bg-white border-gray-200">
                     <div className="flex items-center gap-4">
                         {header && (
-                            <h1 className="text-2xl font-bold">{header}</h1>
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                {header}
+                            </h1>
                         )}
                     </div>
 
                     <div className="flex items-center gap-4">
                         {tools}
-                        {/* <Button
-                            variant="ghost"
-                            size="icon"
-                            className="relative"
-                        >
-                            <Bell className="h-5 w-5" />
-                            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
-                                3
-                            </Badge>
-                        </Button> */}
+                        
+                        
                         <NotificationDropdown datas={datas} />
 
                         <div className="flex items-center gap-2">
@@ -111,7 +108,7 @@ export default function AdminLayout({ header, children, tools }) {
                                 <AvatarFallback>AD</AvatarFallback>
                             </Avatar>
                             <div className="hidden md:block">
-                                <p className="text-sm font-medium">
+                                <p className="text-sm font-medium text-gray-900">
                                     {usePage().props.auth.user?.firstname}{" "}
                                     {usePage().props.auth.user?.lastname}
                                 </p>
@@ -123,7 +120,9 @@ export default function AdminLayout({ header, children, tools }) {
                     </div>
                 </header>
 
-                <main className="p-6 bg-accent/20">{children}</main>
+                <main className="p-6 bg-accent/20">
+                    {children}
+                </main>
             </div>
         </div>
     );

@@ -8,7 +8,18 @@ class inventory extends Model
 {
     //
     public $fillable = [
-        "name","category_id","stock_id"
+        "name",
+        "manufacturer",
+        "description",
+        "unit_type",
+        "minimum_stock",
+        "maximum_stock",
+        "storage_location",
+        "batch_number",
+        "expiry_date",
+        "category_id",
+        "stock_id",
+        "status"
     ];
     protected $table = "inventory";
     public $timestamps = false;
@@ -19,8 +30,7 @@ class inventory extends Model
     }
 
     public function stock(){
-        return $this->hasMany(istocks::class,"inventory_id","id");
-        //return $this->belongsTo(istocks::class,"stock_id");
+        return $this->belongsTo(istocks::class,"stock_id");
     }
 
     public function stocks_movement(){

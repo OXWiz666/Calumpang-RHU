@@ -18,6 +18,8 @@ import {
     Layers,
     Mail,
     Boxes,
+    TrendingUp,
+    FileText,
 } from "lucide-react";
 import { cn } from "@/components/tempo/lib/utils";
 import { Button } from "@/components/tempo/components/ui/button";
@@ -29,27 +31,51 @@ import { router } from "@inertiajs/react";
 
 import { useSidebarState } from "@/Layouts/AdminLayout";
 
-const Sidebar = ({ activePage, userRole = "Admin" }) => {
+const Sidebar = ({ activePage, userRole = "Pharmacist" }) => {
     const { sidebarstate, setSidebarstate } = useSidebarState();
 
     //const [sidebarstate, setCollapsed] = useState(sidebarstate);
 
     const menuItems = [
         {
+            title: "Dashboard",
+            icon: <Home className="h-5 w-5" />,
+            route: "pharmacist.dashboard",
+            path: "/pharmacist/dashboard",
+            id: "dashboard",
+            roles: ["Pharmacist"],
+        },
+        {
             title: "Inventory",
             icon: <Boxes className="h-5 w-5" />,
-            route: "admin.inventory.index",
-            path: route("admin.inventory.index"),
-            id: "Inventory",
-            roles: ["Admin"],
+            route: "pharmacist.inventory.index",
+            path: "/pharmacist/inventory",
+            id: "inventory",
+            roles: ["Pharmacist"],
+        },
+        {
+            title: "Analytics",
+            icon: <TrendingUp className="h-5 w-5" />,
+            route: "pharmacist.analytics",
+            path: "/pharmacist/analytics",
+            id: "analytics",
+            roles: ["Pharmacist"],
+        },
+        {
+            title: "Reports",
+            icon: <FileText className="h-5 w-5" />,
+            route: "pharmacist.reports",
+            path: "/pharmacist/reports",
+            id: "reports",
+            roles: ["Pharmacist"],
         },
         {
             title: "Settings",
             icon: <Settings className="h-5 w-5" />,
-            route: "admin.settings*", // FOR ACTIVE NAV
-            path: route("admin.settings.index"),
+            route: "pharmacist.settings*", // FOR ACTIVE NAV
+            path: "/pharmacist/settings",
             id: "settings",
-            roles: ["Admin"],
+            roles: ["Pharmacist"],
         },
     ];
 

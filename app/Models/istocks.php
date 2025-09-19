@@ -16,6 +16,11 @@ class istocks extends Model
     protected $table = "istocks";
     public $timestamps = false;
 
-
-
+    /**
+     * Get the inventory item for this stock
+     */
+    public function inventory()
+    {
+        return $this->belongsTo(inventory::class, 'inventory_id');
+    }
 }

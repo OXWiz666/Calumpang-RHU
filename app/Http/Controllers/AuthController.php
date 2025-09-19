@@ -51,7 +51,7 @@ class AuthController extends Controller
             case "5":
                 return redirect()->route('home');
             case "6":
-                return redirect()->route('admin.inventory.index');
+                return redirect()->route('pharmacist.dashboard');
             case "7":
                 return redirect()->route('admin');
             default:

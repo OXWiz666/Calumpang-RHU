@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\ServicesController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Pharmacist\PharmacistController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\ContactController;
@@ -36,6 +37,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Broadcast;
+use App\Http\Controllers\NotificationController;
 
 // Auth Routes
 
@@ -250,6 +252,37 @@ Route::middleware(['auth'])->group(function () {
         //return response()->json(['message' => 'Logged out successfully'])->withCookie($cookie);
         return app(AuthController::class)->getRedirectRoute();
     })->name('logout');
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.markAllRead');
+});
+
+// Pharmacist Routes
+Route::middleware(['auth', 'Pharmacist'])->group(function () {
+    Route::prefix('pharmacist')->group(function () {
+        Route::get('/dashboard', [PharmacistController::class, 'dashboard'])->name('pharmacist.dashboard');
+        Route::get('/inventory', [PharmacistController::class, 'inventory'])->name('pharmacist.inventory.index');
+        Route::get('/analytics', [PharmacistController::class, 'analytics'])->name('pharmacist.analytics');
+        Route::get('/reports', [PharmacistController::class, 'reports'])->name('pharmacist.reports');
+        Route::get('/settings', [PharmacistController::class, 'settings'])->name('pharmacist.settings');
+        
+        // Inventory management routes
+        Route::prefix('inventory')->group(function () {
+            Route::post('/category/add', [PharmacistController::class, 'add_category'])->name('pharmacist.inventory.category.add');
+            Route::post('/item/add', [PharmacistController::class, 'add_item'])->name('pharmacist.inventory.item.add');
+            Route::put('/item/update/{inventory}', [PharmacistController::class, 'update_item'])->name('pharmacist.inventory.item.update');
+                Route::put('/item/archive/{inventory}', [PharmacistController::class, 'archive_item'])->name('pharmacist.inventory.item.archive');
+                Route::put('/item/unarchive/{inventory}', [PharmacistController::class, 'unarchive_item'])->name('pharmacist.inventory.item.unarchive');
+                Route::post('/item/dispense', [PharmacistController::class, 'dispense_item'])->name('pharmacist.inventory.dispense');
+                Route::post('/item/dispose', [PharmacistController::class, 'dispose_item'])->name('pharmacist.inventory.dispose');
+            Route::delete('/category/delete/{category}', [PharmacistController::class, 'delete_category'])->name('pharmacist.inventory.category.delete');
+            Route::put('/category/update/{category}', [PharmacistController::class, 'update_category'])->name('pharmacist.inventory.category.update');
+            Route::put('/category/archive/{category}', [PharmacistController::class, 'archive_category'])->name('pharmacist.inventory.category.archive');
+            Route::put('/category/unarchive/{category}', [PharmacistController::class, 'unarchive_category'])->name('pharmacist.inventory.category.unarchive');
+            Route::put('/item/stock_movement/update/{movement}', [PharmacistController::class, 'update_stock_movement'])->name('pharmacist.inventory.item.stockmovement.update');
+        });
+    });
 });
 
 Route::middleware(['auth:sanctum','Midwife'])->group(function(){

@@ -14,11 +14,13 @@ export default function LandingLayout({ children, className, footer = false }) {
 
     useEffect(() => {
         if (flash) {
-            //console.log("this toast:", flash);
-            alert_toast(flash.title, flash.message, flash.icon);
+            if (flash.toast) {
+                window.show_toast(flash.title, flash.message, flash.icon);
+            } else {
+                alert_toast(flash.title, flash.message, flash.icon);
+            }
         }
     }, [flash]);
-
     return (
         <div className={className}>
             <PusherListener

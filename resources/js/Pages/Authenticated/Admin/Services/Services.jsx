@@ -863,22 +863,6 @@ const Services = ({ services_ }) => {
                                   </DialogFooter>
                                 </DialogContent>
                               </Dialog>
-
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  {
-                                    serviceDeleteModalHandler(true);
-                                    setData(
-                                      "subservicename",
-                                      service.servicename,
-                                    );
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -1063,10 +1047,6 @@ const Services = ({ services_ }) => {
                                                   </DialogFooter>
                                                 </DialogContent>
                                               </Dialog>
-
-                                              <Button variant="ghost" size="sm">
-                                                <Trash2 className="h-4 w-4 text-red-500" />
-                                              </Button>
                                             </div>
                                           </TableCell>
                                         </TableRow>

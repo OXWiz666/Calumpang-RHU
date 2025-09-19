@@ -109,6 +109,7 @@
 
 
     <script>
+        // Blocking modal alert (kept for confirm flows)
         window.alert_toast = async function(
             title,
             text,
@@ -129,6 +130,27 @@
             });
 
             return result.isConfirmed;
+        };
+
+        // Non-blocking toast (top-right)
+        window.show_toast = async function(
+            title,
+            text,
+            icon = 'success',
+            position = 'top-end',
+            timer = 2000
+        ) {
+            await Swal.fire({
+                title: title,
+                text: text,
+                icon: icon,
+                toast: true,
+                position: position,
+                timer: timer,
+                timerProgressBar: true,
+                showConfirmButton: false
+            });
+            return true;
         };
     </script>
 </body>

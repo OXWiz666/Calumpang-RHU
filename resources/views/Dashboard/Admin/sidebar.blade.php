@@ -34,11 +34,6 @@
                     'icon' => 'calendar'
                 ],
                 [
-                    'title' => 'Medicine Inventory',
-                    'route' => 'inventory.index',
-                    'icon' => 'pill'
-                ],
-                [
                     'title' => 'Reports',
                     'route' => 'reports.index',
                     'icon' => 'file-text'
