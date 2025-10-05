@@ -223,4 +223,98 @@ class PatientController extends Controller
             'priority_number' => $latestAppointment ? $latestAppointment->priority_number + 1 : 1
         ]);
     }
+
+    public function checkSlotAvailability(Request $request) {
+        $date = $request->input('date');
+        $serviceId = $request->input('service_id');
+        $subserviceId = $request->input('subservice_id');
+        
+        // Get all appointments for the specific date and service
+        $appointments = appointments::where('date', $date)
+            ->where('servicetype_id', $serviceId)
+            ->when($subserviceId, function($query) use ($subserviceId) {
+                return $query->where('subservice_id', $subserviceId);
+            })
+            ->get();
+
+        // Get available time slots for the service/subservice
+        $timeSlots = [];
+        if ($subserviceId) {
+            $subservice = \App\Models\subservices::with('times')->find($subserviceId);
+            if ($subservice && $subservice->times) {
+                $timeSlots = $subservice->times->pluck('time')->toArray();
+            }
+        } else {
+            // Get all time slots for the service
+            $service = \App\Models\servicetypes::with(['subservices.times'])->find($serviceId);
+            if ($service && $service->subservices) {
+                $timeSlots = $service->subservices->flatMap(function($sub) {
+                    return $sub->times ? $sub->times->pluck('time')->toArray() : [];
+                })->unique()->values()->toArray();
+            }
+        }
+
+        // Check availability for each time slot
+        $availability = [];
+        foreach ($timeSlots as $time) {
+            $bookedCount = $appointments->where('time', $time)->count();
+            $isAvailable = $bookedCount < 5; // Assuming max 5 appointments per time slot
+            
+            $availability[] = [
+                'time' => $time,
+                'booked_count' => $bookedCount,
+                'is_available' => $isAvailable,
+                'available_slots' => max(0, 5 - $bookedCount) // Assuming max 5 slots per time
+            ];
+        }
+
+        return response()->json([
+            'date' => $date,
+            'service_id' => $serviceId,
+            'subservice_id' => $subserviceId,
+            'availability' => $availability,
+            'total_appointments' => $appointments->count()
+        ]);
+    }
+
+    public function getDateAvailability(Request $request) {
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $serviceId = $request->input('service_id');
+        
+        // Get appointments for the date range
+        $appointments = appointments::whereBetween('date', [$startDate, $endDate])
+            ->where('servicetype_id', $serviceId)
+            ->selectRaw('date, COUNT(*) as appointment_count')
+            ->groupBy('date')
+            ->get()
+            ->keyBy('date');
+
+        // Generate date availability
+        $availability = [];
+        $currentDate = \Carbon\Carbon::parse($startDate);
+        $endDate = \Carbon\Carbon::parse($endDate);
+        
+        while ($currentDate->lte($endDate)) {
+            $dateStr = $currentDate->format('Y-m-d');
+            $appointmentCount = $appointments->get($dateStr, (object)['appointment_count' => 0])->appointment_count;
+            $isAvailable = $appointmentCount < 20; // Assuming max 20 appointments per day
+            
+            $availability[] = [
+                'date' => $dateStr,
+                'appointment_count' => $appointmentCount,
+                'is_available' => $isAvailable,
+                'available_slots' => max(0, 20 - $appointmentCount)
+            ];
+            
+            $currentDate->addDay();
+        }
+
+        return response()->json([
+            'start_date' => $startDate,
+            'end_date' => $endDate->format('Y-m-d'),
+            'service_id' => $serviceId,
+            'availability' => $availability
+        ]);
+    }
 }

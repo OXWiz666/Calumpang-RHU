@@ -4,13 +4,399 @@ namespace App\Http\Controllers\Doctor;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use App\Models\Prescription;
+use App\Models\PrescriptionMedicine;
+use App\Models\Patient;
+use App\Models\Medicine;
+use App\Models\MedicalRecord;
+
 class DoctorController extends Controller
 {
-    //
     public function index(){
-        return Inertia::render('Authenticated/Doctor/Dashboard',[]);
-        //return view('layouts.doctorlayout');
+        // Get prescriptions with patient data from users table
+        $prescriptions = Prescription::with(['patient'])
+            ->where('doctor_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($prescription) {
+                return [
+                    'id' => $prescription->id,
+                    'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
+                    'patient_name' => $prescription->patient ? $prescription->patient->full_name : 'Unknown Patient',
+                    'status' => $prescription->status,
+                    'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
+                    'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+        $recentPrescriptions = $prescriptions->take(5);
+
+        // Get patient count from users table with Patient role
+        $patientCount = \App\Models\User::whereHas('role', function($query) {
+            $query->where('roletype', 'Patient');
+        })->count();
+
+        $stats = [
+            'pending' => $prescriptions->where('status', 'pending')->count(),
+            'dispensed' => $prescriptions->where('status', 'dispensed')->count(),
+            'dispensed_today' => $prescriptions->where('status', 'dispensed')
+                ->where('dispensed_at', '>=', now()->startOfDay())
+                ->count(),
+            'total' => $prescriptions->count(),
+            'patients' => $patientCount
+        ];
+
+        return Inertia::render('Authenticated/Doctor/Dashboard', [
+            'prescriptions' => $prescriptions,
+            'recentPrescriptions' => $recentPrescriptions,
+            'stats' => $stats
+        ]);
+    }
+
+    /**
+     * Get dashboard data for real-time updates
+     */
+    public function getDashboardData()
+    {
+        $prescriptions = Prescription::with(['patient'])
+            ->where('doctor_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($prescription) {
+                return [
+                    'id' => $prescription->id,
+                    'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
+                    'patient_name' => $prescription->patient ? $prescription->patient->full_name : 'Unknown Patient',
+                    'status' => $prescription->status,
+                    'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
+                    'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+        $recentPrescriptions = $prescriptions->take(5);
+
+        // Get patient count from users table with Patient role
+        $patientCount = \App\Models\User::whereHas('role', function($query) {
+            $query->where('roletype', 'Patient');
+        })->count();
+
+        $stats = [
+            'pending' => $prescriptions->where('status', 'pending')->count(),
+            'dispensed' => $prescriptions->where('status', 'dispensed')->count(),
+            'dispensed_today' => $prescriptions->where('status', 'dispensed')
+                ->where('dispensed_at', '>=', now()->startOfDay())
+                ->count(),
+            'total' => $prescriptions->count(),
+            'patients' => $patientCount
+        ];
+
+        return response()->json([
+            'prescriptions' => $prescriptions,
+            'recentPrescriptions' => $recentPrescriptions,
+            'stats' => $stats
+        ]);
+    }
+
+    /**
+     * Show prescriptions page
+     */
+    public function prescriptions()
+    {
+        $prescriptions = Prescription::with(['patient', 'medicines'])
+            ->where('doctor_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function($prescription) {
+                return [
+                    'id' => $prescription->id,
+                    'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
+                    'patient_name' => $prescription->patient->full_name,
+                    'patient_id' => $prescription->patient_id,
+                    'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
+                    'status' => $prescription->status,
+                    'medicines_count' => $prescription->medicines->count(),
+                    'notes' => $prescription->notes,
+                    'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+        return Inertia::render('Authenticated/Doctor/Prescriptions', [
+            'prescriptions' => $prescriptions
+        ]);
+    }
+
+    /**
+     * Show create prescription form
+     */
+    public function createPrescription()
+    {
+        $patients = \App\Models\User::whereHas('role', function($query) {
+                $query->where('roletype', 'Patient');
+            })
+            ->select('id', 'firstname', 'lastname', 'middlename')
+            ->get()
+            ->map(function($patient) {
+                return [
+                    'id' => $patient->id,
+                    'name' => $patient->firstname . ' ' . $patient->lastname,
+                    'first_name' => $patient->firstname,
+                    'last_name' => $patient->lastname,
+                    'middle_name' => $patient->middlename
+                ];
+            });
+
+        // Get medicines from inventory table (same as Patient Record modal)
+        $medicines = \App\Models\inventory::with(['istocks', 'icategory'])
+            ->where('status', 1)
+            ->get()
+            ->map(function($item) {
+                $totalQuantity = $item->istocks->sum('stocks');
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'generic_name' => $item->generic_name ?? $item->name,
+                    'unit' => $item->unit ?? 'pcs',
+                    'available_quantity' => $totalQuantity,
+                    'category' => $item->icategory ? $item->icategory->name : 'General'
+                ];
+            })
+            ->filter(function($medicine) {
+                return $medicine['available_quantity'] > 0;
+            })
+            ->values();
+
+        // Debug logging
+        \Log::info('Medicines data for Create Prescription:', [
+            'count' => $medicines->count(),
+            'medicines' => $medicines->toArray()
+        ]);
+
+        return Inertia::render('Authenticated/Doctor/CreatePrescription', [
+            'patients' => $patients,
+            'medicines' => $medicines
+        ]);
+    }
+
+    /**
+     * Store new prescription
+     */
+    public function storePrescription(Request $request)
+    {
+        $request->validate([
+            'patient_id' => 'required|exists:users,id',
+            'prescription_date' => 'required|date|before_or_equal:today',
+            'case_id' => 'required|string|max:255',
+            'medicines' => 'required|array|min:1',
+            'medicines.*.medicine_id' => 'required|exists:medicines,id',
+            'medicines.*.dosage' => 'required|string',
+            'medicines.*.frequency' => 'required|string',
+            'medicines.*.duration' => 'required|string',
+            'medicines.*.quantity' => 'required|integer|min:1',
+            'medicines.*.instructions' => 'nullable|string',
+            'notes' => 'nullable|string'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Create prescription
+            $prescription = Prescription::create([
+                'patient_id' => $request->patient_id,
+                'doctor_id' => Auth::id(),
+                'prescription_date' => $request->prescription_date,
+                'case_id' => $request->case_id,
+                'status' => 'pending',
+                'notes' => $request->notes
+            ]);
+
+            // Create prescription medicines
+            foreach ($request->medicines as $medicineData) {
+                PrescriptionMedicine::create([
+                    'prescription_id' => $prescription->id,
+                    'medicine_id' => $medicineData['medicine_id'],
+                    'dosage' => $medicineData['dosage'],
+                    'frequency' => $medicineData['frequency'],
+                    'duration' => $medicineData['duration'],
+                    'quantity' => $medicineData['quantity'],
+                    'instructions' => $medicineData['instructions'] ?? '',
+                    'is_dispensed' => false
+                ]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('doctor.prescriptions')
+                ->with('success', 'Prescription created successfully!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Failed to create prescription: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Show prescription details
+     */
+    public function showPrescription(Prescription $prescription)
+    {
+        // Ensure doctor can only view their own prescriptions
+        if ($prescription->doctor_id !== Auth::id()) {
+            abort(403, 'Unauthorized');
+        }
+
+        $prescription->load(['patient', 'medicines', 'doctor']);
+
+        $prescriptionData = [
+            'id' => $prescription->id,
+            'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
+            'patient' => [
+                'id' => $prescription->patient->id,
+                'name' => $prescription->patient->firstname . ' ' . $prescription->patient->lastname,
+                'first_name' => $prescription->patient->firstname,
+                'last_name' => $prescription->patient->lastname,
+                'middle_name' => $prescription->patient->middlename,
+                'date_of_birth' => $prescription->patient->date_of_birth ?? 'N/A',
+                'gender' => $prescription->patient->gender ?? 'N/A',
+                'contact_number' => $prescription->patient->contact_number ?? 'N/A'
+            ],
+            'doctor' => [
+                'id' => $prescription->doctor->id,
+                'name' => $prescription->doctor->firstname . ' ' . $prescription->doctor->lastname
+            ],
+            'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
+            'status' => $prescription->status,
+            'notes' => $prescription->notes,
+            'medicines' => $prescription->medicines->map(function($medicine) {
+                // Get medicine data from inventory table since medicine_id references inventory
+                $inventoryItem = \App\Models\inventory::find($medicine->medicine_id);
+                
+                return [
+                    'id' => $medicine->id,
+                    'medicine' => [
+                        'id' => $inventoryItem ? $inventoryItem->id : $medicine->medicine_id,
+                        'name' => $inventoryItem ? $inventoryItem->name : 'Unknown Medicine',
+                        'generic_name' => $inventoryItem ? $inventoryItem->generic_name : 'Unknown',
+                        'unit' => $inventoryItem ? $inventoryItem->unit : 'pcs'
+                    ],
+                    'dosage' => $medicine->dosage,
+                    'frequency' => $medicine->frequency,
+                    'duration' => $medicine->duration,
+                    'quantity' => $medicine->quantity,
+                    'instructions' => $medicine->instructions,
+                    'is_dispensed' => $medicine->is_dispensed
+                ];
+            }),
+            'created_at' => $prescription->created_at->format('Y-m-d H:i:s'),
+            'dispensed_at' => $prescription->dispensed_at ? $prescription->dispensed_at->format('Y-m-d H:i:s') : null
+        ];
+
+        return Inertia::render('Authenticated/Doctor/ViewPrescription', [
+            'prescription' => $prescriptionData
+        ]);
+    }
+
+    /**
+     * Get patients for dropdown
+     */
+    public function getPatients()
+    {
+        $patients = \App\Models\User::whereHas('role', function($query) {
+                $query->where('roletype', 'Patient');
+            })
+            ->select('id', 'firstname', 'lastname', 'middlename', 'contact_number')
+            ->get()
+            ->map(function($patient) {
+                return [
+                    'id' => $patient->id,
+                    'name' => $patient->firstname . ' ' . $patient->lastname,
+                    'first_name' => $patient->firstname,
+                    'last_name' => $patient->lastname,
+                    'middle_name' => $patient->middlename,
+                    'contact_number' => $patient->contact_number ?? 'N/A'
+                ];
+            });
+
+        return response()->json($patients);
+    }
+
+    /**
+     * Get medicines for dropdown
+     */
+    public function getMedicines()
+    {
+        $medicines = Medicine::available()
+            ->select('id', 'name', 'generic_name', 'unit', 'quantity')
+            ->get()
+            ->map(function($medicine) {
+                return [
+                    'id' => $medicine->id,
+                    'name' => $medicine->name,
+                    'generic_name' => $medicine->generic_name,
+                    'unit' => $medicine->unit,
+                    'available_quantity' => $medicine->quantity
+                ];
+            });
+
+        return response()->json($medicines);
+    }
+
+    /**
+     * Show the doctor settings page
+     */
+    public function settings()
+    {
+        $user = Auth::user();
+        
+        return Inertia::render('Authenticated/Doctor/Settings', [
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * Update doctor profile information
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'firstname' => 'required|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . Auth::id(),
+            'phone' => 'nullable|string|max:20',
+            'specialization' => 'nullable|string|max:255',
+            'bio' => 'nullable|string|max:1000',
+        ]);
+
+        $user = Auth::user();
+        $user->update([
+            'firstname' => $request->firstname,
+            'lastname' => $request->lastname,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'specialization' => $request->specialization,
+            'bio' => $request->bio,
+        ]);
+
+        return redirect()->back()->with('success', 'Profile updated successfully!');
+    }
+
+    /**
+     * Update doctor password
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|current_password',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = Auth::user();
+        $user->update([
+            'password' => bcrypt($request->password),
+        ]);
+
+        return redirect()->back()->with('success', 'Password updated successfully!');
     }
 }

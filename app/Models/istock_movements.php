@@ -23,7 +23,7 @@ class istock_movements extends Model
         'notes',
     ];
     protected $table = "istock_movements";
-    public $timestamps = false;
+    public $timestamps = true;
 
     public function inventory(){
         return $this->belongsTo(inventory::class,"inventory_id");

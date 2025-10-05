@@ -4,7 +4,7 @@ import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { 
     Package, 
@@ -24,10 +24,13 @@ import {
     SelectValue,
 } from "@/components/tempo/components/ui/select";
 
-const BatchDisposalModal = ({ open, onClose, item }) => {
+const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti = [] }) => {
     const [availableBatches, setAvailableBatches] = useState([]);
     const [selectedBatch, setSelectedBatch] = useState(null);
+    const [selectedBatches, setSelectedBatches] = useState([]); // [{batch_number, quantity, expiry_date, available_quantity}]
+    const [selectedItems, setSelectedItems] = useState([]); // for multi mode: [{id, batch_number}]
     const [validationErrors, setValidationErrors] = useState({});
+    const [selectedOption, setSelectedOption] = useState("");
 
     const { data, setData, post, processing, errors } = useForm({
         item_id: item?.id || "",
@@ -38,23 +41,56 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
         disposal_date: "",
         disposed_by: "",
         notes: "",
-        disposal_cost: ""
+        disposal_cost: "",
+        batches: []
     });
 
     useEffect(() => {
-        if (item && open) {
-            // Simulate available batches - in real app, this would come from the backend
-            const batches = [
-                {
-                    batch_number: item.batch_number || "BATCH-001",
-                    expiry_date: item.expiry_date || "2025-12-31",
-                    available_quantity: item.quantity || 100,
-                    location: item.storage_location || "Shelf A1"
+        const loadBatches = async () => {
+            if (!open) return;
+            // Multi: load batches for multiple items
+            if (multi) {
+                if (!selectedItems || selectedItems.length === 0) {
+                    setAvailableBatches([]);
+                    return;
                 }
-            ];
-            setAvailableBatches(batches);
-            
-            // Set form data properly
+                try {
+                    const response = await fetch(route('pharmacist.inventory.items.batches'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        body: JSON.stringify({ item_ids: selectedItems.map(si => si.id) })
+                    });
+                    const batches = await response.json();
+                    setAvailableBatches(Array.isArray(batches) ? batches : []);
+                } catch (e) {
+                    console.error('Failed to load batches', e);
+                    setAvailableBatches([]);
+                }
+                setData({
+                    item_id: "",
+                    batch_number: "",
+                    quantity: "",
+                    disposal_reason: "",
+                    disposal_method: "",
+                    disposal_date: new Date().toISOString().split('T')[0],
+                    disposed_by: "Current User",
+                    notes: "",
+                    disposal_cost: ""
+                });
+                return;
+            }
+
+            // Single: load for selected item
+            if (!item) return;
+            try {
+                const response = await fetch(route('pharmacist.inventory.item.batches', item.id));
+                const batches = await response.json();
+                setAvailableBatches(Array.isArray(batches) ? batches : []);
+            } catch (e) {
+                console.error('Failed to load batches', e);
+                setAvailableBatches([]);
+            }
+
             setData({
                 item_id: item.id,
                 batch_number: "",
@@ -66,30 +102,39 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                 notes: "",
                 disposal_cost: ""
             });
-        }
-    }, [item, open]);
+        };
 
-    const handleBatchSelect = (batch) => {
-        setSelectedBatch(batch);
-        setData({
-            ...data,
-            batch_number: batch.batch_number,
-            quantity: batch.available_quantity
-        });
+        loadBatches();
+    }, [item, open, multi, JSON.stringify(selectedItems)]);
+
+    const handleBatchToggle = (batch) => {
         setValidationErrors({});
+        setSelectedBatch(batch);
+        setData({ ...data, batch_number: batch.batch_number, quantity: batch.available_quantity });
+
+        setSelectedBatches((prev) => {
+            const exists = prev.find(b => b.batch_number === batch.batch_number);
+            if (exists) {
+                return prev.filter(b => b.batch_number !== batch.batch_number);
+            }
+            return [...prev, { ...batch, quantity: Math.min( batch.available_quantity, batch.quantity ?? batch.available_quantity ) }];
+        });
+    };
+
+    const updateSelectedBatchQty = (itemId, batchNumber, qty) => {
+        setSelectedBatches((prev) => prev.map(b => ((b.item_id || data.item_id) === itemId && b.batch_number === batchNumber) ? { ...b, quantity: qty } : b));
     };
 
     const validateForm = () => {
         const errors = {};
         
-        if (!data.batch_number) {
-            errors.batch_number = "Please select a batch";
+        if (selectedBatches.length === 0) {
+            errors.batch_number = "Please select at least one batch";
         }
-        
-        if (!data.quantity || data.quantity <= 0) {
-            errors.quantity = "Please enter a valid quantity";
-        } else if (selectedBatch && data.quantity > selectedBatch.available_quantity) {
-            errors.quantity = `Quantity cannot exceed available stock (${selectedBatch.available_quantity})`;
+
+        const totalQty = Array.isArray(selectedBatches) ? selectedBatches.reduce((sum, b) => sum + (Number(b?.quantity) || 0), 0) : 0;
+        if (totalQty <= 0) {
+            errors.quantity = "Please enter a valid quantity for selected batches";
         }
         
         if (!data.disposal_reason.trim()) {
@@ -116,17 +161,55 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
         }
 
         // Additional validation for disposal
-        if (data.quantity > selectedBatch.available_quantity) {
+        if (!multi && selectedBatch && data.quantity > selectedBatch.available_quantity) {
             setValidationErrors({ quantity: `Cannot dispose more than available stock (${selectedBatch.available_quantity} units)` });
             return;
         }
 
-        if (data.disposal_date && new Date(data.disposal_date) < new Date()) {
+        if (data.disposal_date && new Date(data.disposal_date) < new Date(new Date().toDateString())) {
             setValidationErrors({ disposal_date: 'Disposal date cannot be in the past' });
             return;
         }
         
-        post(route("pharmacist.inventory.dispose"), {
+        const payload = {
+            item_id: data.item_id,
+            batches: selectedBatches.map(b => ({ batch_number: b.batch_number, quantity: Number(b.quantity) || 0 })),
+            disposal_reason: data.disposal_reason,
+            disposal_method: data.disposal_method,
+            disposal_date: data.disposal_date,
+            disposed_by: data.disposed_by,
+            notes: data.notes,
+            disposal_cost: data.disposal_cost
+        };
+
+        if (selectedBatches.length > 1) {
+            router.post(route('pharmacist.inventory.dispose.bulk'), payload, {
+                onSuccess: () => {
+                    onClose();
+                    setData({
+                        item_id: "",
+                        batch_number: "",
+                        quantity: "",
+                        disposal_reason: "",
+                        disposal_method: "",
+                        disposal_date: "",
+                        disposed_by: "",
+                        notes: "",
+                        disposal_cost: "",
+                        batches: []
+                    });
+                    setSelectedBatch(null);
+                    setSelectedBatches([]);
+                    setValidationErrors({});
+                },
+                onError: (errors) => {
+                    console.error("Disposal error:", errors);
+                }
+            });
+            return;
+        }
+
+        post(route('pharmacist.inventory.dispose'), {
             onSuccess: () => {
                 onClose();
                 // Reset form
@@ -139,9 +222,11 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                     disposal_date: "",
                     disposed_by: "",
                     notes: "",
-                    disposal_cost: ""
+                    disposal_cost: "",
+                    batches: []
                 });
                 setSelectedBatch(null);
+                setSelectedBatches([]);
                 setValidationErrors({});
             },
             onError: (errors) => {
@@ -197,7 +282,7 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
         { value: "Other", label: "Other" }
     ];
 
-    if (!item) return null;
+    if (!item && !multi) return null;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -205,7 +290,7 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Trash2 className="h-5 w-5 text-red-600" />
-                        Batch Disposal - {item.name}
+                        {multi ? 'Batch Disposal - Multiple Items' : `Batch Disposal - ${item?.name ?? ''}`}
                     </DialogTitle>
                 </DialogHeader>
 
@@ -213,56 +298,106 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                     {/* Item Information */}
                     <div className="bg-gray-50 rounded-lg p-4">
                         <h3 className="font-semibold text-gray-900 mb-3">Item Information</h3>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span className="text-gray-600">Item:</span>
-                                <span className="ml-2 font-medium">{item.name}</span>
+                        {!multi && item && (
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span className="text-gray-600">Item:</span>
+                                    <span className="ml-2 font-medium">{item.name}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-600">Manufacturer:</span>
+                                    <span className="ml-2 font-medium">{item.manufacturer || "N/A"}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-600">Category:</span>
+                                    <span className="ml-2 font-medium">{item.category?.name || "N/A"}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-600">Current Stock:</span>
+                                    <span className="ml-2 font-medium">{item.quantity || 0} {item.unit_type || "units"}</span>
+                                </div>
                             </div>
+                        )}
+                        {multi && (
                             <div>
-                                <span className="text-gray-600">Manufacturer:</span>
-                                <span className="ml-2 font-medium">{item.manufacturer || "N/A"}</span>
+                                <Label className="text-sm font-medium">Select Batch Numbers</Label>
+                                <div className="mt-2">
+                                    <Select
+                                        value={selectedOption}
+                                        onValueChange={(value) => {
+                                            setSelectedOption(value);
+                                            const id = parseInt(value, 10);
+                                            const inv = itemsForMulti.find((i) => i.id === id);
+                                            if (inv && !selectedItems.find((si) => si.id === id)) {
+                                                setSelectedItems((prev) => [...prev, { id: inv.id, batch_number: inv.batch_number }]);
+                                            }
+                                        }}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Choose expired batch to add" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {itemsForMulti.filter((inv) => {
+                                                const exp = inv.expiry_date || inv.expiryDate;
+                                                return exp ? (new Date(exp) < new Date()) : false;
+                                            }).map((inv) => (
+                                                <SelectItem key={inv.id} value={String(inv.id)}>
+                                                    {(inv.batch_number || '') + (inv.name ? ` (${inv.name})` : '')}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {selectedItems.length > 0 && (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {selectedItems.map((si) => {
+                                            const inv = itemsForMulti.find((i) => i.id === si.id);
+                                            return (
+                                                <span key={si.id} className="text-xs bg-gray-100 border rounded px-2 py-1 flex items-center gap-2">
+                                                    {(inv?.batch_number || '') + (inv?.name ? ` (${inv?.name})` : '')}
+                                                    <button type="button" className="text-gray-500 hover:text-gray-700" onClick={() => setSelectedItems((prev) => prev.filter((x) => x.id !== si.id))}>×</button>
+                                                </span>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                <p className="text-xs text-gray-500 mt-2">Batches across selected items are listed below.</p>
                             </div>
-                            <div>
-                                <span className="text-gray-600">Category:</span>
-                                <span className="ml-2 font-medium">{item.category?.name || "N/A"}</span>
-                            </div>
-                            <div>
-                                <span className="text-gray-600">Current Stock:</span>
-                                <span className="ml-2 font-medium">{item.quantity || 0} {item.unit_type || "units"}</span>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Available Batches */}
                     <div>
                         <Label className="text-sm font-medium">Available Batches</Label>
                         <div className="mt-2 space-y-2">
-                            {availableBatches.map((batch, index) => {
+                            {(Array.isArray(availableBatches) ? availableBatches : []).map((batch, index) => {
                                 const expiryStatus = getExpiryStatus(batch.expiry_date);
                                 return (
                                     <motion.div
-                                        key={batch.batch_number}
+                                        key={`${batch.item_id || data.item_id}:${batch.batch_number || 'NB'}:${index}`}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.1 }}
                                         className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                                            selectedBatch?.batch_number === batch.batch_number
+                                            selectedBatches.find(b => b.batch_number === batch.batch_number)
                                                 ? 'border-red-500 bg-red-50'
                                                 : 'border-gray-200 hover:border-gray-300'
                                         }`}
-                                        onClick={() => handleBatchSelect(batch)}
+                                        onClick={() => handleBatchToggle(batch)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-3 h-3 rounded-full ${
-                                                    selectedBatch?.batch_number === batch.batch_number
+                                                    selectedBatches.find(b => b.batch_number === batch.batch_number)
                                                         ? 'bg-red-500'
                                                         : 'bg-gray-300'
                                                 }`}></div>
                                                 <div>
                                                     <div className="flex items-center gap-2">
                                                         <Hash className="h-4 w-4 text-gray-500" />
-                                                        <span className="font-medium">{batch.batch_number}</span>
+                                                        <span className="font-medium">{batch.batch_number}{batch.item_name ? ` (${batch.item_name})` : ''}</span>
                                                         <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${expiryStatus.bgColor} ${expiryStatus.color}`}>
                                                             {expiryStatus.icon}
                                                             {expiryStatus.status === "expired" ? "Expired" : 
@@ -284,6 +419,20 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                                                 </div>
                                             </div>
                                         </div>
+                                        {selectedBatches.find(b => b.batch_number === batch.batch_number) && (
+                                            <div className="mt-3 pl-7">
+                                                <Label className="text-xs">Quantity to dispose for this batch</Label>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    max={batch.available_quantity}
+                                                    value={selectedBatches.find(b => b.batch_number === batch.batch_number)?.quantity || 0}
+                                                    onChange={(e) => updateSelectedBatchQty((batch.item_id || data.item_id), batch.batch_number, Math.min(Number(e.target.value)||0, batch.available_quantity))}
+                                                    className="mt-1 w-40"
+                                                />
+                                                <p className="text-xs text-gray-500 mt-1">Max {batch.available_quantity}</p>
+                                            </div>
+                                        )}
                                     </motion.div>
                                 );
                             })}
@@ -296,24 +445,12 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                     {/* Disposal Details */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label htmlFor="quantity">Quantity to Dispose *</Label>
-                            <Input
-                                id="quantity"
-                                type="number"
-                                min="1"
-                                max={selectedBatch?.available_quantity || 0}
-                                value={data.quantity}
-                                onChange={(e) => setData({ ...data, quantity: e.target.value })}
-                                placeholder="Enter quantity"
-                                className="mt-1"
-                            />
+                            <Label>Total Quantity to Dispose</Label>
+                            <div className="mt-1 font-medium">
+                                {selectedBatches.reduce((sum, b) => sum + (Number(b.quantity)||0), 0)} units
+                            </div>
                             {validationErrors.quantity && (
                                 <p className="text-sm text-red-600 mt-1">{validationErrors.quantity}</p>
-                            )}
-                            {selectedBatch && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Max: {selectedBatch.available_quantity} units
-                                </p>
                             )}
                         </div>
 
@@ -427,13 +564,24 @@ const BatchDisposalModal = ({ open, onClose, item }) => {
                         >
                             Cancel
                         </Button>
-                        <Button
-                            type="submit"
-                            disabled={processing || !selectedBatch}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                        >
-                            {processing ? "Disposing..." : "Dispose Batch"}
-                        </Button>
+                        {!multi && (
+                            <Button
+                                type="submit"
+                                disabled={processing || !selectedBatch}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                {processing ? "Disposing..." : "Dispose Batch"}
+                            </Button>
+                        )}
+                        {multi && (
+                            <Button
+                                type="submit"
+                                disabled={processing || selectedBatches.length === 0}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                {processing ? "Disposing..." : "Dispose Selected Batches"}
+                            </Button>
+                        )}
                     </DialogFooter>
                 </form>
             </DialogContent>

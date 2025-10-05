@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import PatientList from "./patient-list";
 import PatientDetails from "./patient-details";
 import AddPatientForm from "./add-patient-form";
+import AddPrescriptionForm from "./AddPrescriptionForm";
 import { Button } from "@/components/tempo/components/ui/button";
 import {
     Plus,
@@ -27,6 +28,7 @@ import {
     CardTitle,
     CardDescription,
 } from "@/components/tempo/components/ui/card";
+import { Badge } from "@/components/tempo/components/ui/badge";
 import AdminLayout from "@/Layouts/AdminLayout";
 import { motion } from "framer-motion";
 import { router, useForm, usePage } from "@inertiajs/react";
@@ -37,7 +39,6 @@ import {
     TabsTrigger,
 } from "@/components/tempo/components/ui/tabs";
 
-import { Badge } from "@/components/tempo/components/ui/badge";
 import EditPatientForm from "./edit-patient-form";
 import AddMedicalRecordForm from "./add-medical-record-form";
 
@@ -107,9 +108,13 @@ const samplePatients = [
     },
 ];
 
-export default function PatientRecords({ patients_, doctors, patient }) {
+export default function PatientRecords({ patients_, doctors, patient, medicines, isAdminView = false }) {
     const [isEditing, setIsEditing] = useState(false);
     const [showAddRecord, setShowAddRecord] = useState(false);
+    const [showAddPrescription, setShowAddPrescription] = useState(false);
+
+    // Debug logging
+    console.log('PatientRecords props:', { patient, medicines, doctors });
 
     const calculateAge = (dateOfBirth) => {
         const today = new Date();
@@ -140,22 +145,56 @@ export default function PatientRecords({ patients_, doctors, patient }) {
 
     useEffect(() => {
         if (data && Object.keys(data).length > 0) {
-            post(
-                route("patients.medicalrec.store", { patientid: patient?.id }),
-                {
-                    onSuccess: () => {
-                        setShowAddRecord(false);
-                    },
-                    onFinish: () => {
-                        router.reload({
-                            only: ["patients_", "doctors", "flash"],
-                            //preserveState: false,
-                        });
-                    },
-                }
-            );
+            // Check if it's prescription data
+            if (data.medicines && data.doctor_id) {
+                post(
+                    route("patients.prescription.store", { patientid: patient?.id }),
+                    {
+                        onSuccess: () => {
+                            setShowAddPrescription(false);
+                        },
+                        onFinish: () => {
+                            router.reload({
+                                only: ["patient", "doctors", "medicines", "flash"],
+                            });
+                        },
+                    }
+                );
+            } else {
+                // Medical record data
+                post(
+                    route("patients.medicalrec.store", { patientid: patient?.id }),
+                    {
+                        onSuccess: () => {
+                            setShowAddRecord(false);
+                        },
+                        onFinish: () => {
+                            router.reload({
+                                only: ["patients_", "doctors", "flash"],
+                            });
+                        },
+                    }
+                );
+            }
         }
     }, [data]);
+
+    // Real-time updates for prescriptions and medicines
+    useEffect(() => {
+        if (window.Echo) {
+            const channel = window.Echo.channel('inventory-updates')
+                .listen('InventoryUpdated', (e) => {
+                    console.log('Inventory updated, refreshing patient data...', e);
+                    router.reload({
+                        only: ["patient", "medicines"],
+                    });
+                });
+
+            return () => {
+                window.Echo.leaveChannel('inventory-updates');
+            };
+        }
+    }, []);
 
     const GetCurrentView = () => {
         if (isEditing) {
@@ -180,6 +219,20 @@ export default function PatientRecords({ patients_, doctors, patient }) {
                     onSubmit={(record) => setData(record)}
                     onCancel={() => setShowAddRecord(false)}
                     doctors={doctors}
+                    errors={errors}
+                />
+            );
+        }
+
+        if (showAddPrescription && !isAdminView) {
+            console.log('Passing props to AddPrescriptionForm:', { patient, doctors, medicines });
+            return (
+                <AddPrescriptionForm
+                    patient={patient}
+                    doctors={doctors}
+                    medicines={medicines}
+                    onSubmit={(prescriptionData) => setData(prescriptionData)}
+                    onCancel={() => setShowAddPrescription(false)}
                     errors={errors}
                 />
             );
@@ -232,6 +285,11 @@ export default function PatientRecords({ patients_, doctors, patient }) {
                             <TabsTrigger value="medical-history">
                                 Medical Records
                             </TabsTrigger>
+                            {!isAdminView && (
+                                <TabsTrigger value="prescriptions">
+                                    Prescriptions
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="medications">
                                 Medications & Allergies
                             </TabsTrigger>
@@ -546,6 +604,119 @@ export default function PatientRecords({ patients_, doctors, patient }) {
                                 </CardContent>
                             </Card>
                         </TabsContent>
+
+                        {!isAdminView && (
+                            <TabsContent value="prescriptions" className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle>Prescriptions</CardTitle>
+                                            <CardDescription>
+                                                Prescription history and management for this patient
+                                            </CardDescription>
+                                        </div>
+                                        <Button onClick={() => setShowAddPrescription(true)}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Prescription
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    {patient.prescriptions && patient.prescriptions.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {patient.prescriptions.map((prescription) => (
+                                                <Card key={prescription.id}>
+                                                    <CardContent className="pt-6">
+                                                        <div className="flex items-center justify-between mb-4">
+                                                            <div>
+                                                                <h3 className="font-semibold">
+                                                                    {prescription.prescription_number}
+                                                                </h3>
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    {new Date(prescription.prescription_date).toLocaleDateString()}
+                                                                </p>
+                                                            </div>
+                                                            <Badge 
+                                                                variant={
+                                                                    prescription.status === 'pending' ? 'warning' :
+                                                                    prescription.status === 'dispensed' ? 'success' : 'secondary'
+                                                                }
+                                                            >
+                                                                {prescription.status}
+                                                            </Badge>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                            <div>
+                                                                <label className="text-sm font-medium text-muted-foreground">
+                                                                    Doctor
+                                                                </label>
+                                                                <p>{prescription.doctor_name}</p>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-sm font-medium text-muted-foreground">
+                                                                    Case ID
+                                                                </label>
+                                                                <p>{prescription.case_id || 'N/A'}</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {prescription.medicines && prescription.medicines.length > 0 && (
+                                                            <div>
+                                                                <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                                                                    Medicines
+                                                                </label>
+                                                                <div className="space-y-2">
+                                                                    {prescription.medicines.map((medicine, index) => (
+                                                                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                                                            <div>
+                                                                                <p className="font-medium">{medicine.medicine_name}</p>
+                                                                                <p className="text-sm text-muted-foreground">
+                                                                                    {medicine.dosage} - {medicine.frequency} - {medicine.duration}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <p className="text-sm font-medium">Qty: {medicine.quantity}</p>
+                                                                                {medicine.is_dispensed && (
+                                                                                    <Badge variant="success" className="text-xs">
+                                                                                        Dispensed
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {prescription.notes && (
+                                                            <div className="mt-4">
+                                                                <label className="text-sm font-medium text-muted-foreground">
+                                                                    Notes
+                                                                </label>
+                                                                <p className="text-sm">{prescription.notes}</p>
+                                                            </div>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <p className="text-muted-foreground mb-4">
+                                                No prescriptions found for this patient.
+                                            </p>
+                                            <Button onClick={() => setShowAddPrescription(true)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Add First Prescription
+                                            </Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        )}
 
                         <TabsContent value="medications" className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

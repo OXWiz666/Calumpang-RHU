@@ -58,9 +58,10 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         {
             title: "Settings",
             icon: <Settings className="h-5 w-5" />,
-            path: "/settings",
+            route: "doctor.settings",
+            path: "/doctor/settings",
             id: "settings",
-            roles: ["Admin"],
+            roles: ["Admin", "Doctor"],
         },
     ];
 

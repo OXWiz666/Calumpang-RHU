@@ -116,6 +116,10 @@ Route::middleware(['auth','Patient'])->group(function(){
         // Get latest appointment priority number
         Route::get('/get-latest-appointment',[PatientController::class,'getLatestAppointment'])->name('patient.latest.appointment');
 
+        // Check slot availability
+        Route::get('/check-slot-availability',[PatientController::class,'checkSlotAvailability'])->name('patient.check.slot.availability');
+        Route::get('/get-date-availability',[PatientController::class,'getDateAvailability'])->name('patient.get.date.availability');
+
         Route::post('/message/send',[PatientMessagesController::class,'sendmssg'])->name('patient.landing.sendmessage');
     });
 });
@@ -123,8 +127,22 @@ Route::middleware(['auth','Patient'])->group(function(){
 Route::middleware(['auth','Doctor'])->group(function(){
     Route::prefix('doctor')->group(function(){
         Route::get('/',[DoctorController::class,'index'])->name('doctor.home');
+        
+        // Prescription management
+        Route::get('/prescriptions',[DoctorController::class,'prescriptions'])->name('doctor.prescriptions');
+        Route::get('/prescriptions/create',[DoctorController::class,'createPrescription'])->name('doctor.prescriptions.create');
+        Route::post('/prescriptions',[DoctorController::class,'storePrescription'])->name('doctor.prescriptions.store');
+        Route::get('/prescriptions/{prescription}',[DoctorController::class,'showPrescription'])->name('doctor.prescriptions.show');
+        
+        // API endpoints for dropdowns
+        Route::get('/api/patients',[DoctorController::class,'getPatients'])->name('doctor.api.patients');
+        Route::get('/api/medicines',[DoctorController::class,'getMedicines'])->name('doctor.api.medicines');
+        Route::get('/api/dashboard-data',[DoctorController::class,'getDashboardData'])->name('doctor.dashboard.data');
 
-
+        // Settings
+        Route::get('/settings',[DoctorController::class,'settings'])->name('doctor.settings');
+        Route::post('/settings/profile',[DoctorController::class,'updateProfile'])->name('doctor.settings.profile');
+        Route::post('/settings/password',[DoctorController::class,'updatePassword'])->name('doctor.settings.password');
 
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('doctor.appointments');
     });
@@ -217,6 +235,7 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
 
         Route::get('/patients',[PatientsController::class,'index'])->name('patients.index');
         Route::post('/patients/add-medical/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
+        Route::post('/patients/add-prescription/{patientid}',[PatientsController::class,'storePrescription'])->name('patients.prescription.store');
         //add_medical_rec(Request $request, User $patientid)
 
         Route::get('/patients/details/{id}',[PatientsController::class,'PatientDetails'])->name('patients.details.view');
@@ -263,7 +282,6 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
     Route::prefix('pharmacist')->group(function () {
         Route::get('/dashboard', [PharmacistController::class, 'dashboard'])->name('pharmacist.dashboard');
         Route::get('/inventory', [PharmacistController::class, 'inventory'])->name('pharmacist.inventory.index');
-        Route::get('/analytics', [PharmacistController::class, 'analytics'])->name('pharmacist.analytics');
         Route::get('/reports', [PharmacistController::class, 'reports'])->name('pharmacist.reports');
         Route::get('/settings', [PharmacistController::class, 'settings'])->name('pharmacist.settings');
         
@@ -276,11 +294,23 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
                 Route::put('/item/unarchive/{inventory}', [PharmacistController::class, 'unarchive_item'])->name('pharmacist.inventory.item.unarchive');
                 Route::post('/item/dispense', [PharmacistController::class, 'dispense_item'])->name('pharmacist.inventory.dispense');
                 Route::post('/item/dispose', [PharmacistController::class, 'dispose_item'])->name('pharmacist.inventory.dispose');
+                Route::post('/item/dispose/bulk', [PharmacistController::class, 'bulk_dispose'])->name('pharmacist.inventory.dispose.bulk');
+                
+                // Automatic dispensing routes
+                Route::get('/prescriptions/pending', [PharmacistController::class, 'get_pending_prescriptions'])->name('pharmacist.prescriptions.pending');
+                Route::post('/prescriptions/auto-dispense', [PharmacistController::class, 'auto_dispense_prescription'])->name('pharmacist.prescriptions.auto-dispense');
+                Route::get('/patients-doctors', [PharmacistController::class, 'get_patients_and_doctors'])->name('pharmacist.patients-doctors');
+                Route::get('/case-ids', [PharmacistController::class, 'get_available_case_ids'])->name('pharmacist.case-ids');
+                Route::get('/item/{inventory}/batches', [PharmacistController::class, 'get_item_batches'])->name('pharmacist.inventory.item.batches');
+                Route::post('/items/batches', [PharmacistController::class, 'get_items_batches'])->name('pharmacist.inventory.items.batches');
+                Route::get('/items/batches', [PharmacistController::class, 'get_items_batches']);
+                Route::post('/item/dispose/bulk-aggregate', [PharmacistController::class, 'bulk_dispose_aggregate'])->name('pharmacist.inventory.dispose.bulk.aggregate');
             Route::delete('/category/delete/{category}', [PharmacistController::class, 'delete_category'])->name('pharmacist.inventory.category.delete');
             Route::put('/category/update/{category}', [PharmacistController::class, 'update_category'])->name('pharmacist.inventory.category.update');
             Route::put('/category/archive/{category}', [PharmacistController::class, 'archive_category'])->name('pharmacist.inventory.category.archive');
             Route::put('/category/unarchive/{category}', [PharmacistController::class, 'unarchive_category'])->name('pharmacist.inventory.category.unarchive');
             Route::put('/item/stock_movement/update/{movement}', [PharmacistController::class, 'update_stock_movement'])->name('pharmacist.inventory.item.stockmovement.update');
+            Route::post('/item/update-stocks', [PharmacistController::class, 'update_stocks'])->name('pharmacist.inventory.update-stocks');
         });
     });
 });

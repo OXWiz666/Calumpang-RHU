@@ -3,8 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\appointments;
+use App\Models\inventory;
+use App\Models\istocks;
+use App\Models\istock_movements;
+use App\Models\program_schedules;
+use App\Models\Prescription;
+use App\Models\PrescriptionMedicine;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Inertia\Inertia;
 class AdminDashboardController extends Controller
@@ -18,50 +26,101 @@ class AdminDashboardController extends Controller
     {
         // Get the authenticated user
         $user = Auth::user();
-        // Sample data - in a real application, you would fetch this from your database
-        $stats = [
-            'patients' => 1248,
-            'appointments_today' => 24,
-            'medicine_inventory' => 156,
-            'staff_members' => 18
-        ];
-        // You can pass any data needed for your dashboard
-        // return view('Dashboard.Admin.dashboard', [
-        //     'stats' => $stats,
-        //     'user' => $user
-        // ]);
-       $currentMonthPatients = User::where('roleID', '5')
-        ->whereMonth('created_at', now()->month)
-        ->whereYear('created_at', now()->year)
-        ->count();
-
-        // Get previous month's patients
+        
+        // Get real patient data
+        $totalPatients = User::where('roleID', '5')->count();
+        $currentMonthPatients = User::where('roleID', '5')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
         $previousMonthPatients = User::where('roleID', '5')
             ->whereMonth('created_at', now()->subMonth()->month)
             ->whereYear('created_at', now()->subMonth()->year)
             ->count();
+        
+        // Calculate patient growth percentage
+        $max = max($previousMonthPatients, $currentMonthPatients);
+        $patientGrowthPercentage = $max == 0 ? 0 : ($currentMonthPatients - $previousMonthPatients) / $max * 100;
+        
+        // Get real appointment data
+        $todayAppointments = appointments::whereDate('date', now()->toDateString())->count();
+        $yesterdayAppointments = appointments::whereDate('date', now()->subDay()->toDateString())->count();
+        $appointmentGrowth = $yesterdayAppointments > 0 ? (($todayAppointments - $yesterdayAppointments) / $yesterdayAppointments) * 100 : 0;
+        
+        // Get real inventory data
+        $totalInventoryItems = inventory::count();
+        $lowStockItems = inventory::whereHas('stock', function($query) {
+            $query->where('stocks', '<=', 10);
+        })->count();
+        $expiringItems = inventory::whereNotNull('expiry_date')
+            ->where('expiry_date', '!=', 'N/A')
+            ->where('expiry_date', '<=', now()->addDays(30))
+            ->where('expiry_date', '>=', now())
+            ->count();
+        
+        // Get real staff data
+        $totalStaff = User::whereIn('roleID', ['1', '2', '3', '4'])->count(); // Doctor, Nurse, Admin, etc.
+        $activeStaff = User::whereIn('roleID', ['1', '2', '3', '4'])
+            ->where('status', 'active')
+            ->count();
+        $staffOnLeave = $totalStaff - $activeStaff;
+        
+        // Get real program data
+        $activePrograms = program_schedules::where('status', 'Active')->count();
+        $totalPrograms = program_schedules::count();
+        
+        // Get real prescription data
+        $totalPrescriptions = Prescription::count();
+        $pendingPrescriptions = Prescription::where('status', 'pending')->count();
+        $dispensedPrescriptions = Prescription::where('status', 'dispensed')->count();
+        
+        // Get system health metrics
+        $systemHealth = $this->calculateSystemHealth();
+        
+        // Prepare comprehensive dashboard data
+        $dashboardData = [
+            'patients' => [
+                'total' => $totalPatients,
+                'growth' => round($patientGrowthPercentage, 2),
+                'trend' => $patientGrowthPercentage >= 0 ? 'up' : 'down'
+            ],
+            'appointments' => [
+                'today' => $todayAppointments,
+                'growth' => round($appointmentGrowth, 2),
+                'trend' => $appointmentGrowth >= 0 ? 'up' : 'down',
+                'pending' => appointments::where('status', 'pending')->count(),
+                'completed' => appointments::where('status', 'completed')->count()
+            ],
+            'inventory' => [
+                'total' => $totalInventoryItems,
+                'lowStock' => $lowStockItems,
+                'expiring' => $expiringItems,
+                'trend' => $this->calculateInventoryTrend()
+            ],
+            'staff' => [
+                'total' => $totalStaff,
+                'active' => $activeStaff,
+                'onLeave' => $staffOnLeave,
+                'trend' => 0
+            ],
+            'programs' => [
+                'active' => $activePrograms,
+                'total' => $totalPrograms,
+                'trend' => 0
+            ],
+            'prescriptions' => [
+                'total' => $totalPrescriptions,
+                'pending' => $pendingPrescriptions,
+                'dispensed' => $dispensedPrescriptions,
+                'trend' => $this->calculatePrescriptionTrend()
+            ],
+            'systemHealth' => $systemHealth
+        ];
 
-        // Calculate percentage change (handle division by zero)
-        $past = $previousMonthPatients;
-        $current = $currentMonthPatients;
-
-        // $growth = 0;
-        // if ($past > 0){
-        //     $growth = (((($current - $past) / $past) * 100) / $past) * 100;
-        // }
-
-        // $percentageChange = 0;
-        // if ($previousMonthPatients > 0) {
-        //     $percentageChange = (($currentMonthPatients - $previousMonthPatients) / $previousMonthPatients) * 100;
-        // }
-
-        $max = max($past, $current);
-
-        $change = $max == 0 ? 0 : ($current - $past) / $max * 100;
-
-        return Inertia::render("Authenticated/Admin/Dashboard",[
-            'totalPatients' => User::where('roleID', '5')->count(),
-            'patientGrowthPercentage' => round($change, 2)
+        return Inertia::render("Authenticated/Admin/Dashboard", [
+            'totalPatients' => $totalPatients,
+            'patientGrowthPercentage' => round($patientGrowthPercentage, 2),
+            'dashboardData' => $dashboardData
         ]);
     }
     /**
@@ -137,5 +196,88 @@ class AdminDashboardController extends Controller
             ]
         ];
         return response()->json($appointments);
+    }
+
+    /**
+     * Calculate system health percentage
+     */
+    private function calculateSystemHealth()
+    {
+        $healthScore = 100;
+        
+        // Check database connectivity
+        try {
+            DB::connection()->getPdo();
+        } catch (\Exception $e) {
+            $healthScore -= 20;
+        }
+        
+        // Check for low stock items (reduce health if more than 20% are low stock)
+        $totalItems = inventory::count();
+        $lowStockItems = inventory::whereHas('stock', function($query) {
+            $query->where('stocks', '<=', 10);
+        })->count();
+        
+        if ($totalItems > 0) {
+            $lowStockPercentage = ($lowStockItems / $totalItems) * 100;
+            if ($lowStockPercentage > 20) {
+                $healthScore -= 15;
+            }
+        }
+        
+        // Check for expired items
+        $expiredItems = inventory::whereNotNull('expiry_date')
+            ->where('expiry_date', '!=', 'N/A')
+            ->where('expiry_date', '<', now())
+            ->count();
+            
+        if ($expiredItems > 0) {
+            $healthScore -= 10;
+        }
+        
+        // Check for pending appointments (if too many, reduce health)
+        $pendingAppointments = appointments::where('status', 'pending')->count();
+        if ($pendingAppointments > 50) {
+            $healthScore -= 5;
+        }
+        
+        return max(0, min(100, $healthScore));
+    }
+
+    /**
+     * Calculate inventory trend
+     */
+    private function calculateInventoryTrend()
+    {
+        $currentMonth = inventory::whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+        $previousMonth = inventory::whereMonth('created_at', now()->subMonth()->month)
+            ->whereYear('created_at', now()->subMonth()->year)
+            ->count();
+            
+        if ($previousMonth == 0) return 0;
+        
+        return round((($currentMonth - $previousMonth) / $previousMonth) * 100, 2);
+    }
+
+    /**
+     * Calculate prescription trend
+     */
+    private function calculatePrescriptionTrend()
+    {
+        $currentWeek = Prescription::whereBetween('created_at', [
+            now()->startOfWeek(),
+            now()->endOfWeek()
+        ])->count();
+        
+        $previousWeek = Prescription::whereBetween('created_at', [
+            now()->subWeek()->startOfWeek(),
+            now()->subWeek()->endOfWeek()
+        ])->count();
+        
+        if ($previousWeek == 0) return 0;
+        
+        return round((($currentWeek - $previousWeek) / $previousWeek) * 100, 2);
     }
 }

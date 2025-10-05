@@ -13,12 +13,9 @@ import { Textarea } from "@/components/tempo/components/ui/textarea";
 import { useForm } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { 
-    Package, 
     Calendar, 
     Hash, 
-    Building2, 
-    MapPin, 
-    Tag
+    Building2
 } from "lucide-react";
 import {
     Select,
@@ -50,15 +47,56 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
                 categoryid: item.categoryId || "Invalid Category",
                 manufacturer: item.manufacturer || "Invalid Manufacturer",
                 description: item.description || "Invalid Description",
-                quantity: item.quantity || 0,
                 unit_type: item.unit || "Invalid Unit",
-                minimum_stock: item.minimumStock || 0,
-                maximum_stock: item.maximumStock || 0,
                 storage_location: item.storageLocation || "Invalid Storage Location",
-                batch_number: item.batchNumber || "Invalid Batch Number",
-                expiry_date: item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date' 
-                    ? new Date(item.expiryDate).toISOString().split('T')[0] 
-                    : "",
+                batch_number: (() => {
+                    // For new batch structure, use first batch number or concatenate all
+                    if (item.batches && item.batches.length > 0) {
+                        return item.batches[0].batchNumber || "Invalid Batch Number";
+                    }
+                    // Fallback for old structure
+                    return item.batchNumber || "Invalid Batch Number";
+                })(),
+                expiry_date: (() => {
+                    // For new batch structure, use earliest expiry date
+                    if (item.batches && item.batches.length > 0) {
+                        const earliestBatch = item.batches.reduce((earliest, batch) => {
+                            if (!earliest || batch.expiryDate === 'N/A') return batch;
+                            if (earliest.expiryDate === 'N/A') return batch;
+                            try {
+                                const batchDate = new Date(batch.expiryDate);
+                                const earliestDate = new Date(earliest.expiryDate);
+                                if (isNaN(batchDate.getTime()) || isNaN(earliestDate.getTime())) return earliest;
+                                return batchDate < earliestDate ? batch : earliest;
+                            } catch (error) {
+                                return earliest;
+                            }
+                        }, null);
+                        
+                        if (earliestBatch && earliestBatch.expiryDate && earliestBatch.expiryDate !== 'N/A') {
+                            try {
+                                const date = new Date(earliestBatch.expiryDate);
+                                if (!isNaN(date.getTime())) {
+                                    return date.toISOString().split('T')[0];
+                                }
+                            } catch (error) {
+                                console.warn('Invalid expiry date in EditItemModal:', earliestBatch.expiryDate);
+                            }
+                        }
+                    }
+                    // Fallback for old structure or invalid dates
+                    if (item.expiryDate && item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date') {
+                        try {
+                            const date = new Date(item.expiryDate);
+                            if (!isNaN(date.getTime())) {
+                                return date.toISOString().split('T')[0];
+                            }
+                        } catch (error) {
+                            console.warn('Invalid expiry date in EditItemModal:', item.expiryDate);
+                        }
+                    }
+                    return "";
+                })(),
             });
         }
     }, [item]);
@@ -86,18 +124,6 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
             return;
         }
         if (!data.unit_type) {
-            return;
-        }
-        if (data.quantity < 0) {
-            return;
-        }
-        if (data.minimum_stock < 0) {
-            return;
-        }
-        if (data.maximum_stock < 0) {
-            return;
-        }
-        if (data.minimum_stock > data.maximum_stock) {
             return;
         }
         if (data.expiry_date && new Date(data.expiry_date) <= new Date()) {
@@ -254,91 +280,7 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
                         </div>
                     </div>
 
-                    {/* Stock Information */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                            Stock Information
-                        </h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="quantity" className="text-sm font-medium">
-                                    Current Quantity *
-                                </Label>
-                                <Input
-                                    id="quantity"
-                                    name="quantity"
-                                    type="number"
-                                    min="0"
-                                    value={data.quantity}
-                                    onChange={handleChange}
-                                    placeholder="0"
-                                    className="w-full"
-                                />
-                                {errors.quantity && (
-                                    <p className="text-sm text-red-600">{errors.quantity}</p>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="minimum_stock" className="text-sm font-medium">
-                                    Minimum Stock Level
-                                </Label>
-                                <Input
-                                    id="minimum_stock"
-                                    name="minimum_stock"
-                                    type="number"
-                                    min="0"
-                                    value={data.minimum_stock}
-                                    onChange={handleChange}
-                                    placeholder="0"
-                                    className="w-full"
-                                />
-                                {errors.minimum_stock && (
-                                    <p className="text-sm text-red-600">{errors.minimum_stock}</p>
-                                )}
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="maximum_stock" className="text-sm font-medium">
-                                    Maximum Stock Level
-                                </Label>
-                                <Input
-                                    id="maximum_stock"
-                                    name="maximum_stock"
-                                    type="number"
-                                    min="0"
-                                    value={data.maximum_stock}
-                                    onChange={handleChange}
-                                    placeholder="0"
-                                    className="w-full"
-                                />
-                                {errors.maximum_stock && (
-                                    <p className="text-sm text-red-600">{errors.maximum_stock}</p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="storage_location" className="text-sm font-medium">
-                                Storage Location
-                            </Label>
-                            <div className="relative">
-                                <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                <Input
-                                    id="storage_location"
-                                    name="storage_location"
-                                    value={data.storage_location}
-                                    onChange={handleChange}
-                                    placeholder="e.g., A-1-01"
-                                    className="w-full pl-10"
-                                />
-                            </div>
-                            {errors.storage_location && (
-                                <p className="text-sm text-red-600">{errors.storage_location}</p>
-                            )}
-                        </div>
-                    </div>
+                    {/* Stock Information removed as requested */}
 
                     {/* Batch & Expiry Information */}
                     <div className="space-y-4">

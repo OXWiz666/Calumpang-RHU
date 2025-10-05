@@ -54,14 +54,6 @@ const Sidebar = ({ activePage, userRole = "Pharmacist" }) => {
             roles: ["Pharmacist"],
         },
         {
-            title: "Analytics",
-            icon: <TrendingUp className="h-5 w-5" />,
-            route: "pharmacist.analytics",
-            path: "/pharmacist/analytics",
-            id: "analytics",
-            roles: ["Pharmacist"],
-        },
-        {
             title: "Reports",
             icon: <FileText className="h-5 w-5" />,
             route: "pharmacist.reports",

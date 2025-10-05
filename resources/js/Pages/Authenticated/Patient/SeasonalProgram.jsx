@@ -1069,6 +1069,11 @@ const SeasonalProgramDashboard = ({
                                                             />
                                                             <Button
                                                                 disabled={
+                                                                    myprograms.some(
+                                                                        (p) =>
+                                                                            p.program_schedule_id ==
+                                                                            schedule.id
+                                                                    ) ||
                                                                     schedule.status ===
                                                                         "completed" ||
                                                                     schedule.availableSlots ===
@@ -1076,7 +1081,13 @@ const SeasonalProgramDashboard = ({
                                                                 }
                                                                 className="mt-2"
                                                                 variant={
-                                                                    schedule.status ===
+                                                                    myprograms.some(
+                                                                        (p) =>
+                                                                            p.program_schedule_id ==
+                                                                            schedule.id
+                                                                    )
+                                                                        ? "secondary"
+                                                                        : schedule.status ===
                                                                         "completed" ||
                                                                     schedule.availableSlots ===
                                                                         0
@@ -1087,18 +1098,16 @@ const SeasonalProgramDashboard = ({
                                                                 onClick={(
                                                                     e
                                                                 ) => {
-                                                                    handleProgramJoin(
-                                                                        schedule
-                                                                    );
-                                                                    // !myprograms.some(
-                                                                    //     (p) =>
-                                                                    //         p.program_schedule_id ==
-                                                                    //         schedule.id
-                                                                    // )
-                                                                    //     ? handleProgramJoin(
-                                                                    //           schedule
-                                                                    //       )
-                                                                    //     : null;
+                                                                    // Only allow joining if not already joined
+                                                                    if (!myprograms.some(
+                                                                        (p) =>
+                                                                            p.program_schedule_id ==
+                                                                            schedule.id
+                                                                    )) {
+                                                                        handleProgramJoin(
+                                                                            schedule
+                                                                        );
+                                                                    }
                                                                 }}
                                                             >
                                                                 {myprograms.some(

@@ -5,10 +5,13 @@ import { Badge } from "@/components/tempo/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePage, router } from "@inertiajs/react";
 import moment from "moment";
+import NotificationSummaryModal from "@/components/NotificationSummaryModal";
 
 const NotificationDropdown = ({ className = "", datas }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [showAll, setShowAll] = useState(false);
+    const [selectedNotification, setSelectedNotification] = useState(null);
+    const [showSummaryModal, setShowSummaryModal] = useState(false);
 
     const [notifications, setNotifications] = useState(
         datas.all_notifications ?? datas.notifications
@@ -37,6 +40,13 @@ const NotificationDropdown = ({ className = "", datas }) => {
             }));
             setNotifications(updatedNotifications);
         }
+    };
+
+    // Handle notification click
+    const handleNotificationClick = (notification) => {
+        setSelectedNotification(notification);
+        setShowSummaryModal(true);
+        setIsOpen(false); // Close dropdown when opening modal
     };
 
     // Get icon color based on notification type
@@ -110,9 +120,10 @@ const NotificationDropdown = ({ className = "", datas }) => {
                                 {(showAll ? notifications : notifications.slice(0, 3)).map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`p-3 hover:bg-accent/50 transition-colors ${
+                                        className={`p-3 hover:bg-accent/50 transition-colors cursor-pointer ${
                                             !notification.read_at ? "bg-accent/20" : ""
                                         }`}
+                                        onClick={() => handleNotificationClick(notification)}
                                     >
                                         <div className="flex gap-3">
                                             <div
@@ -157,6 +168,16 @@ const NotificationDropdown = ({ className = "", datas }) => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Notification Summary Modal */}
+            <NotificationSummaryModal
+                isOpen={showSummaryModal}
+                onClose={() => {
+                    setShowSummaryModal(false);
+                    setSelectedNotification(null);
+                }}
+                notification={selectedNotification}
+            />
         </div>
     );
 };

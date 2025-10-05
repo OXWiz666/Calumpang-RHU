@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { router } from "@inertiajs/react";
+import Echo from "laravel-echo";
 import AdminLayout from "@/Layouts/AdminLayout";
 import AddItemForm from "./AddItemForm";
 import AddCategoryForm from "./AddCategoryForm";
 import CategoryManagement from "./CategoryManagement";
 import ViewItemModal from "./ViewItemModal";
 import EditItemModal from "./EditItemModal";
+import UpdateStocksModal from "./UpdateStocksModal";
 import SuccessModal from "./SuccessModal";
 import DispenseStockModal from "./DispenseStockModal";
 import BatchDisposalModal from "./BatchDisposalModal";
@@ -64,12 +66,14 @@ import {
 } from "@/components/tempo/components/ui/dropdown-menu";
 
 export default function PharmacistInventory({ categories = [], allCategories = [], inventoryItems = [] }) {
-    const [viewMode, setViewMode] = useState("grid"); // grid or list
+    const [viewMode, setViewMode] = useState("list"); // grid or list
     const [sortBy, setSortBy] = useState("name");
     const [sortOrder, setSortOrder] = useState("asc");
     const [searchTerm, setSearchTerm] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
     const [showAddItemForm, setShowAddItemForm] = useState(false);
     const [showAddCategoryForm, setShowAddCategoryForm] = useState(false);
     const [showCategoryManagement, setShowCategoryManagement] = useState(false);
@@ -80,6 +84,35 @@ export default function PharmacistInventory({ categories = [], allCategories = [
     const [successMessage, setSuccessMessage] = useState("");
     const [showDispenseModal, setShowDispenseModal] = useState(false);
     const [showDisposalModal, setShowDisposalModal] = useState(false);
+    const [disposalMode, setDisposalMode] = useState('single'); // 'single' | 'multi'
+    const [showUpdateStocksModal, setShowUpdateStocksModal] = useState(false);
+
+    // Helper function to determine overall item status based on batches
+    // Cache bust: 2024-01-20
+    const getOverallItemStatus = (batches, minimumStock) => {
+        const totalQuantity = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+        
+        if (totalQuantity === 0) return 'out_of_stock';
+        if (totalQuantity <= minimumStock) return 'low_stock';
+        
+        // Check if any batch is expiring soon
+        const hasExpiringSoon = batches.some(batch => {
+            if (!batch.expiryDate || batch.expiryDate === 'N/A') return false;
+            try {
+                const expiry = new Date(batch.expiryDate);
+                if (isNaN(expiry.getTime())) return false; // Invalid date
+                const today = new Date();
+                const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+                return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+            } catch (error) {
+                console.warn('Invalid expiry date:', batch.expiryDate);
+                return false;
+            }
+        });
+        
+        if (hasExpiringSoon) return 'expiring_soon';
+        return 'in_stock';
+    };
 
     // Helper function to determine item status
     const getItemStatus = (item) => {
@@ -90,6 +123,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         if (quantity <= minStock) return 'low_stock';
         return 'in_stock';
     };
+
 
     // Helper function to check if item is expired
     const isExpired = (expiryDate) => {
@@ -223,51 +257,109 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         setShowDispenseModal(true);
     };
 
-    const handleDisposeItem = (item) => {
+    const handleDisposeItem = (item, mode = 'single') => {
         setSelectedItem(item);
+        setDisposalMode(mode);
         setShowDisposalModal(true);
     };
 
+    const handleUpdateStocks = (item) => {
+        setSelectedItem(item);
+        setShowUpdateStocksModal(true);
+    };
+
+
+    // Group inventory items by name and create batches structure
+    const processInventoryData = (items) => {
+        if (!items || items.length === 0) return [];
+        
+        // Group items by name
+        const groupedItems = items.reduce((acc, item) => {
+            const itemName = item.name;
+            if (!acc[itemName]) {
+                acc[itemName] = {
+                    id: item.id, // Use first item's ID as primary ID
+                    name: itemName,
+                    category: item.category?.name || 'Uncategorized',
+                    categoryIcon: getCategoryIcon(item.category),
+                    categoryId: item.category_id,
+                    manufacturer: item.manufacturer || 'N/A',
+                    description: item.description || '',
+                    unit: item.unit_type || 'pieces',
+                    minimumStock: item.minimum_stock || 10,
+                    maximumStock: item.maximum_stock || 100,
+                    isArchived: item.status === 0,
+                    lastUpdated: item.updated_at || 'N/A',
+                    batches: []
+                };
+            }
+            
+            // Add batch information
+            acc[itemName].batches.push({
+                id: item.id,
+                batchNumber: item.batch_number || 'N/A',
+                quantity: item.stock?.stocks || 0,
+                expiryDate: item.expiry_date || 'N/A',
+                storageLocation: item.storage_location || '',
+                status: getItemStatus(item),
+                lastUpdated: item.updated_at || 'N/A'
+            });
+            
+            return acc;
+        }, {});
+        
+        // Convert to array and calculate total quantities
+        return Object.values(groupedItems).map(item => {
+            const totalQuantity = item.batches.reduce((sum, batch) => sum + batch.quantity, 0);
+            const overallStatus = getOverallItemStatus(item.batches, item.minimumStock);
+            
+            return {
+                ...item,
+                totalQuantity,
+                status: overallStatus,
+                batchCount: item.batches.length
+            };
+        });
+    };
 
     // Use real inventory data from props, fallback to mock data if not available
-    const inventoryData = inventoryItems && inventoryItems.length > 0 ? inventoryItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        category: item.category?.name || 'Uncategorized',
-        categoryIcon: getCategoryIcon(item.category),
-        categoryId: item.category_id,
-        batchNumber: item.batch_number || 'N/A',
-        quantity: item.stock?.stocks || 0,
-        unit: item.unit_type || 'pieces',
-        expiryDate: item.expiry_date || 'N/A',
-        manufacturer: item.manufacturer || 'N/A',
-        description: item.description || '',
-        minimumStock: item.minimum_stock || 10,
-        maximumStock: item.maximum_stock || 100,
-        storageLocation: item.storage_location || '',
-        status: getItemStatus(item),
-        isArchived: item.status === 0, // Check if item is archived
-        lastUpdated: item.updated_at || 'N/A',
-        supplier: item.manufacturer || 'N/A',
-    })) : [
+    const inventoryData = inventoryItems && inventoryItems.length > 0 ? processInventoryData(inventoryItems) : [
         {
             id: 1,
             name: "Paracetamol 500mg",
             category: "Pain Relief",
             categoryIcon: getCategoryIcon({ icon: "Pill" }),
             categoryId: 1,
-            batchNumber: "PAR-2024-001",
-            quantity: 150,
-            unit: "tablets",
-            expiryDate: "2025-06-15",
             manufacturer: "MedPharm Corp",
             description: "Pain relief medication",
+            unit: "tablets",
             minimumStock: 10,
             maximumStock: 200,
-            storageLocation: "A-1-01",
-            status: "in_stock",
+            isArchived: false,
             lastUpdated: "2024-01-15",
-            supplier: "MedPharm Corp",
+            totalQuantity: 250,
+            status: "in_stock",
+            batchCount: 2,
+            batches: [
+                {
+                    id: 1,
+                    batchNumber: "PAR-2024-001",
+                    quantity: 150,
+                    expiryDate: "2025-06-15",
+                    storageLocation: "A-1-01",
+                    status: "in_stock",
+                    lastUpdated: "2024-01-15"
+                },
+                {
+                    id: 6,
+                    batchNumber: "PAR-2024-002",
+                    quantity: 100,
+                    expiryDate: "2025-08-20",
+                    storageLocation: "A-1-02",
+                    status: "in_stock",
+                    lastUpdated: "2024-01-20"
+                }
+            ]
         },
         {
             id: 2,
@@ -275,18 +367,27 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             category: "Antibiotics",
             categoryIcon: getCategoryIcon({ icon: "Syringe" }),
             categoryId: 2,
-            batchNumber: "AMX-2024-002",
-            quantity: 5,
-            unit: "capsules",
-            expiryDate: "2024-12-20",
             manufacturer: "Antibio Ltd",
             description: "Antibiotic medication",
+            unit: "capsules",
             minimumStock: 5,
             maximumStock: 100,
-            storageLocation: "B-2-03",
-            status: "low_stock",
+            isArchived: false,
             lastUpdated: "2024-01-14",
-            supplier: "Antibio Ltd",
+            totalQuantity: 5,
+            status: "low_stock",
+            batchCount: 1,
+            batches: [
+                {
+                    id: 2,
+                    batchNumber: "AMX-2024-002",
+                    quantity: 5,
+                    expiryDate: "2024-12-20",
+                    storageLocation: "B-2-03",
+                    status: "low_stock",
+                    lastUpdated: "2024-01-14"
+                }
+            ]
         },
         {
             id: 3,
@@ -294,18 +395,27 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             category: "Pain Relief",
             categoryIcon: getCategoryIcon({ icon: "Pill" }),
             categoryId: 1,
-            batchNumber: "IBU-2024-003",
-            quantity: 0,
-            unit: "tablets",
-            expiryDate: "2025-03-10",
             manufacturer: "PainFree Inc",
             description: "Anti-inflammatory medication",
+            unit: "tablets",
             minimumStock: 10,
             maximumStock: 150,
-            storageLocation: "A-1-02",
-            status: "out_of_stock",
+            isArchived: false,
             lastUpdated: "2024-01-13",
-            supplier: "PainFree Inc",
+            totalQuantity: 0,
+            status: "out_of_stock",
+            batchCount: 1,
+            batches: [
+                {
+                    id: 3,
+                    batchNumber: "IBU-2024-003",
+                    quantity: 0,
+                    expiryDate: "2025-03-10",
+                    storageLocation: "A-1-02",
+                    status: "out_of_stock",
+                    lastUpdated: "2024-01-13"
+                }
+            ]
         },
         {
             id: 4,
@@ -313,36 +423,55 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             category: "Vitamins",
             categoryIcon: getCategoryIcon({ icon: "Heart" }),
             categoryId: 3,
-            batchNumber: "VIT-2024-004",
-            quantity: 200,
-            unit: "tablets",
-            expiryDate: "2024-08-30",
             manufacturer: "VitaCorp",
             description: "Vitamin supplement",
+            unit: "tablets",
             minimumStock: 20,
             maximumStock: 300,
-            storageLocation: "C-3-01",
-            status: "expiring_soon",
+            isArchived: false,
             lastUpdated: "2024-01-12",
-            supplier: "VitaCorp",
+            totalQuantity: 200,
+            status: "expiring_soon",
+            batchCount: 1,
+            batches: [
+                {
+                    id: 4,
+                    batchNumber: "VIT-2024-004",
+                    quantity: 200,
+                    expiryDate: "2024-08-30",
+                    storageLocation: "C-3-01",
+                    status: "expiring_soon",
+                    lastUpdated: "2024-01-12"
+                }
+            ]
         },
         {
             id: 5,
             name: "Metformin 500mg",
             category: "Chronic Care",
+            categoryIcon: getCategoryIcon({ icon: "Pill" }),
             categoryId: 4,
-            batchNumber: "MET-2024-005",
-            quantity: 80,
-            unit: "tablets",
-            expiryDate: "2025-09-15",
             manufacturer: "DiabCare",
             description: "Diabetes medication",
+            unit: "tablets",
             minimumStock: 15,
             maximumStock: 200,
-            storageLocation: "D-4-02",
-            status: "in_stock",
+            isArchived: false,
             lastUpdated: "2024-01-11",
-            supplier: "DiabCare",
+            totalQuantity: 80,
+            status: "in_stock",
+            batchCount: 1,
+            batches: [
+                {
+                    id: 5,
+                    batchNumber: "MET-2024-005",
+                    quantity: 80,
+                    expiryDate: "2025-09-15",
+                    storageLocation: "D-4-02",
+                    status: "in_stock",
+                    lastUpdated: "2024-01-11"
+                }
+            ]
         },
     ];
 
@@ -351,9 +480,12 @@ export default function PharmacistInventory({ categories = [], allCategories = [
     // Filter and sort items
     useEffect(() => {
         let filtered = inventoryData.filter((item) => {
+            // Search in item name, category, and batch numbers
             const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.category.toLowerCase().includes(searchTerm.toLowerCase());
+                                item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                item.batches.some(batch => 
+                                    batch.batchNumber.toLowerCase().includes(searchTerm.toLowerCase())
+                                );
             
             const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
             
@@ -380,11 +512,30 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                 aValue = aValue.toLowerCase();
                 bValue = bValue.toLowerCase();
             } else if (sortBy === "quantity") {
-                aValue = parseInt(aValue) || 0;
-                bValue = parseInt(bValue) || 0;
+                aValue = a.totalQuantity || 0;
+                bValue = b.totalQuantity || 0;
             } else if (sortBy === "expiryDate") {
-                aValue = new Date(aValue === 'N/A' ? '2099-12-31' : aValue);
-                bValue = new Date(bValue === 'N/A' ? '2099-12-31' : bValue);
+                // Sort by earliest expiry date among batches
+                const aEarliestExpiry = Math.min(...a.batches.map(batch => {
+                    if (batch.expiryDate === 'N/A') return new Date('2099-12-31').getTime();
+                    try {
+                        const date = new Date(batch.expiryDate);
+                        return isNaN(date.getTime()) ? new Date('2099-12-31').getTime() : date.getTime();
+                    } catch (error) {
+                        return new Date('2099-12-31').getTime();
+                    }
+                }));
+                const bEarliestExpiry = Math.min(...b.batches.map(batch => {
+                    if (batch.expiryDate === 'N/A') return new Date('2099-12-31').getTime();
+                    try {
+                        const date = new Date(batch.expiryDate);
+                        return isNaN(date.getTime()) ? new Date('2099-12-31').getTime() : date.getTime();
+                    } catch (error) {
+                        return new Date('2099-12-31').getTime();
+                    }
+                }));
+                aValue = aEarliestExpiry;
+                bValue = bEarliestExpiry;
             } else if (sortBy === "isArchived") {
                 aValue = aValue ? 1 : 0;
                 bValue = bValue ? 1 : 0;
@@ -398,7 +549,15 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         });
 
         setFilteredItems(filtered);
+        setCurrentPage(1); // Reset to first page when filters change
     }, [searchTerm, categoryFilter, statusFilter, sortBy, sortOrder]);
+
+    // Pagination calculations
+    const totalItems = filteredItems.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = filteredItems.slice(startIndex, endIndex);
 
     const getStatusColor = (status, isArchived = false) => {
         if (isArchived) {
@@ -447,6 +606,19 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         expiringSoon: inventoryData.filter(item => item.status === "expiring_soon" && !item.isArchived).length,
     };
 
+    // Realtime: listen for inventory updates and refresh
+    useEffect(() => {
+        if (!window.Echo) return;
+        const channel = window.Echo.channel('inventory');
+        const handler = () => {
+            router.reload({ only: ['inventoryItems', 'categories', 'allCategories'] });
+        };
+        channel.listen('.InventoryUpdated', handler);
+        return () => {
+            try { channel.stopListening('.InventoryUpdated', handler); } catch (_) {}
+        };
+    }, []);
+
     return (
         <AdminLayout header="Inventory Management">
             <motion.div
@@ -462,13 +634,13 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         <p className="text-gray-600">Manage your pharmacy inventory efficiently</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button variant="outline" className="flex items-center gap-2">
-                            <Upload className="h-4 w-4" />
-                            Import
-                        </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
-                            <Download className="h-4 w-4" />
-                            Export
+                        <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2"
+                            onClick={() => { setSelectedItem(null); setDisposalMode('multi'); setShowDisposalModal(true); }}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Dispose Multiple Batches
                         </Button>
                         <Button 
                             variant="outline" 
@@ -628,18 +800,18 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                 
                                 <div className="flex items-center gap-1 border rounded-lg">
                                     <Button
-                                        variant={viewMode === "grid" ? "default" : "ghost"}
-                                        size="sm"
-                                        onClick={() => setViewMode("grid")}
-                                    >
-                                        <Grid3X3 className="h-4 w-4" />
-                                    </Button>
-                                    <Button
                                         variant={viewMode === "list" ? "default" : "ghost"}
                                         size="sm"
                                         onClick={() => setViewMode("list")}
                                     >
                                         <List className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === "grid" ? "default" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setViewMode("grid")}
+                                    >
+                                        <Grid3X3 className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </div>
@@ -657,7 +829,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                             exit={{ opacity: 0 }}
                             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                         >
-                            {filteredItems.map((item, index) => (
+                            {paginatedItems.map((item, index) => (
                                 <motion.div
                                     key={item.id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -693,20 +865,6 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                             <Eye className="h-4 w-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleEditItem(item)}>
-                                                            <Edit className="h-4 w-4 mr-2" />
-                                                            Edit Item
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
-                                                            <ShoppingCart className="h-4 w-4 mr-2" />
-                                                            Dispense Stock
-                                                        </DropdownMenuItem>
-                                                        {(isExpired(item.expiryDate) || isExpiringSoon(item.expiryDate)) && (
-                                                            <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Dispose Batch
-                                                            </DropdownMenuItem>
-                                                        )}
                                                         {item.isArchived ? (
                                                             <DropdownMenuItem 
                                                                 className="text-green-600"
@@ -716,13 +874,33 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                                 Unarchive
                                                             </DropdownMenuItem>
                                                         ) : (
-                                                            <DropdownMenuItem 
-                                                                className="text-orange-600"
-                                                                onClick={() => handleArchiveItem(item)}
-                                                            >
-                                                                <Archive className="h-4 w-4 mr-2" />
-                                                                Archive
-                                                            </DropdownMenuItem>
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => handleEditItem(item)}>
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Edit Item
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
+                                                                    <ShoppingCart className="h-4 w-4 mr-2" />
+                                                                    Dispense Stock
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleUpdateStocks(item)}>
+                                                                    <TrendingUp className="h-4 w-4 mr-2" />
+                                                                    Update Stocks
+                                                                </DropdownMenuItem>
+                                                                {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
+                                                                    <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Dispose Batch
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuItem 
+                                                                    className="text-orange-600"
+                                                                    onClick={() => handleArchiveItem(item)}
+                                                                >
+                                                                    <Archive className="h-4 w-4 mr-2" />
+                                                                    Archive
+                                                                </DropdownMenuItem>
+                                                            </>
                                                         )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -730,39 +908,41 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                         </CardHeader>
                                         <CardContent className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-600">Quantity</span>
+                                                <span className="text-sm text-gray-600">Total Quantity</span>
                                                 <span className="font-semibold text-gray-900">
-                                                    {item.quantity} {item.unit}
+                                                    {item.totalQuantity} {item.unit}
                                                 </span>
                                             </div>
                                             
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-600">Batch</span>
-                                                <span className="font-mono text-sm text-gray-700">
-                                                    {item.batchNumber}
+                                                <span className="text-sm text-gray-600">Batches</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {item.batchCount} batch{item.batchCount !== 1 ? 'es' : ''}
                                                 </span>
                                             </div>
                                             
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-sm text-gray-600">Expiry</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-sm ${
-                                                        isExpired(item.expiryDate) ? 'text-red-600 font-semibold' :
-                                                        isExpiringSoon(item.expiryDate) ? 'text-amber-600 font-semibold' :
-                                                        'text-gray-700'
-                                                    }`}>
-                                                        {new Date(item.expiryDate).toLocaleDateString()}
-                                                    </span>
-                                                    {isExpired(item.expiryDate) && (
-                                                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                                                            EXPIRED
-                                                        </span>
-                                                    )}
-                                                    {isExpiringSoon(item.expiryDate) && !isExpired(item.expiryDate) && (
-                                                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
-                                                            EXPIRING SOON
-                                                        </span>
-                                                    )}
+                                            <div className="space-y-2">
+                                                <span className="text-sm text-gray-600">Batch Details:</span>
+                                                <div className="space-y-1 max-h-20 overflow-y-auto">
+                                                    {item.batches.map((batch, batchIndex) => (
+                                                        <div key={batch.id} className="text-xs bg-gray-50 p-2 rounded">
+                                                            <div className="flex justify-between">
+                                                                <span className="font-mono">{batch.batchNumber}</span>
+                                                                <span className="font-semibold">{batch.quantity}</span>
+                                                            </div>
+                                                            <div className="text-gray-500">
+                                                                Exp: {(() => {
+                                                                    try {
+                                                                        if (!batch.expiryDate || batch.expiryDate === 'N/A') return 'N/A';
+                                                                        const date = new Date(batch.expiryDate);
+                                                                        return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+                                                                    } catch (error) {
+                                                                        return 'Invalid Date';
+                                                                    }
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                             
@@ -805,13 +985,13 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                         Category
                                                     </th>
                                                     <th className="text-left py-3 px-4 font-medium text-gray-600">
-                                                        Quantity
+                                                        Total Quantity
                                                     </th>
                                                     <th className="text-left py-3 px-4 font-medium text-gray-600">
-                                                        Batch Number
+                                                        Batches
                                                     </th>
                                                     <th className="text-left py-3 px-4 font-medium text-gray-600">
-                                                        Expiry Date
+                                                        Earliest Expiry
                                                     </th>
                                                     <th className="text-left py-3 px-4 font-medium text-gray-600">
                                                         Status
@@ -822,7 +1002,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {filteredItems.map((item, index) => (
+                                                {paginatedItems.map((item, index) => (
                                                     <motion.tr
                                                         key={item.id}
                                                         initial={{ opacity: 0, x: -20 }}
@@ -854,36 +1034,75 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                         </td>
                                                         <td className="py-4 px-4">
                                                             <span className="font-medium text-gray-900">
-                                                                {item.quantity}
+                                                                {item.totalQuantity}
                                                             </span>
                                                             <span className="text-sm text-gray-500 ml-1">
                                                                 {item.unit}
                                                             </span>
                                                         </td>
                                                         <td className="py-4 px-4">
-                                                            <span className="font-mono text-sm text-gray-700">
-                                                                {item.batchNumber}
-                                                            </span>
+                                                            <div className="space-y-1">
+                                                                <span className="text-sm font-medium text-gray-900">
+                                                                    {item.batchCount} batch{item.batchCount !== 1 ? 'es' : ''}
+                                                                </span>
+                                                                <div className="text-xs text-gray-500">
+                                                                    {item.batches.slice(0, 2).map(batch => batch.batchNumber).join(', ')}
+                                                                    {item.batchCount > 2 && ` +${item.batchCount - 2} more`}
+                                                                </div>
+                                                            </div>
                                                         </td>
                                                         <td className="py-4 px-4">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`text-sm ${
-                                                                    isExpired(item.expiryDate) ? 'text-red-600 font-semibold' :
-                                                                    isExpiringSoon(item.expiryDate) ? 'text-amber-600 font-semibold' :
-                                                                    'text-gray-600'
-                                                                }`}>
-                                                                    {new Date(item.expiryDate).toLocaleDateString()}
-                                                                </span>
-                                                                {isExpired(item.expiryDate) && (
-                                                                    <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                                                                        EXPIRED
-                                                                    </span>
-                                                                )}
-                                                                {isExpiringSoon(item.expiryDate) && !isExpired(item.expiryDate) && (
-                                                                    <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
-                                                                        EXPIRING SOON
-                                                                    </span>
-                                                                )}
+                                                                {(() => {
+                                                                    const earliestBatch = item.batches.reduce((earliest, batch) => {
+                                                                        if (!earliest || batch.expiryDate === 'N/A') return batch;
+                                                                        if (earliest.expiryDate === 'N/A') return batch;
+                                                                        try {
+                                                                            const batchDate = new Date(batch.expiryDate);
+                                                                            const earliestDate = new Date(earliest.expiryDate);
+                                                                            if (isNaN(batchDate.getTime()) || isNaN(earliestDate.getTime())) return earliest;
+                                                                            return batchDate < earliestDate ? batch : earliest;
+                                                                        } catch (error) {
+                                                                            return earliest;
+                                                                        }
+                                                                    }, null);
+                                                                    
+                                                                    if (!earliestBatch || earliestBatch.expiryDate === 'N/A') {
+                                                                        return <span className="text-sm text-gray-500">N/A</span>;
+                                                                    }
+                                                                    
+                                                                    const isExpiredBatch = isExpired(earliestBatch.expiryDate);
+                                                                    const isExpiringSoonBatch = isExpiringSoon(earliestBatch.expiryDate);
+                                                                    
+                                                                    return (
+                                                                        <>
+                                                                            <span className={`text-sm ${
+                                                                                isExpiredBatch ? 'text-red-600 font-semibold' :
+                                                                                isExpiringSoonBatch ? 'text-amber-600 font-semibold' :
+                                                                                'text-gray-600'
+                                                                            }`}>
+                                                                                {(() => {
+                                                                                    try {
+                                                                                        const date = new Date(earliestBatch.expiryDate);
+                                                                                        return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString();
+                                                                                    } catch (error) {
+                                                                                        return 'Invalid Date';
+                                                                                    }
+                                                                                })()}
+                                                                            </span>
+                                                                            {isExpiredBatch && (
+                                                                                <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                                                                                    EXPIRED
+                                                                                </span>
+                                                                            )}
+                                                                            {isExpiringSoonBatch && !isExpiredBatch && (
+                                                                                <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                                                                                    EXPIRING SOON
+                                                                                </span>
+                                                                            )}
+                                                                        </>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         </td>
                                                         <td className="py-4 px-4">
@@ -903,33 +1122,46 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                 >
                                                     <Eye className="h-4 w-4" />
                                                 </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleEditItem(item)}
-                                                    title="Edit Item"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => handleDispenseItem(item)}
-                                                    title="Dispense Stock"
-                                                    className="text-green-600 hover:text-green-700 border-green-200 hover:border-green-300"
-                                                >
-                                                    <ShoppingCart className="h-4 w-4" />
-                                                </Button>
-                                                {(isExpired(item.expiryDate) || isExpiringSoon(item.expiryDate)) && (
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => handleDisposeItem(item)}
-                                                        title="Dispose Batch"
-                                                        className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                {!item.isArchived && (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleEditItem(item)}
+                                                            title="Edit Item"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleDispenseItem(item)}
+                                                            title="Dispense Stock"
+                                                            className="text-green-600 hover:text-green-700 border-green-200 hover:border-green-300"
+                                                        >
+                                                            <ShoppingCart className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleUpdateStocks(item)}
+                                                            title="Update Stocks"
+                                                            className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                                                        >
+                                                            <TrendingUp className="h-4 w-4" />
+                                                        </Button>
+                                                        {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDisposeItem(item)}
+                                                                title="Dispose Batch"
+                                                                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </>
                                                 )}
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -942,20 +1174,6 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                             <Eye className="h-4 w-4 mr-2" />
                                                             View Details
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleEditItem(item)}>
-                                                            <Edit className="h-4 w-4 mr-2" />
-                                                            Edit Item
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
-                                                            <ShoppingCart className="h-4 w-4 mr-2" />
-                                                            Dispense Stock
-                                                        </DropdownMenuItem>
-                                                        {(isExpired(item.expiryDate) || isExpiringSoon(item.expiryDate)) && (
-                                                            <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Dispose Batch
-                                                            </DropdownMenuItem>
-                                                        )}
                                                         {item.isArchived ? (
                                                             <DropdownMenuItem
                                                                 className="text-green-600"
@@ -965,13 +1183,33 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                                 Unarchive
                                                             </DropdownMenuItem>
                                                         ) : (
-                                                            <DropdownMenuItem
-                                                                className="text-orange-600"
-                                                                onClick={() => handleArchiveItem(item)}
-                                                            >
-                                                                <Archive className="h-4 w-4 mr-2" />
-                                                                Archive
-                                                            </DropdownMenuItem>
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => handleEditItem(item)}>
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Edit Item
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
+                                                                    <ShoppingCart className="h-4 w-4 mr-2" />
+                                                                    Dispense Stock
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleUpdateStocks(item)}>
+                                                                    <TrendingUp className="h-4 w-4 mr-2" />
+                                                                    Update Stocks
+                                                                </DropdownMenuItem>
+                                                                {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
+                                                                    <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Dispose Batch
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                <DropdownMenuItem
+                                                                    className="text-orange-600"
+                                                                    onClick={() => handleArchiveItem(item)}
+                                                                >
+                                                                    <Archive className="h-4 w-4 mr-2" />
+                                                                    Archive
+                                                                </DropdownMenuItem>
+                                                            </>
                                                         )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -988,8 +1226,54 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                     )}
                 </AnimatePresence>
 
+                {/* Pagination */}
+                {totalItems > itemsPerPage && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-center justify-between mt-6"
+                    >
+                        <div className="text-sm text-gray-500">
+                            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} items
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1}
+                            >
+                                Previous
+                            </Button>
+                            
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                    <Button
+                                        key={page}
+                                        variant={currentPage === page ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setCurrentPage(page)}
+                                        className="w-8 h-8 p-0"
+                                    >
+                                        {page}
+                                    </Button>
+                                ))}
+                            </div>
+                            
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </motion.div>
+                )}
+
                 {/* Empty State */}
-                {filteredItems.length === 0 && (
+                {totalItems === 0 && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -1064,6 +1348,14 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                 <BatchDisposalModal
                     open={showDisposalModal}
                     onClose={() => setShowDisposalModal(false)}
+                    item={selectedItem}
+                    multi={disposalMode === 'multi'}
+                    itemsForMulti={inventoryItems}
+                />
+
+                <UpdateStocksModal
+                    open={showUpdateStocksModal}
+                    onClose={() => setShowUpdateStocksModal(false)}
                     item={selectedItem}
                 />
             </motion.div>
