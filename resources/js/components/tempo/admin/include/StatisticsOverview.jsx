@@ -6,7 +6,14 @@ import {
     Users,
     Calendar,
     Activity,
+    TrendingUp,
+    TrendingDown,
+    Heart,
+    Stethoscope,
+    UserCheck,
+    Clock
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 // interface StatisticCardProps {
 //   title: string;
@@ -25,41 +32,54 @@ const StatisticCard = ({
     icon,
     change,
     bgColor = "bg-white",
+    gradientFrom,
+    gradientTo,
+    iconBg,
+    iconColor = "text-primary"
 }) => {
     return (
-        <Card
-            className={`${bgColor} shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-primary`}
+        <motion.div
+            whileHover={{ y: -5, scale: 1.02 }}
+            transition={{ duration: 0.2 }}
         >
-            <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="text-sm font-medium text-muted-foreground">
-                            {title}
-                        </p>
-                        <h3 className="text-2xl font-bold mt-1">{value}</h3>
-                        {change && (
-                            <div className="flex items-center mt-2">
-                                {change.isPositive ? (
-                                    <ArrowUpIcon className="h-4 w-4 text-green-500 mr-1" />
-                                ) : (
-                                    <ArrowDownIcon className="h-4 w-4 text-red-500 mr-1" />
-                                )}
-                                <span
-                                    className={`text-xs font-medium ${
-                                        change.isPositive
-                                            ? "text-green-500"
-                                            : "text-red-500"
-                                    }`}
-                                >
-                                    {change.value}% from last month
-                                </span>
-                            </div>
-                        )}
+            <Card
+                className={`${bgColor} shadow-lg hover:shadow-xl transition-all duration-300 border-0 ${
+                    gradientFrom && gradientTo ? `bg-gradient-to-br ${gradientFrom} ${gradientTo}` : ''
+                }`}
+            >
+                <CardContent className="p-6">
+                    <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-600 mb-2">
+                                {title}
+                            </p>
+                            <h3 className="text-3xl font-bold text-gray-900 mb-3">{value}</h3>
+                            {change && (
+                                <div className="flex items-center">
+                                    {change.isPositive ? (
+                                        <TrendingUp className="h-4 w-4 text-green-500 mr-1" />
+                                    ) : (
+                                        <TrendingDown className="h-4 w-4 text-red-500 mr-1" />
+                                    )}
+                                    <span
+                                        className={`text-sm font-medium ${
+                                            change.isPositive
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                        }`}
+                                    >
+                                        {change.value}% from last month
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div className={`p-4 rounded-2xl ${iconBg || 'bg-blue-100'} ${iconColor}`}>
+                            {icon}
+                        </div>
                     </div>
-                    <div className="p-3 rounded-full bg-accent">{icon}</div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </motion.div>
     );
 };
 
@@ -73,34 +93,100 @@ const StatisticsOverview = ({
     patients = {},
     todayAppointments = 32,
     activePrograms = 8,
+    dashboardData = {}
 }) => {
     return (
-        <div className="w-full bg-background">
-            <h2 className="text-xl font-semibold mb-4">Overview</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatisticCard
-                    title="Total Patients"
-                    value={patients.total}
-                    icon={<Users className="h-5 w-5 text-primary" />}
-                    change={{
-                        value: patients.growth,
-                        isPositive: patients.growth >= 0 ? true : false,
-                    }}
-                />
+        <div className="w-full">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="mb-6"
+            >
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">System Overview</h2>
+                <p className="text-gray-600">Key metrics and performance indicators</p>
+            </motion.div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                >
+                    <StatisticCard
+                        title="Total Patients"
+                        value={dashboardData.patients?.total || patients.total || 0}
+                        icon={<Users className="h-6 w-6" />}
+                        change={{
+                            value: Math.abs(dashboardData.patients?.growth || patients.growth || 0),
+                            isPositive: (dashboardData.patients?.growth || patients.growth || 0) >= 0,
+                        }}
+                        gradientFrom="from-blue-50"
+                        gradientTo="to-blue-100"
+                        iconBg="bg-blue-500"
+                        iconColor="text-white"
+                    />
+                </motion.div>
 
-                <StatisticCard
-                    title="Today's Appointments"
-                    value={todayAppointments}
-                    icon={<Calendar className="h-5 w-5 text-primary" />}
-                    change={{ value: 8, isPositive: true }}
-                />
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                >
+                    <StatisticCard
+                        title="Today's Appointments"
+                        value={dashboardData.appointments?.today || todayAppointments}
+                        icon={<Calendar className="h-6 w-6" />}
+                        change={{ 
+                            value: Math.abs(dashboardData.appointments?.growth || 0), 
+                            isPositive: (dashboardData.appointments?.growth || 0) >= 0 
+                        }}
+                        gradientFrom="from-green-50"
+                        gradientTo="to-green-100"
+                        iconBg="bg-green-500"
+                        iconColor="text-white"
+                    />
+                </motion.div>
 
-                <StatisticCard
-                    title="Active Health Programs"
-                    value={activePrograms}
-                    icon={<Activity className="h-5 w-5 text-primary" />}
-                    change={{ value: 0, isPositive: true }}
-                />
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                >
+                    <StatisticCard
+                        title="Active Health Programs"
+                        value={dashboardData.programs?.active || activePrograms}
+                        icon={<Activity className="h-6 w-6" />}
+                        change={{ 
+                            value: Math.abs(dashboardData.programs?.trend || 0), 
+                            isPositive: (dashboardData.programs?.trend || 0) >= 0 
+                        }}
+                        gradientFrom="from-purple-50"
+                        gradientTo="to-purple-100"
+                        iconBg="bg-purple-500"
+                        iconColor="text-white"
+                    />
+                </motion.div>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                >
+                    <StatisticCard
+                        title="System Health"
+                        value={`${dashboardData.systemHealth || 98}%`}
+                        icon={<Heart className="h-6 w-6" />}
+                        change={{ 
+                            value: 2, 
+                            isPositive: true 
+                        }}
+                        gradientFrom="from-emerald-50"
+                        gradientTo="to-emerald-100"
+                        iconBg="bg-emerald-500"
+                        iconColor="text-white"
+                    />
+                </motion.div>
             </div>
         </div>
     );

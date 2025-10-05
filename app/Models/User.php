@@ -84,4 +84,16 @@ class User extends Authenticatable
         return $this->hasMany(medical_history::class,'user_id','id');
     }
 
+    public function prescriptions(){
+        return $this->hasMany(\App\Models\Prescription::class, 'patient_id');
+    }
+
+    /**
+     * Get the user's full name.
+     */
+    public function getFullNameAttribute()
+    {
+        return trim($this->firstname . ' ' . $this->lastname);
+    }
+
 }

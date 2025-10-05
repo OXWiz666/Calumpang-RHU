@@ -328,18 +328,9 @@ const AppointmentForm = ({
                         <CustomCalendar
                             selectedDate={formData.date}
                             onDateSelect={handleDateChange}
-                            // hasPrograms={services?.map(
-                            //     (serv, i) => serv?.servicedays.map(days) // return days
-                            // )}
-                            // hasPrograms={services?.flatMap(
-                            //     (
-                            //         service //console.log("serv:: ", service)
-                            //     ) =>
-                            //         service.servicedays?.map(
-                            //             (day) => day.day
-                            //         ) || []
-                            // )}
                             hasPrograms={programs}
+                            serviceId={formData.service}
+                            subserviceId={formData.subservice}
                         />
                         {/* <Popover>
                             <PopoverTrigger asChild>

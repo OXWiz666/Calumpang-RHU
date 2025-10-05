@@ -29,8 +29,16 @@ class inventory extends Model
         return $this->belongsTo(icategory::class,"category_id");
     }
 
+    public function icategory(){
+        return $this->belongsTo(icategory::class,"category_id");
+    }
+
     public function stock(){
         return $this->belongsTo(istocks::class,"stock_id");
+    }
+
+    public function istocks(){
+        return $this->hasMany(istocks::class,"inventory_id");
     }
 
     public function stocks_movement(){

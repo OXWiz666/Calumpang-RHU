@@ -19,9 +19,7 @@ import {
     Hash, 
     Tag, 
     Building2, 
-    MapPin, 
-    ToggleLeft,
-    ToggleRight
+    MapPin
 } from "lucide-react";
 import {
     Select,
@@ -32,8 +30,6 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 const AddItemForm = ({ open, onClose, categories = [] }) => {
-    const [enableReordering, setEnableReordering] = useState(false);
-    const [trackBatches, setTrackBatches] = useState(true);
 
     const { data, setData, post, processing, errors } = useForm({
         itemname: "",
@@ -47,8 +43,6 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
         storage_location: "",
         batch_number: "",
         expiry_date: "",
-        enable_auto_reorder: false,
-        track_individual_batches: true,
     });
 
     const handleChange = (e) => {
@@ -382,58 +376,6 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                         </div>
                     </div>
 
-                    {/* Advanced Settings */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">
-                            Advanced Settings
-                        </h3>
-                        
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                <div className="flex-1">
-                                    <Label htmlFor="enable_auto_reorder" className="text-sm font-medium">
-                                        Enable Automatic Reordering
-                                    </Label>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        Automatically create purchase orders when stock falls below minimum level
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setEnableReordering(!enableReordering)}
-                                    className="ml-4"
-                                >
-                                    {enableReordering ? (
-                                        <ToggleRight className="h-6 w-6 text-gray-900" />
-                                    ) : (
-                                        <ToggleLeft className="h-6 w-6 text-gray-400" />
-                                    )}
-                                </button>
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                <div className="flex-1">
-                                    <Label htmlFor="track_individual_batches" className="text-sm font-medium">
-                                        Track Individual Batches
-                                    </Label>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        Enable detailed batch tracking for compliance and traceability
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setTrackBatches(!trackBatches)}
-                                    className="ml-4"
-                                >
-                                    {trackBatches ? (
-                                        <ToggleRight className="h-6 w-6 text-gray-900" />
-                                    ) : (
-                                        <ToggleLeft className="h-6 w-6 text-gray-400" />
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
 
                     <DialogFooter className="flex gap-3 pt-6">
                         <Button

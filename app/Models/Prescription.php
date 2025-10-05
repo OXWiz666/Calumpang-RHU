@@ -15,6 +15,7 @@ class Prescription extends Model
         'doctor_id',
         'medical_record_id',
         'prescription_date',
+        'case_id',
         'status', // pending, dispensed, cancelled
         'notes',
         'dispensed_at',
@@ -29,7 +30,7 @@ class Prescription extends Model
     // Relationships
     public function patient()
     {
-        return $this->belongsTo(Patient::class);
+        return $this->belongsTo(User::class, 'patient_id');
     }
 
     public function doctor()
