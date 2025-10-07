@@ -39,7 +39,8 @@ class User extends Authenticatable
         'suffix',
         'bloodtype',
         'avatar',
-        'address'
+        'address',
+        'status'
     ];
 
     /**

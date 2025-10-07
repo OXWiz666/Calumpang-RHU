@@ -22,8 +22,7 @@ class StaffController extends Controller
     const STATUS_ACTIVE = 1;
     const STATUS_ARCHIVED = 5; // Using the newly added Archived status
     public function index(){
-
-        $staff = User::whereNot('roleID','5')->get();
+        $staff = User::whereNot('roleID','7')->get();
         $admins = User::where('roleID','7')->get();
         $doctors = User::where('roleID','1')->get();
         $pharmacists = User::where('roleID','6')->get();
@@ -34,6 +33,13 @@ class StaffController extends Controller
             'doctorscount' => $doctors->count(),
         ]);
     }
+    public function admins(){
+        $admins = User::where('roleID', 7)->get();
+        return Inertia::render("Authenticated/Admin/Staff/Admins", [
+            'admins' => $admins
+        ]);
+    }
+
     public function doctors(){
         $doctors = doctor_details::with(['user','specialty','department'])->paginate(10);
         $questions = securityquestions::get();
@@ -41,6 +47,13 @@ class StaffController extends Controller
             'doctorsitems' => $doctors->items(),
             'doctors' => $doctors,
             'questions' => $questions
+        ]);
+    }
+
+    public function pharmacists(){
+        $pharmacists = User::where('roleID', 6)->get();
+        return Inertia::render("Authenticated/Admin/Staff/Pharmacists", [
+            'pharmacists' => $pharmacists
         ]);
     }
 
@@ -120,43 +133,51 @@ class StaffController extends Controller
     public function archiveStaff(Request $request)
     {
         $request->validate([
-            'staff_id' => 'required|exists:doctor_details,id',
+            'staff_id' => 'required|exists:users,id',
         ]);
 
         try {
             // Begin a database transaction
             DB::beginTransaction();
             
-            $doctor = doctor_details::findOrFail($request->staff_id);
+            $user = User::findOrFail($request->staff_id);
             
-            // Store the old status for notification
-            $oldStatus = $doctor->status;
-            $oldStatusName = doctor_status::find($oldStatus)->statusname;
+            // Update user status to archived
+            $user->status = self::STATUS_ARCHIVED;
+            $user->save();
             
-            // Update doctor status to archived
-            $doctor->status = self::STATUS_ARCHIVED;
-            $doctor->save();
-            
-            // Get new status name
-            $newStatusName = doctor_status::find(self::STATUS_ARCHIVED)->statusname;
+            // If it's a doctor, also update doctor_details
+            if ($user->roleID == 1) {
+                $doctor = doctor_details::where('user_id', $user->id)->first();
+                if ($doctor) {
+                    $doctor->status = self::STATUS_ARCHIVED;
+                    $doctor->save();
+                }
+            }
             
             // Get current user's role
             $userRole = Auth::user()->role->roletype;
             
-            // Prepare notification message
-            $message = "{$userRole} has archived Dr. {$doctor->user->lastname}'s status from {$oldStatusName} to {$newStatusName}";
+            // Prepare notification message based on staff type
+            $roleNames = [
+                1 => 'Doctor',
+                6 => 'Pharmacist', 
+                7 => 'Admin'
+            ];
+            $roleName = $roleNames[$user->roleID] ?? 'Staff';
+            $message = "{$userRole} has archived {$roleName} {$user->firstname} {$user->lastname}";
             
             // Log activity
-            ActivityLogger::log($message, $doctor, ['ip' => request()->ip()]);
+            ActivityLogger::log($message, $user, ['ip' => request()->ip()]);
             
-            // Notify relevant users (roles 1 and 7)
-            $recipients = User::whereIn('roleID', [1, 7])->get();
+            // Notify relevant users (roles 1, 6, and 7)
+            $recipients = User::whereIn('roleID', [1, 6, 7])->get();
             
             foreach ($recipients as $recipient) {
                 $notification = new SystemNotification(
                     $message,
-                    "A doctor has been archived!",
-                    "doctorstatus_update",
+                    "A {$roleName} has been archived!",
+                    "staff_archive",
                     "#" // Consider using a proper URL here
                 );
                 
@@ -167,12 +188,9 @@ class StaffController extends Controller
             // Commit the transaction
             DB::commit();
             
-            // Get updated doctors list
-            $doctors = doctor_details::with(['user','specialty','department'])->get();
-            
             return response()->json([
-                'message' => 'Staff archived successfully',
-                'doctors' => $doctors
+                'success' => true,
+                'message' => 'Staff archived successfully'
             ], 200);
             
         } catch (\Exception $e) {
@@ -180,6 +198,7 @@ class StaffController extends Controller
             DB::rollBack();
             
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to archive staff: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -196,43 +215,51 @@ class StaffController extends Controller
     public function unarchiveStaff(Request $request)
     {
         $request->validate([
-            'staff_id' => 'required|exists:doctor_details,id',
+            'staff_id' => 'required|exists:users,id',
         ]);
 
         try {
             // Begin a database transaction
             DB::beginTransaction();
             
-            $doctor = doctor_details::findOrFail($request->staff_id);
+            $user = User::findOrFail($request->staff_id);
             
-            // Store the old status for notification
-            $oldStatus = $doctor->status;
-            $oldStatusName = doctor_status::find($oldStatus)->statusname;
+            // Update user status to active
+            $user->status = self::STATUS_ACTIVE;
+            $user->save();
             
-            // Update doctor status to active
-            $doctor->status = self::STATUS_ACTIVE;
-            $doctor->save();
-            
-            // Get new status name
-            $newStatusName = doctor_status::find(self::STATUS_ACTIVE)->statusname;
+            // If it's a doctor, also update doctor_details
+            if ($user->roleID == 1) {
+                $doctor = doctor_details::where('user_id', $user->id)->first();
+                if ($doctor) {
+                    $doctor->status = self::STATUS_ACTIVE;
+                    $doctor->save();
+                }
+            }
             
             // Get current user's role
             $userRole = Auth::user()->role->roletype;
             
-            // Prepare notification message
-            $message = "{$userRole} has unarchived Dr. {$doctor->user->lastname}'s status from {$oldStatusName} to {$newStatusName}";
+            // Prepare notification message based on staff type
+            $roleNames = [
+                1 => 'Doctor',
+                6 => 'Pharmacist', 
+                7 => 'Admin'
+            ];
+            $roleName = $roleNames[$user->roleID] ?? 'Staff';
+            $message = "{$userRole} has unarchived {$roleName} {$user->firstname} {$user->lastname}";
             
             // Log activity
-            ActivityLogger::log($message, $doctor, ['ip' => request()->ip()]);
+            ActivityLogger::log($message, $user, ['ip' => request()->ip()]);
             
-            // Notify relevant users (roles 1 and 7)
-            $recipients = User::whereIn('roleID', [1, 7])->get();
+            // Notify relevant users (roles 1, 6, and 7)
+            $recipients = User::whereIn('roleID', [1, 6, 7])->get();
             
             foreach ($recipients as $recipient) {
                 $notification = new SystemNotification(
                     $message,
-                    "A doctor has been unarchived!",
-                    "doctorstatus_update",
+                    "A {$roleName} has been unarchived!",
+                    "staff_unarchive",
                     "#" // Consider using a proper URL here
                 );
                 
@@ -243,12 +270,9 @@ class StaffController extends Controller
             // Commit the transaction
             DB::commit();
             
-            // Get updated doctors list
-            $doctors = doctor_details::with(['user','specialty','department'])->get();
-            
             return response()->json([
-                'message' => 'Staff unarchived successfully',
-                'doctors' => $doctors
+                'success' => true,
+                'message' => 'Staff unarchived successfully'
             ], 200);
             
         } catch (\Exception $e) {
@@ -256,6 +280,7 @@ class StaffController extends Controller
             DB::rollBack();
             
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to unarchive staff: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

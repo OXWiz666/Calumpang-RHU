@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 // import Header from "../landing/Header";
 // import Footer from "../landing/Footer";
 import AppointmentForm from "../partial/AppointmentForm";
+import moment from "moment";
 import {
     Card,
     CardContent,
@@ -66,27 +67,51 @@ export default function Appointment({ services }) {
             birth: "",
             priorityNumber: "",
         });
+
+    // Helper function to format time to 12-hour format with AM/PM
+    const formatTime = (timeString) => {
+        if (!timeString) return 'Not specified';
+        try {
+            // Handle different time formats
+            let time = timeString;
+            
+            // If it's in HH:mm:ss format, extract just the time part
+            if (timeString.includes(' ')) {
+                time = timeString.split(' ')[1] || timeString.split(' ')[0];
+            }
+            
+            // Parse the time and format to 12-hour format
+            const [hours, minutes] = time.split(':');
+            const hour = parseInt(hours, 10);
+            const minute = parseInt(minutes, 10);
+            
+            if (isNaN(hour) || isNaN(minute)) {
+                return timeString; // Return original if parsing fails
+            }
+            
+            const period = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+            const displayMinute = minute.toString().padStart(2, '0');
+            
+            return `${displayHour}:${displayMinute} ${period}`;
+        } catch (error) {
+            console.error('Error formatting time:', error);
+            return timeString; // Return original if formatting fails
+        }
+    };
+
     async function handleSubmit(data) {
         // In a real application, you would send this data to your backend
         setData(data);
-        //console.log("Appointment data submitted:", data);
 
-        const isConfirmed = await alert_toast(
-            "Confirmation",
-            "Are you sure you want to confirm this appointment?",
-            "warning", // Note: lowercase 'warning'
-            true
-        );
-        if (isConfirmed) {
-            post(route("patient.appoint.create"), {
-                onSuccess: () => {
-                    setIsSubmitted(true);
-                },
-                onFinish: () => {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                },
-            });
-        }
+        post(route("patient.appoint.create"), {
+            onSuccess: () => {
+                setIsSubmitted(true);
+            },
+            onFinish: () => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            },
+        });
     }
 
     return (
@@ -148,7 +173,7 @@ export default function Appointment({ services }) {
                                             Time
                                         </p>
                                         <p className="text-gray-900">
-                                            {data.time}
+                                            {formatTime(data.time)}
                                         </p>
                                     </div>
                                     <div>
@@ -215,14 +240,29 @@ export default function Appointment({ services }) {
             ) : (
                 <div>
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold mb-2">
-                            Schedule an Appointment
-                        </h1>
-                        <p className="text-gray-600">
-                            Book your visit to Barangay Calumpang Health Center.
-                            Please fill out the form below with your information
-                            and preferred appointment details.
-                        </p>
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
+                            <div className="flex items-center space-x-4 mb-4">
+                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                                        Schedule an Appointment
+                                    </h1>
+                                    <p className="text-lg text-gray-600">
+                                        Book your visit to Barangay Calumpang Health Center
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-white/50">
+                                <p className="text-gray-700 leading-relaxed">
+                                    Please fill out the form below with your information and preferred appointment details. 
+                                    Our healthcare team is ready to provide you with quality medical services.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     <div className="flex flex-col md:flex-row gap-8">
                         {/* SideBar */}
@@ -230,42 +270,84 @@ export default function Appointment({ services }) {
                         {/* Main Content */}
 
                         <div className="w-full md:w-3/4">
-                            <Card>
-                                <CardHeader>
-                                    <div className="flex items-center gap-2">
-                                        <Info className="h-5 w-5 text-blue-500" />
-                                        <CardTitle className="text-lg">
-                                            Important Information
-                                        </CardTitle>
+                            <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-orange-50">
+                                <CardHeader className="bg-gradient-to-r from-amber-100 to-orange-100 rounded-t-lg">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-amber-200 rounded-full flex items-center justify-center">
+                                            <Info className="h-6 w-6 text-amber-700" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-xl text-amber-900 font-bold">
+                                                Important Information
+                                            </CardTitle>
+                                            <CardDescription className="text-amber-700 font-medium">
+                                                Please review these guidelines before scheduling
+                                            </CardDescription>
+                                        </div>
                                     </div>
-                                    <CardDescription>
-                                        Please note the following before
-                                        scheduling your appointment:
-                                    </CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <ul className="list-disc pl-5 space-y-2 text-gray-700">
-                                        <li>
-                                            Appointments are available Monday to
-                                            Saturday, 9:00 AM to 4:00 PM.
-                                        </li>
-                                        <li>
-                                            Please arrive 15 minutes before your
-                                            scheduled appointment time.
-                                        </li>
-                                        <li>
-                                            Bring your valid ID and health
-                                            records if available.
-                                        </li>
-                                        <li>
-                                            Wear a face mask when visiting the
-                                            health center.
-                                        </li>
-                                        <li>
-                                            Appointment confirmation will be
-                                            sent to your email or via SMS.
-                                        </li>
-                                    </ul>
+                                <CardContent className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-3">
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg className="w-3 h-3 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">Operating Hours</p>
+                                                    <p className="text-sm text-gray-600">Monday to Saturday, 9:00 AM to 4:00 PM</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">Arrival Time</p>
+                                                    <p className="text-sm text-gray-600">Please arrive 15 minutes early</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">Required Documents</p>
+                                                    <p className="text-sm text-gray-600">Valid ID and health records</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg className="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">Safety Protocol</p>
+                                                    <p className="text-sm text-gray-600">Face mask required at all times</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <svg className="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+                                                    </svg>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">Confirmation</p>
+                                                    <p className="text-sm text-gray-600">Email or SMS confirmation sent</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
 

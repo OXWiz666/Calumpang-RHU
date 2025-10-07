@@ -6,7 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\AuthController;
 
 class PatientMiddlware
 {
@@ -17,12 +16,7 @@ class PatientMiddlware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if(Auth::check()){
-            if(Auth::user()->roleID == 5){
-                return $next($request);
-            }
-            //return app(AuthController::class)->getRedirectRoute();
-        }
-        return app(AuthController::class)->getRedirectRoute();
+        // Patient role no longer supported - redirect all users
+        return redirect()->route('login');
     }
 }

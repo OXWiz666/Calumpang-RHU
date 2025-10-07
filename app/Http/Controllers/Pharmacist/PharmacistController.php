@@ -1313,9 +1313,9 @@ class PharmacistController extends Controller
      */
     public function get_patients_and_doctors()
     {
-        // Get patients from users table with Patient role
+        // Get admins from users table with Admin role
         $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Patient');
+                $query->where('roletype', 'Admin');
             })
             ->select('id', 'firstname', 'lastname', 'middlename')
             ->get()

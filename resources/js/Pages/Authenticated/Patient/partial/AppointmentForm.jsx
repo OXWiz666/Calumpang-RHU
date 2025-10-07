@@ -1,16 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
-import InputLabel from "@/components/InputLabel";
 import InputError from "@/components/InputError";
 import { Label } from "@/components/tempo/components/ui/label";
-import { Textarea } from "@/components/tempo/components/ui/textarea";
-import { Calendar } from "@/components/tempo/components/ui/calendar";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/tempo/components/ui/popover";
 import {
     Select,
     SelectContent,
@@ -18,14 +10,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/tempo/components/ui/select";
-import { format } from "date-fns";
-import { CalendarIcon, Clock, Hash } from "lucide-react";
-import { cn } from "@/components/tempo/lib/utils"; //
-// At the top with other imports
-import { addDays } from "date-fns";
-import { usePage, useForm } from "@inertiajs/react";
+import { CalendarIcon, Clock } from "lucide-react";
+import { usePage } from "@inertiajs/react";
 import CustomCalendar from "./CustomCalendar";
 import moment from "moment";
+import { tokenSessionManager } from "../../../../utils/tokenSession";
+import VerificationModal from "../../../../components/tempo/components/landing/VerificationModal";
+import ConfirmationModal from "../../../../components/tempo/components/landing/ConfirmationModal";
+
 
 const AppointmentForm = ({
     onSubmit = () => {},
@@ -38,6 +30,10 @@ const AppointmentForm = ({
     //programs,
 }) => {
     const user = usePage().props.auth.user;
+    const [showVerificationModal, setShowVerificationModal] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const [validationError, setValidationError] = useState("");
+    const [isFormLocked, setIsFormLocked] = useState(false);
 
     useEffect(() => {
         if (user && !formData.firstname) {
@@ -54,8 +50,63 @@ const AppointmentForm = ({
                 birth: user.birth,
                 priorityNumber: Math.floor(1000 + Math.random() * 9000), // Generate random 4-digit priority number
             });
+            // Lock form for authenticated users
+            setIsFormLocked(true);
         }
     }, [user]);
+
+    // Check for token session and populate form
+    useEffect(() => {
+        if (!user) {
+            // Check for token session first
+            if (tokenSessionManager.hasValidTokenSession()) {
+                const patientData = tokenSessionManager.getPatientData();
+                if (patientData) {
+                    setFormData({
+                        ...formData,
+                        firstname: patientData.firstname || "",
+                        middlename: patientData.middlename || "",
+                        lastname: patientData.lastname || "",
+                        email: patientData.email || "",
+                        phone: patientData.phone || "",
+                        gender: patientData.sex || "",
+                        birth: patientData.birthdate || "",
+                        servicename: "",
+                        service: "",
+                        priorityNumber: Math.floor(1000 + Math.random() * 9000),
+                    });
+                    // Lock form for guest users who have completed verification
+                    setIsFormLocked(true);
+                }
+            } else {
+                // Fallback to localStorage for backward compatibility
+                const storedData = localStorage.getItem('patientVerificationData');
+                if (storedData) {
+                    try {
+                        const patientInfo = JSON.parse(storedData);
+                        setFormData({
+                            ...formData,
+                            firstname: patientInfo.firstname || "",
+                            middlename: patientInfo.middlename || "",
+                            lastname: patientInfo.lastname || "",
+                            email: patientInfo.email || "",
+                            phone: patientInfo.phone || "",
+                            gender: patientInfo.sex || "",
+                            birth: patientInfo.birthdate || "",
+                            servicename: "",
+                            service: "",
+                            priorityNumber: Math.floor(1000 + Math.random() * 9000),
+                        });
+                        
+                        // Clear the stored data after using it
+                        localStorage.removeItem('patientVerificationData');
+                    } catch (error) {
+                        // Silently handle error
+                    }
+                }
+            }
+        }
+    }, []);
 
     // Create a service lookup object
     const serviceLookup = services.reduce((acc, service) => {
@@ -64,6 +115,23 @@ const AppointmentForm = ({
     }, {});
 
     const [date, setDate] = useState(new Date());
+
+
+    // Handler for verification completion
+    const handleVerificationComplete = () => {
+        setShowVerificationModal(false);
+        // Show confirmation modal after verification
+        setShowConfirmationModal(true);
+    };
+
+    // Handler for final confirmation
+    const handleFinalConfirmation = () => {
+        setShowConfirmationModal(false);
+        // Submit the appointment after confirmation
+        onSubmit(formData);
+    };
+
+
 
     // Separate handler for date changes
     const handleDateChange = (date) => {
@@ -88,10 +156,6 @@ const AppointmentForm = ({
         setFormData((prev) => ({ ...prev, [name]: value ?? null }));
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSubmit(formData);
-    };
 
     const timeSlots = [
         "09:00 AM",
@@ -146,10 +210,46 @@ const AppointmentForm = ({
     // }, [formData.time]);
 
     return (
+        <>
         <form
-            onSubmit={handleSubmit}
+            onSubmit={(e) => e.preventDefault()}
             className="space-y-6 bg-white p-6 rounded-lg shadow-sm"
         >
+            {validationError && (
+                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div className="flex-1">
+                        <p className="font-medium text-sm">{validationError}</p>
+                    </div>
+                    <button
+                        onClick={() => setValidationError("")}
+                        className="text-red-600 hover:text-red-800"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            )}
+
+            {isFormLocked && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg flex items-start space-x-3">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    <div className="flex-1">
+                        <p className="font-medium text-sm">
+                            {user ? 'Personal information is locked for authenticated users' : 'Personal information is locked after verification'}
+                        </p>
+                        <p className="text-xs mt-1">
+                            {user ? 'Your account information cannot be modified here' : 'This information was verified and cannot be changed'}
+                        </p>
+                    </div>
+                </div>
+            )}
+            
             <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -159,7 +259,7 @@ const AppointmentForm = ({
                             name="firstname"
                             value={formData.firstname}
                             placeholder="Your First Name"
-                            disabled={true}
+                            disabled={isFormLocked}
                             required
                         />
                         <InputError message={errors.firstname} />
@@ -171,7 +271,7 @@ const AppointmentForm = ({
                             name="middlename"
                             value={formData.middlename}
                             placeholder="Your Middle Name"
-                            disabled={true}
+                            disabled={isFormLocked}
                             required
                         />
                         <InputError message={errors.middlename} />
@@ -183,7 +283,7 @@ const AppointmentForm = ({
                             name="lastname"
                             value={formData.lastname}
                             placeholder="Your Last Name"
-                            disabled={true}
+                            disabled={isFormLocked}
                             required
                         />
                         <InputError message={errors.lastname} />
@@ -199,7 +299,7 @@ const AppointmentForm = ({
                             type="email"
                             value={formData.email}
                             placeholder="juan@example.com"
-                            disabled={true}
+                            disabled={isFormLocked}
                             required
                         />
                         <InputError message={errors.email} />
@@ -213,6 +313,7 @@ const AppointmentForm = ({
                             value={formData.phone}
                             onChange={handleChange}
                             placeholder="+63 912 345 6789"
+                            disabled={isFormLocked}
                             required
                         />
                         <InputError message={errors.phone} />
@@ -281,7 +382,6 @@ const AppointmentForm = ({
                                 const subservice = subServiceLookup[selectedId];
 
                                 setTimesArr(subservice?.times);
-                                //console.log(subservice);
                                 // handleSelectChange({
                                 //     subservice: subservice.id,
                                 //     subservicename: subservice.subservicename,
@@ -426,14 +526,145 @@ const AppointmentForm = ({
                 </div>
             </div>
 
-            {usePage().props.auth.user ? (
-                <Button disabled={processing} type="submit" className="w-full">
-                    Schedule Appointment
-                </Button>
-            ) : (
-                <div>Please login first to submit.</div>
-            )}
+                <div className="space-y-4">
+                {usePage().props.auth.user ? (
+                    <Button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Validate required fields before showing verification modal
+                            const requiredFields = ['firstname', 'lastname', 'email', 'phone', 'service', 'date', 'time'];
+                            const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
+                            
+                            if (missingFields.length > 0) {
+                                // Show error message for missing fields
+                                const fieldNames = {
+                                    'firstname': 'First Name',
+                                    'lastname': 'Last Name', 
+                                    'email': 'Email Address',
+                                    'phone': 'Phone Number',
+                                    'service': 'Service Type',
+                                    'date': 'Appointment Date',
+                                    'time': 'Appointment Time'
+                                };
+                                const missingFieldNames = missingFields.map(field => fieldNames[field] || field);
+                                setValidationError(`Please fill in the following required fields: ${missingFieldNames.join(', ')}`);
+                                
+                                // Scroll to top to show error
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                return;
+                            }
+                            
+                            // Clear any previous errors
+                            setValidationError("");
+                            
+                            // All required fields are filled, show verification modal
+                            setShowVerificationModal(true);
+                        }}
+                        disabled={processing} 
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        {processing ? (
+                            <div className="flex items-center space-x-2">
+                                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Processing...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                <span>Schedule Appointment</span>
+                            </div>
+                        )}
+                    </Button>
+                ) : (
+                    <div className="text-center space-y-4">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+                            <div className="flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4">
+                                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready to Book Your Appointment?</h3>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Complete your patient verification to access appointment booking and manage your health records.
+                            </p>
+                            <Button 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    
+                                    // Validate required fields before showing verification modal
+                                    const requiredFields = ['firstname', 'lastname', 'email', 'phone', 'service', 'date', 'time'];
+                                    const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
+                                    
+                                    if (missingFields.length > 0) {
+                                        // Show error message for missing fields
+                                        const fieldNames = {
+                                            'firstname': 'First Name',
+                                            'lastname': 'Last Name', 
+                                            'email': 'Email Address',
+                                            'phone': 'Phone Number',
+                                            'service': 'Service Type',
+                                            'date': 'Appointment Date',
+                                            'time': 'Appointment Time'
+                                        };
+                                        const missingFieldNames = missingFields.map(field => fieldNames[field] || field);
+                                        setValidationError(`Please fill in the following required fields: ${missingFieldNames.join(', ')}`);
+                                        
+                                        // Scroll to top to show error
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        return;
+                                    }
+                                    
+                                    // Clear any previous errors
+                                    setValidationError("");
+                                    
+                                    // All required fields are filled, show verification modal
+                                    setShowVerificationModal(true);
+                                }}
+                                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>Appoint Now!</span>
+                                </div>
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
         </form>
+
+        {/* Confirmation Modal */}
+        <ConfirmationModal
+            isOpen={showConfirmationModal}
+            onClose={() => setShowConfirmationModal(false)}
+            onConfirm={handleFinalConfirmation}
+            title="Confirmation"
+            message="Are you sure you want to confirm this appointment?"
+            confirmText="Confirm"
+            cancelText="Cancel"
+        />
+
+        {/* Verification Modal */}
+        <VerificationModal
+            isOpen={showVerificationModal}
+            onClose={() => setShowVerificationModal(false)}
+            onVerify={handleVerificationComplete}
+            patientData={{
+                emailAddress: formData.email || '',
+                mobileNo: formData.phone || ''
+            }}
+        />
+        </>
     );
 };
 

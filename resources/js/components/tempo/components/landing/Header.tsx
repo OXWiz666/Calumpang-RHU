@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { Link, usePage } from "@inertiajs/react";
+import { Link, usePage, router } from "@inertiajs/react";
 
 import importedCss from "./css/header.css";
 
 // @ts-ignore
 import NotficationDropdown from "../../patient/include/NotificationDropdown.jsx";
+import PatientVerificationModal from "./PatientVerificationModal";
+import TermsOfServiceModal from "./TermsOfServiceModal";
+import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
 
 const Header = ({
     auth,
@@ -17,12 +20,45 @@ const Header = ({
     const [servicesOpen, setServicesOpen] = useState(false);
     const [servicesDropdownOpen, setServicesDropdownOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [showPatientModal, setShowPatientModal] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+    const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
 
     const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
     const toggleServices = () => setServicesOpen(!servicesOpen);
     const toggleServicesDropdown = () =>
         setServicesDropdownOpen(!servicesDropdownOpen);
     const toggleUserMenu = () => setUserMenuOpen(!userMenuOpen);
+
+    // Handler for Terms of Service acceptance
+    const handleTermsAccept = () => {
+        setShowTermsModal(false);
+        (window as any).isTermsModalOpen = false;
+        // Directly open the Patient Verification Modal after accepting terms
+        setShowPatientModal(true);
+    };
+    
+    // Handler for closing Terms modal
+    const handleTermsClose = () => {
+        setShowTermsModal(false);
+        (window as any).isTermsModalOpen = false;
+    };
+
+    // Handler for Appointments button click
+    const handleAppointmentsClick = (e: React.MouseEvent) => {
+        if (isInAppointmentSession) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Show a message that they're already in an appointment session
+            alert('You are already in an appointment session. Please complete your current appointment or refresh the page to start a new one.');
+            return false;
+        }
+        
+        // Normal flow - show terms modal
+        setShowTermsModal(true);
+    };
+
 
     interface User {
         firstname?: string;
@@ -32,13 +68,32 @@ const Header = ({
     }
 
     // Then in your component
-    const user__: User = usePage().props.auth.user; // Or however you get the user
+    const user__: User = (usePage().props as any).auth.user; // Or however you get the user
 
     const auth_ = usePage().props.auth;
     const [datas, setDatas] = useState(auth_);
     useEffect(() => {
         setDatas(auth_);
     }, [auth_]);
+
+    // Listen for custom event to open Patient Verification Modal
+    useEffect(() => {
+        const handleOpenTermsModal = () => {
+            // Prevent multiple modals from opening
+            if ((window as any).isTermsModalOpen) {
+                console.warn('Terms modal already open, ignoring duplicate request');
+                return;
+            }
+            (window as any).isTermsModalOpen = true;
+            setShowTermsModal(true);
+        };
+
+        window.addEventListener('openTermsOfServiceModal', handleOpenTermsModal);
+        
+        return () => {
+            window.removeEventListener('openTermsOfServiceModal', handleOpenTermsModal);
+        };
+    }, []);
     return (
         <header className="w-full h-16 bg-white border-b border-gray-200 header-shadow fixed top-0 left-0 z-50">
             <div className="container mx-auto h-full flex items-center justify-between px-4">
@@ -172,12 +227,27 @@ const Header = ({
                                 </button>
                                 {servicesOpen && (
                                     <div className="pl-10 pr-3 py-1 space-y-1">
-                                        <Link
-                                            href="/appointments"
-                                            className="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
+                                        <button
+                                            onClick={handleAppointmentsClick}
+                                            disabled={isInAppointmentSession}
+                                            className={`w-full flex items-start py-2 px-2 text-sm font-medium rounded-md transition-all duration-300 transform ${
+                                                isInAppointmentSession 
+                                                    ? 'text-gray-400 cursor-not-allowed opacity-50' 
+                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent hover:translate-x-1 hover:shadow-sm'
+                                            }`}
+                                            style={{ 
+                                                textAlign: 'left',
+                                                border: 'none',
+                                                background: 'none',
+                                                outline: 'none',
+                                                font: 'inherit'
+                                            }}
+                                            title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
                                         >
                                             <svg
-                                                className="w-4 h-4 mr-2 text-blue-500"
+                                                className={`w-4 h-4 mr-2 mt-0.5 flex-shrink-0 ${
+                                                    isInAppointmentSession ? 'text-gray-400' : 'text-blue-500'
+                                                }`}
                                                 fill="none"
                                                 stroke="currentColor"
                                                 viewBox="0 0 24 24"
@@ -189,15 +259,22 @@ const Header = ({
                                                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                                 ></path>
                                             </svg>
-                                            Appointments
-                                        </Link>
+                                            <div className="flex flex-col text-left">
+                                                <span className="font-medium">
+                                                    {isInAppointmentSession ? 'Appointments (Active)' : 'Appointments'}
+                                                </span>
+                                                <span className="text-xs text-gray-500 mt-0.5">
+                                                    Schedule your visit to the health center
+                                                </span>
+                                            </div>
+                                        </button>
 
                                         <Link
                                             href="#"
-                                            className="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
+                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
                                         >
                                             <svg
-                                                className="w-4 h-4 mr-2 text-pink-500"
+                                                className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-pink-500"
                                                 fill="none"
                                                 stroke="currentColor"
                                                 viewBox="0 0 24 24"
@@ -209,14 +286,19 @@ const Header = ({
                                                     clipRule="evenodd"
                                                 ></path>
                                             </svg>
-                                            Medical Records
+                                            <div className="flex flex-col text-left">
+                                                <span className="font-medium">Medical Records</span>
+                                                <span className="text-xs text-gray-500 mt-0.5">
+                                                    Access your health records securely
+                                                </span>
+                                            </div>
                                         </Link>
                                         <Link
                                             href="#"
-                                            className="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
+                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
                                         >
                                             <svg
-                                                className="w-4 h-4 mr-2 text-green-500"
+                                                className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-500"
                                                 fill="none"
                                                 stroke="currentColor"
                                                 viewBox="0 0 24 24"
@@ -228,7 +310,12 @@ const Header = ({
                                                     d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
                                                 ></path>
                                             </svg>
-                                            Vaccinations
+                                            <div className="flex flex-col text-left">
+                                                <span className="font-medium">Seasonal Programs</span>
+                                                <span className="text-xs text-gray-500 mt-0.5">
+                                                    View seasonal programs and availability
+                                                </span>
+                                            </div>
                                         </Link>
                                     </div>
                                 )}
@@ -297,28 +384,8 @@ const Header = ({
                                 </Link>
                             </li>
                         </ul>
-                        <div className="mt-8">
-                            {!user__ ? (
-                                <Link
-                                    href="/login"
-                                    className="flex items-center justify-center w-full py-3 px-4 bg-gray-800 text-white text-center font-semibold rounded-lg transition-all duration-300 transform hover:bg-gray-700 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-95 hover:shadow-lg"
-                                >
-                                    <svg
-                                        className="w-5 h-5 mr-2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth="2"
-                                            d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
-                                        ></path>
-                                    </svg>
-                                    Login
-                                </Link>
-                            ) : (
+                        {user__ && (
+                            <div className="mt-8">
                                 <Link
                                     href="/logout"
                                     method="post"
@@ -339,8 +406,8 @@ const Header = ({
                                     </svg> */}
                                     Logout
                                 </Link>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </nav>
                 </div>
 
@@ -396,12 +463,22 @@ const Header = ({
                                     }
                                 >
                                     <div className="space-y-2">
-                                        <Link
-                                            href="/appointments"
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1"
+                                        <button
+                                            onClick={handleAppointmentsClick}
+                                            disabled={isInAppointmentSession}
+                                            className={`w-full group flex items-center rounded-lg p-3 transition-all duration-300 transform min-h-[60px] ${
+                                                isInAppointmentSession 
+                                                    ? 'opacity-50 cursor-not-allowed' 
+                                                    : 'hover:bg-gray-50 hover:translate-x-1'
+                                            }`}
+                                            title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
                                         >
                                             <svg
-                                                className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
+                                                className={`mr-3 h-5 w-5 transition-colors duration-300 ${
+                                                    isInAppointmentSession 
+                                                        ? 'text-gray-400' 
+                                                        : 'text-gray-400 group-hover:text-black'
+                                                }`}
                                                 viewBox="0 0 20 20"
                                                 fill="currentColor"
                                             >
@@ -411,19 +488,29 @@ const Header = ({
                                                     clipRule="evenodd"
                                                 />
                                             </svg>
-                                            <div>
-                                                <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
-                                                    Appointments
+                                            <div className="text-center">
+                                                <p className={`text-sm font-medium transition-colors duration-300 ${
+                                                    isInAppointmentSession 
+                                                        ? 'text-gray-400' 
+                                                        : 'text-gray-900 group-hover:text-black'
+                                                }`}>
+                                                    {isInAppointmentSession ? 'Appointments (Active)' : 'Appointments'}
                                                 </p>
-                                                <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                    Schedule your visit to the
-                                                    health center
+                                                <p className={`text-xs transition-colors duration-300 ${
+                                                    isInAppointmentSession 
+                                                        ? 'text-gray-400' 
+                                                        : 'text-gray-500 group-hover:text-gray-600'
+                                                }`}>
+                                                    {isInAppointmentSession 
+                                                        ? 'Complete your current appointment first' 
+                                                        : 'Schedule your visit to the health center'
+                                                    }
                                                 </p>
                                             </div>
-                                        </Link>
+                                        </button>
                                         <Link
                                             href="/patient/medical-records"
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1"
+                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
                                         >
                                             <svg
                                                 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
@@ -437,21 +524,18 @@ const Header = ({
                                                     clipRule="evenodd"
                                                 />
                                             </svg>
-                                            <div>
+                                            <div className="text-center">
                                                 <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
                                                     Medical Records
                                                 </p>
                                                 <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                    Access your health records
-                                                    securely
+                                                    Access your health records securely
                                                 </p>
                                             </div>
                                         </Link>
                                         <Link
-                                            href={route(
-                                                "services.vaccinations"
-                                            )}
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1"
+                                            href="/services/seasonal-programs"
+                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
                                         >
                                             <svg
                                                 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
@@ -464,13 +548,12 @@ const Header = ({
                                                     clipRule="evenodd"
                                                 />
                                             </svg>
-                                            <div>
+                                            <div className="text-center">
                                                 <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
                                                     Seasonal Programs
                                                 </p>
                                                 <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                    View seasonal programs and
-                                                    availability
+                                                    View seasonal programs and availability
                                                 </p>
                                             </div>
                                         </Link>
@@ -507,25 +590,7 @@ const Header = ({
 
                 {/* User Menu */}
                 <div className="flex items-center">
-                    {!user__ ? (
-                        <Link
-                            href="/login"
-                            className="hidden md:flex items-center gap-1.5 px-4 py-2 border rounded-lg text-gray-700 hover:text-black hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 text-sm group hover:shadow-md"
-                        >
-                            <svg
-                                className="h-4 w-4 text-gray-600 group-hover:text-black transition-colors duration-300"
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                            >
-                                <path
-                                    fillRule="evenodd"
-                                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                    clipRule="evenodd"
-                                />
-                            </svg>
-                            <span>Login</span>
-                        </Link>
-                    ) : (
+                    {user__ && (
                         <div className="flex items-center gap-2">
                             <NotficationDropdown datas={datas} />
                             <div className="relative">
@@ -558,7 +623,7 @@ const Header = ({
                                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-50">
                                         <div className="p-2">
                                             <Link
-                                                href={route("patient.profile")}
+                                                href="/patient/profile"
                                                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-300"
                                             >
                                                 Profile
@@ -579,8 +644,21 @@ const Header = ({
                     )}
                 </div>
             </div>
-        </header>
-    );
-};
+            
+                {/* Patient Verification Modal */}
+                <PatientVerificationModal 
+                    isOpen={showPatientModal} 
+                    onClose={() => setShowPatientModal(false)} 
+                />
+
+                {/* Terms of Service Modal */}
+                <TermsOfServiceModal
+                    isOpen={showTermsModal}
+                    onClose={handleTermsClose}
+                    onAccept={handleTermsAccept}
+                />
+            </header>
+        );
+    };
 
 export default Header;

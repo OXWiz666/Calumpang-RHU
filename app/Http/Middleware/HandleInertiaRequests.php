@@ -35,12 +35,12 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),//$request->user()
-                'role' => $request->user()->role ?? null,
+                'user' => $request->user(),
+                'role' => optional($request->user())->role ?? null,
                 'notifications' => optional($request->user())->unreadNotifications ?? [],
                 'notifications_count' => optional($request->user())->unreadNotifications ? optional($request->user())->unreadNotifications->count() : 0,
                 'all_notifications' => optional($request->user())->notifications ?? [],
-                'userPrograms' => $request->user()->userprograms ?? [],
+                'userPrograms' => optional($request->user())->userprograms ?? [],
             ],
             'flash' => Session::get('flash')
         ];

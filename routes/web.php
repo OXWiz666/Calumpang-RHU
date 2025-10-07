@@ -15,12 +15,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Doctor\DoctorController;
 use App\Http\Controllers\MidwifeController;
 use App\Http\Controllers\PatientController;
-use App\Http\Controllers\QueueController;
-use App\Http\Controllers\TestDashboard\TestDbControllerrr;
 use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineController;
 use Illuminate\Http\Request;
@@ -46,7 +43,10 @@ Route::middleware(['Guest'])->group(function () {
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('forgot.password');
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::get('/login', function() {
+        return redirect('/adminlogin');
+    })->name('login');
+    Route::get('/adminlogin', [AuthController::class, 'showLogin'])->name('adminlogin');
 
     //Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
 
@@ -90,7 +90,8 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     Route::get('/appointments',[PatientController::class,'appointments'])->name('patient.appoint');
     //Route::get('/dashboard/test', [TestDbControllerrr::class, 'index'])->name('dashboard.test');
 
-
+    // Appointment creation route for guests
+    Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create');
 
     Route::get('services/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
 
@@ -109,7 +110,6 @@ Route::middleware(['auth','Patient'])->group(function(){
 
         Route::get('/appointments/history',[PatientController::class,'appointmentshistory'])->name('patient.appoint.history');
         ## Appointment
-        Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create');
 
         Route::get('/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
 
@@ -180,6 +180,12 @@ Route::middleware(['auth','Admin'])->group(function(){
 
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
+        Route::post('/reports/generate',[ReportsController::class,'generateReport'])->name('admin.reports.generate');
+        Route::get('/reports/templates',[ReportsController::class,'getReportTemplates'])->name('admin.reports.templates');
+        Route::post('/reports/schedule',[ReportsController::class,'scheduleReport'])->name('admin.reports.schedule');
+        Route::get('/reports/scheduled',[ReportsController::class,'getScheduledReports'])->name('admin.reports.scheduled');
+        Route::post('/reports/toggle-schedule',[ReportsController::class,'toggleSchedule'])->name('admin.reports.toggle-schedule');
+        Route::delete('/reports/schedule/{id}',[ReportsController::class,'deleteSchedule'])->name('admin.reports.delete-schedule');
 
         Route::prefix('programs')->group(function(){
             Route::get('/',[HealthProgramsController::class,'index'])->name('admin.programs');
@@ -191,7 +197,9 @@ Route::middleware(['auth','Admin'])->group(function(){
 
         Route::prefix('staff')->group(function(){
             Route::get('/overview',[StaffController::class,'index'])->name('admin.staff.overview');
+            Route::get('/admins',[StaffController::class,'admins'])->name('admin.staff.admins');
             Route::get('/doctors',[StaffController::class,'doctors'])->name('admin.staff.doctors');
+            Route::get('/pharmacists',[StaffController::class,'pharmacists'])->name('admin.staff.pharmacists');
             Route::post('/archive',[StaffController::class,'archiveStaff'])->name('admin.staff.archive');
             Route::post('/unarchive',[StaffController::class,'unarchiveStaff'])->name('admin.staff.unarchive');
         });
@@ -207,6 +215,10 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/sub-services/save-days',[ServicesController::class,'saveDays'])->name('admin.services.days.update');
             Route::post('/archive',[ServicesController::class,'archiveService'])->name('admin.services.archive');
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
+            
+            // Sub-service archive/unarchive routes
+            Route::post('/sub-services/archive',[ServicesController::class,'archiveSubService'])->name('admin.services.subservice.archive');
+            Route::post('/sub-services/unarchive',[ServicesController::class,'unarchiveSubService'])->name('admin.services.subservice.unarchive');
         });
 
 

@@ -34,9 +34,9 @@ class DoctorController extends Controller
 
         $recentPrescriptions = $prescriptions->take(5);
 
-        // Get patient count from users table with Patient role
+        // Get admin count from users table with Admin role
         $patientCount = \App\Models\User::whereHas('role', function($query) {
-            $query->where('roletype', 'Patient');
+            $query->where('roletype', 'Admin');
         })->count();
 
         $stats = [
@@ -78,9 +78,9 @@ class DoctorController extends Controller
 
         $recentPrescriptions = $prescriptions->take(5);
 
-        // Get patient count from users table with Patient role
+        // Get admin count from users table with Admin role
         $patientCount = \App\Models\User::whereHas('role', function($query) {
-            $query->where('roletype', 'Patient');
+            $query->where('roletype', 'Admin');
         })->count();
 
         $stats = [
@@ -134,7 +134,7 @@ class DoctorController extends Controller
     public function createPrescription()
     {
         $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Patient');
+                $query->where('roletype', 'Admin');
             })
             ->select('id', 'firstname', 'lastname', 'middlename')
             ->get()
@@ -304,7 +304,7 @@ class DoctorController extends Controller
     public function getPatients()
     {
         $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Patient');
+                $query->where('roletype', 'Admin');
             })
             ->select('id', 'firstname', 'lastname', 'middlename', 'contact_number')
             ->get()

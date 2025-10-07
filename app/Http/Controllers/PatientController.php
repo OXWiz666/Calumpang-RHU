@@ -18,6 +18,8 @@ use App\Services\ActivityLogger;
 use App\Services\NotifSender;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use App\Mail\AppointmentConfirmationMail;
+use Illuminate\Support\Facades\Mail;
 
 class PatientController extends Controller
 {
@@ -183,8 +185,17 @@ class PatientController extends Controller
         $user = Auth::user();
         $service = servicetypes::find($request->service);
 
+        // Handle guest appointments (no authenticated user)
+        $userId = $user ? $user->id : null;
+        $userName = $user ? "{$user->firstname} {$user->lastname}" : "{$request->firstname} {$request->lastname}";
+        $userRole = $user ? $user->role->roletype : "Guest";
+
         $appointment = appointments::create([
-            'user_id' => $user->id,
+            'user_id' => $userId,
+            'firstname' => $request->firstname,
+            'lastname' => $request->lastname,
+            'middlename' => $request->middlename ?? null,
+            'email' => $request->email,
             'phone' => $request->phone,
             'date' => \Carbon\Carbon::parse($request->date)->format("Y-m-d"),
             'time' => \Carbon\Carbon::parse($request->time)->format("H:i:s"),
@@ -194,23 +205,79 @@ class PatientController extends Controller
             'status' => 6
         ]);
 
-        $user->notify(new SystemNotification(
-            'Appointment Scheduled',
-            'Your appointment for '.$service->name.' has been scheduled for '.$request->date.' at '.$request->time.'.',
-            'appointment'
-        ));
+        // Only send notification if user is authenticated
+        if ($user) {
+            $user->notify(new SystemNotification(
+                'Appointment Scheduled',
+                'Your appointment for '.$service->name.' has been scheduled for '.$request->date.' at '.$request->time.'.',
+                'appointment'
+            ));
 
-        // Trigger notification event
-        //event(new SendNotification($user->id));
+            // Trigger notification event
+            //event(new SendNotification($user->id));
 
-        NotifSender::SendNotif(true,[$user->id],'Appointment scheduled successfully','Appointment Schedule');
+            NotifSender::SendNotif(true,[$user->id],'Appointment scheduled successfully','Appointment Schedule');
 
+            ActivityLogger::log('User scheduled an appointment', $user, ['appointment_id' => $appointment->id]);
+        }
 
-        NotifSender::SendNotif(false,[1,7],"{$user->firstname} {$user->lastname} ({$user->role->roletype}) Scheduled an appointment",'New Appointment Scheduled');
+        // Notify admins and doctors about new appointment
+        NotifSender::SendNotif(false,[1,7],"$userName ($userRole) Scheduled an appointment",'New Appointment Scheduled');
 
-        ActivityLogger::log('User scheduled an appointment', $user, ['appointment_id' => $appointment->id]);
+        // Send confirmation email and SMS
+        $this->sendAppointmentConfirmation($appointment);
 
         return redirect()->back()->with('success', 'Appointment scheduled successfully');
+    }
+
+    /**
+     * Send appointment confirmation email and SMS
+     */
+    private function sendAppointmentConfirmation($appointment)
+    {
+        try {
+            // Send confirmation email
+            if ($appointment->email) {
+                Mail::to($appointment->email)->send(new AppointmentConfirmationMail($appointment));
+                \Log::info("Appointment confirmation email sent to {$appointment->email} for appointment #{$appointment->reference_number}");
+            }
+
+            // Send confirmation SMS
+            if ($appointment->phone) {
+                $this->sendAppointmentConfirmationSMS($appointment);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error("Failed to send appointment confirmation: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send appointment confirmation SMS
+     */
+    private function sendAppointmentConfirmationSMS($appointment)
+    {
+        $message = "✅ APPOINTMENT CONFIRMED\n\n";
+        $message .= "Ref: {$appointment->reference_number}\n";
+        $message .= "Date: " . \Carbon\Carbon::parse($appointment->date)->format('M j, Y') . "\n";
+        $message .= "Time: " . \Carbon\Carbon::parse($appointment->time)->format('g:i A') . "\n";
+        $message .= "Service: " . ($appointment->service->servicename ?? 'General Consultation') . "\n\n";
+        $message .= "Please arrive 15 minutes early. Contact us if you need to reschedule.\n\n";
+        $message .= "Thank you for choosing SEHI!";
+
+        // Use the same SMS sending logic as verification
+        $verificationController = new \App\Http\Controllers\VerificationController();
+        $reflection = new \ReflectionClass($verificationController);
+        $method = $reflection->getMethod('sendSMSCode');
+        $method->setAccessible(true);
+        
+        $success = $method->invoke($verificationController, $appointment->phone, $message);
+        
+        if ($success) {
+            \Log::info("Appointment confirmation SMS sent to {$appointment->phone} for appointment #{$appointment->reference_number}");
+        } else {
+            \Log::warning("Failed to send appointment confirmation SMS to {$appointment->phone} for appointment #{$appointment->reference_number}");
+        }
     }
 
     public function getLatestAppointment(Request $request) {

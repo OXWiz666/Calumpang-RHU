@@ -14,18 +14,40 @@ class PatientsController extends Controller
     //
 
     public function index(){
-        $patients = User::where('roleID','5')->with(['emercont','medical_histories'])->get();
-        $patients->load('medical_histories.doctor.user');
-
-        // return Inertia::render('Authenticated/Admin/Patients',[
-        //     'patients_' => $patients
-        // ]);
-
+        // Get all patients from appointments (guest patients only)
+        $appointmentPatients = \App\Models\appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
+            ->select('firstname', 'lastname', 'middlename', 'email', 'phone', 'created_at')
+            ->get()
+            ->groupBy(function($appointment) {
+                return strtolower($appointment->firstname . '_' . $appointment->lastname);
+            })
+            ->map(function($appointments, $nameKey) {
+                $firstAppointment = $appointments->first();
+                $appointmentCount = $appointments->count();
+                
+                return [
+                    'id' => 'PAT_' . strtoupper(substr($firstAppointment->firstname, 0, 3)) . '_' . 
+                           strtoupper(substr($firstAppointment->lastname, 0, 3)) . '_' . 
+                           $firstAppointment->created_at->format('Ymd'),
+                    'firstname' => $firstAppointment->firstname,
+                    'lastname' => $firstAppointment->lastname,
+                    'middlename' => $firstAppointment->middlename,
+                    'email' => $firstAppointment->email,
+                    'contactno' => $firstAppointment->phone,
+                    'phone' => $firstAppointment->phone,
+                    'registration_date' => $firstAppointment->created_at,
+                    'appointment_count' => $appointmentCount,
+                    'last_appointment' => $appointments->max('created_at'),
+                    'patient_type' => 'Patient',
+                    'status' => 'active'
+                ];
+            })
+            ->values();
 
         return Inertia::render('Authenticated/Admin/Patients/page', [
-            'patients_' => Inertia::always(User::where('roleID','5')
-                            ->with(['emercont', 'medical_histories', 'medical_histories.doctor.user'])
-                            ->get()),
+            'patients_' => $appointmentPatients,
             'doctors' => doctor_details::with(['user'])->get(),
         ]);
     }

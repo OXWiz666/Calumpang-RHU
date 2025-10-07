@@ -114,7 +114,6 @@ const samplePatients = [
 
 export default function PatientRecords({ patients_, doctors }) {
     const [patients, setPatients] = useState(patients_);
-
     const [selectedPatient, setSelectedPatient] = useState(null);
 
     const { flash } = usePage().props;
@@ -161,8 +160,8 @@ export default function PatientRecords({ patients_, doctors }) {
     const activePatients = patients.filter((p) => p.status === "active").length;
     const recentVisits = patients.filter(
         (p) =>
-            p.lastVisit &&
-            new Date(p.lastVisit) >
+            p.last_appointment &&
+            new Date(p.last_appointment) >
                 new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     ).length;
 
@@ -214,7 +213,7 @@ export default function PatientRecords({ patients_, doctors }) {
                                             {totalPatients}
                                         </div>
                                         <p className="text-xs text-muted-foreground">
-                                            Registered patients
+                                            All patients
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -283,6 +282,7 @@ export default function PatientRecords({ patients_, doctors }) {
                             <PatientList
                                 patients={patients}
                                 onSelectPatient={handleSelectPatient}
+                                isGuestPatients={true}
                             />
                         )}
 

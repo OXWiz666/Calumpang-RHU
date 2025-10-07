@@ -3,6 +3,8 @@ import Footer from "@/components/tempo/components/landing/Footer";
 import { usePage, router } from "@inertiajs/react";
 import PusherListener from "@/components/pusher";
 import { useEffect } from "react";
+import { showToast } from "@/utils/toast.jsx";
+import { Toaster } from "@/components/Toaster";
 export default function LandingLayout({ children, className, footer = false }) {
     // const { user } = usePage().props.auth;
 
@@ -14,11 +16,7 @@ export default function LandingLayout({ children, className, footer = false }) {
 
     useEffect(() => {
         if (flash) {
-            if (flash.toast) {
-                window.show_toast(flash.title, flash.message, flash.icon);
-            } else {
-                alert_toast(flash.title, flash.message, flash.icon);
-            }
+            showToast(flash.title, flash.message, flash.icon);
         }
     }, [flash]);
     return (
@@ -44,6 +42,7 @@ export default function LandingLayout({ children, className, footer = false }) {
             <TestimonialsSection/>
             <ContactSection/>*/}
             {footer && <Footer />}
+            <Toaster />
         </div>
     );
 }

@@ -23,25 +23,8 @@ class ServicesController extends Controller
     const STATUS_ARCHIVED = 0;
     //
 
-    public function index(){ // Overview
-        // Get total services count
-        $totalServices = servicetypes::count();
-
-        // Get total sub-services count
-        $totalSubServices = subservices::count();
-
-        // Get active services count
-        $activeServices = servicetypes::where('status', self::STATUS_ACTIVE)->count();
-
-        // Get inactive/archived services count
-        $inactiveServices = servicetypes::where('status', self::STATUS_ARCHIVED)->count();
-
-        return Inertia::render('Authenticated/Admin/Services/Overview',[
-            'staffcount' => $totalServices,
-            'admincount' => $totalSubServices,
-            'pharmacistcount' => $activeServices,
-            'inventoryAlerts' => $inactiveServices
-        ]);
+    public function index(){ // Overview - Redirect to Services Management
+        return redirect()->route('admin.services.services');
     }
 
     public function services(){
@@ -293,6 +276,100 @@ class ServicesController extends Controller
 
             return response()->json([
                 'message' => 'Failed to unarchive service: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+
+    /**
+     * Archive a sub-service
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function archiveSubService(Request $request)
+    {
+        $request->validate([
+            'subservice_id' => 'required|exists:subservices,id',
+        ]);
+
+        try {
+            // Begin a database transaction
+            DB::beginTransaction();
+
+            $subservice = subservices::findOrFail($request->subservice_id);
+
+            // Check if status column exists, if not add it
+            if (!Schema::hasColumn('subservices', 'status')) {
+                Schema::table('subservices', function ($table) {
+                    $table->integer('status')->default(self::STATUS_ACTIVE);
+                });
+            }
+
+            $subservice->status = self::STATUS_ARCHIVED;
+            $subservice->save();
+
+            // Commit the transaction
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Sub-service archived successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            // Rollback the transaction if something goes wrong
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to archive sub-service: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+
+    /**
+     * Unarchive a sub-service
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function unarchiveSubService(Request $request)
+    {
+        $request->validate([
+            'subservice_id' => 'required|exists:subservices,id',
+        ]);
+
+        try {
+            // Begin a database transaction
+            DB::beginTransaction();
+
+            $subservice = subservices::findOrFail($request->subservice_id);
+
+            // Check if status column exists, if not add it
+            if (!Schema::hasColumn('subservices', 'status')) {
+                Schema::table('subservices', function ($table) {
+                    $table->integer('status')->default(self::STATUS_ACTIVE);
+                });
+            }
+
+            $subservice->status = self::STATUS_ACTIVE;
+            $subservice->save();
+
+            // Commit the transaction
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Sub-service unarchived successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            // Rollback the transaction if something goes wrong
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to unarchive sub-service: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ], 500);

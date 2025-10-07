@@ -10,6 +10,7 @@ import {
     Twitter,
 } from "lucide-react";
 import { Separator } from "../ui/separator";
+import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
 
 interface FooterProps {
     logoSrc?: string;
@@ -60,6 +61,7 @@ const Footer = ({
         { title: "FAQ", url: "/faq" },
     ],
 }: FooterProps) => {
+    const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
     const scrollToTop = () => {
         window.scrollTo({
             top: 0,
@@ -124,13 +126,29 @@ const Footer = ({
                         </h4>
                         <div className="grid grid-cols-2 gap-2">
                             {quickLinks.map((link, index) => (
-                                <a
-                                    key={index}
-                                    href={link.url}
-                                    className="text-slate-300 hover:text-white transition-colors py-1"
-                                >
-                                    {link.title}
-                                </a>
+                                link.title === "Appointments" ? (
+                                    <button
+                                        key={index}
+                                        onClick={handleAppointmentClick}
+                                        disabled={isInAppointmentSession}
+                                        className={`text-left py-1 transition-colors ${
+                                            isInAppointmentSession 
+                                                ? 'text-gray-500 cursor-not-allowed opacity-50' 
+                                                : 'text-slate-300 hover:text-white'
+                                        }`}
+                                        title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
+                                    >
+                                        {isInAppointmentSession ? 'Appointments (Active)' : link.title}
+                                    </button>
+                                ) : (
+                                    <a
+                                        key={index}
+                                        href={link.url}
+                                        className="text-slate-300 hover:text-white transition-colors py-1"
+                                    >
+                                        {link.title}
+                                    </a>
+                                )
                             ))}
                         </div>
                     </div>

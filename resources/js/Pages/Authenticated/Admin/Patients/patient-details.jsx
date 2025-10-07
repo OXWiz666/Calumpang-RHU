@@ -43,8 +43,10 @@ import { router, useForm } from "@inertiajs/react";
 export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
     const [isEditing, setIsEditing] = useState(false);
     const [showAddRecord, setShowAddRecord] = useState(false);
+    const [editingEmergencyContact, setEditingEmergencyContact] = useState(null);
 
     const calculateAge = (dateOfBirth) => {
+        if (!dateOfBirth) return 'Unknown';
         const today = new Date();
         const birthDate = new Date(dateOfBirth);
         let age = today.getFullYear() - birthDate.getFullYear();
@@ -58,6 +60,23 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
         }
 
         return age;
+    };
+
+    // Check if this is an appointment-based patient
+    const isAppointmentPatient = patient?.id?.startsWith('PAT_');
+
+    // Emergency contact handlers
+    const handleEditEmergencyContact = (contact) => {
+        setEditingEmergencyContact(contact);
+        // TODO: Implement edit emergency contact modal/form
+        console.log('Edit emergency contact:', contact);
+    };
+
+    const handleDeleteEmergencyContact = (contactId) => {
+        if (confirm('Are you sure you want to delete this emergency contact?')) {
+            // TODO: Implement delete emergency contact API call
+            console.log('Delete emergency contact:', contactId);
+        }
     };
 
     const {
@@ -173,17 +192,15 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                         Full Name
                                     </label>
                                     <p className="text-lg">
-                                        {patient.firstname} {patient.lastname}
+                                        {patient.firstname} {patient.middlename} {patient.lastname}
                                     </p>
                                 </div>
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground">
-                                        Date of Birth
+                                        Patient ID
                                     </label>
-                                    <p>
-                                        {new Date(
-                                            patient.birth
-                                        ).toLocaleDateString()}
+                                    <p className="font-mono text-sm">
+                                        {patient.id}
                                     </p>
                                 </div>
                                 <div>
@@ -191,13 +208,23 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                         Gender
                                     </label>
                                     <p>
-                                        {patient.gender == "M"
+                                        {(patient.gender || patient.sex) == "M" || (patient.gender || patient.sex) == "Male"
                                             ? "Male"
-                                            : patient.gender == "F"
+                                            : (patient.gender || patient.sex) == "F" || (patient.gender || patient.sex) == "Female"
                                             ? "Female"
-                                            : ""}
+                                            : (patient.gender || patient.sex) || "Not specified"}
                                     </p>
                                 </div>
+                                {isAppointmentPatient && (
+                                    <div>
+                                        <label className="text-sm font-medium text-muted-foreground">
+                                            Total Appointments
+                                        </label>
+                                        <p>
+                                            {patient.appointment_count || 1}
+                                        </p>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="text-sm font-medium text-muted-foreground mr-2">
                                         Status
@@ -221,31 +248,43 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                         <label className="text-sm font-medium text-muted-foreground">
                                             Phone
                                         </label>
-                                        <p>{patient.contactno}</p>
+                                        <p>{patient.contactno || patient.phone || "Not Set"}</p>
                                     </div>
                                 </div>
 
-                                {patient.email && (
+                                <div className="flex items-center gap-2">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <div>
+                                        <label className="text-sm font-medium text-muted-foreground">
+                                            Email
+                                        </label>
+                                        <p>{patient.email || "Not Set"}</p>
+                                    </div>
+                                </div>
+
+                                {isAppointmentPatient && (
                                     <div className="flex items-center gap-2">
-                                        <Mail className="h-4 w-4 text-muted-foreground" />
+                                        <Calendar className="h-4 w-4 text-muted-foreground" />
                                         <div>
                                             <label className="text-sm font-medium text-muted-foreground">
-                                                Email
+                                                Registration Date
                                             </label>
-                                            <p>{patient.email}</p>
+                                            <p>{patient.registration_date ? new Date(patient.registration_date).toLocaleDateString() : "Not Set"}</p>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="flex items-start gap-2">
-                                    <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
-                                    <div>
-                                        <label className="text-sm font-medium text-muted-foreground">
-                                            Address
-                                        </label>
-                                        <p>{patient.address ?? "Not Set"}</p>
+                                {!isAppointmentPatient && (
+                                    <div className="flex items-start gap-2">
+                                        <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
+                                        <div>
+                                            <label className="text-sm font-medium text-muted-foreground">
+                                                Address
+                                            </label>
+                                            <p>{patient.address ?? "Not Set"}</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {patient.bloodtype && (
                                     <div className="flex items-center gap-2">
@@ -290,14 +329,24 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                         Action
                                     </label>
                                     {patient?.emercont?.map((contact) => (
-                                        <p key={contact?.id}>
-                                            <Button variant="ghost" size="sm">
+                                        <div key={contact?.id} className="flex gap-1">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                onClick={() => handleEditEmergencyContact(contact)}
+                                                title="Edit emergency contact"
+                                            >
                                                 <Edit className="h-4 w-4 text-primary" />
                                             </Button>
-                                            <Button variant="ghost" size="sm">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                onClick={() => handleDeleteEmergencyContact(contact.id)}
+                                                title="Delete emergency contact"
+                                            >
                                                 <Trash2 className="h-4 w-4 text-red-500" />
                                             </Button>
-                                        </p>
+                                        </div>
                                     ))}
                                 </div>
                             </div>

@@ -21,11 +21,12 @@ class AppointmentsController extends Controller
 {
     // Controller methods for appointments
     public function index(){
-        $appointments = appointments::paginate(10);
-        $appointments->load('user');
-        $appointments->load('service');
+        $appointments = appointments::whereNull('user_id')
+            ->with(['service', 'subservice'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+        
         return Inertia::render('Authenticated/Admin/Appointments',[
-            //'Appoints' => $appointments->items(),
             'appointments_' => $appointments
         ]);
     }

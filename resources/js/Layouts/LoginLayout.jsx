@@ -5,16 +5,14 @@ import NavLink from "@/Components/NavLink";
 import ResponsiveNavLink from "@/Components/ResponsiveNavLink";
 import { Link, Head, usePage } from "@inertiajs/react";
 import { useState, useEffect } from "react";
+import { showToast } from "@/utils/toast.jsx";
+import { Toaster } from "@/components/Toaster";
 export default function LoginLayout({ children }) {
   const { flash } = usePage().props;
   
   useEffect(() => {
     if (flash) {
-        if (flash.toast) {
-            window.show_toast(flash.title, flash.message, flash.icon);
-        } else {
-            alert_toast(flash.title, flash.message, flash.icon);
-        }
+        showToast(flash.title, flash.message, flash.icon);
     }
 }, [flash]);
 
@@ -219,6 +217,7 @@ export default function LoginLayout({ children }) {
           <p className="mt-1">All rights reserved</p>
         </div>
       </div>
+      <Toaster />
     </div>
   );
 }

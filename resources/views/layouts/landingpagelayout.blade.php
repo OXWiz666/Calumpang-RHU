@@ -21,16 +21,20 @@
     @stack('styles')
 </head>
 <body>
-    @include('Landing.Header')
+    @if(!request()->header('X-Inertia'))
+        @include('Landing.Header')
+    @endif
 
-    <div class="w-full min-h-screen pt-20">
+    <div class="w-full min-h-screen {{ !request()->header('X-Inertia') ? 'pt-20' : '' }}">
 
         @yield('content')
 
 
 
     </div>
-    @include('Landing.Footer')
+    @if(!request()->header('X-Inertia'))
+        @include('Landing.Footer')
+    @endif
     <script src="{{ asset('js/app.js') }}"></script>
 
     <script type="text/javascript" crossorigin="anonymous" src="https://us-assets.i.posthog.com/static/recorder.js?v=1.229.2"></script>

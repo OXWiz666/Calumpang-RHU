@@ -27,13 +27,13 @@ class AdminDashboardController extends Controller
         // Get the authenticated user
         $user = Auth::user();
         
-        // Get real patient data
-        $totalPatients = User::where('roleID', '5')->count();
-        $currentMonthPatients = User::where('roleID', '5')
+        // Get real admin data
+        $totalPatients = User::where('roleID', '7')->count();
+        $currentMonthPatients = User::where('roleID', '7')
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->count();
-        $previousMonthPatients = User::where('roleID', '5')
+        $previousMonthPatients = User::where('roleID', '7')
             ->whereMonth('created_at', now()->subMonth()->month)
             ->whereYear('created_at', now()->subMonth()->year)
             ->count();

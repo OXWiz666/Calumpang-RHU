@@ -16,7 +16,6 @@ import {
     Stethoscope,
     UsersRound,
     Layers,
-    Mail,
     Boxes,
 } from "lucide-react";
 import { cn } from "@/components/tempo/lib/utils";
@@ -39,7 +38,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             title: "Dashboard",
             icon: <Home className="h-5 w-5" />,
             route: "admin",
-            path: "/admin",
+            path: route("admin"),
             id: "dashboard",
             roles: ["Admin", "Doctor", "Pharmacist"],
         },
@@ -47,7 +46,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             title: "Patient Records",
             icon: <Users className="h-5 w-5" />,
             route: "patients.*",
-            path: "/auth/patients",
+            path: route("patients.index"),
             id: "patients",
             roles: ["Admin", "Doctor"],
         },
@@ -57,14 +56,14 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             route: "admin.staff.*",
             request: "/admin/staff/",
             path: route("admin.staff.overview"),
-            id: "patients",
+            id: "staff",
             roles: ["Admin", "Doctor"],
         },
         {
             title: "Appointments",
             icon: <Calendar className="h-5 w-5" />,
             route: "admin.appointments",
-            path: "/auth/appointments",
+            path: route("admin.appointments"),
             id: "appointments",
             roles: ["Admin", "Doctor"],
         },
@@ -72,15 +71,15 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             title: "Services",
             icon: <Layers className="h-5 w-5" />,
             route: "admin.services*", // FOR ACTIVE NAV
-            path: route("admin.services.overview"),
-            id: "appointments",
+            path: route("admin.services.services"),
+            id: "services",
             roles: ["Admin", "Doctor"],
         },
         {
             title: "Health Programs",
             icon: <HeartPulse className="h-5 w-5" />,
             route: "admin.programs",
-            path: "/admin/programs",
+            path: route("admin.programs"),
             id: "programs",
             roles: ["Admin", "Doctor"],
         },
@@ -88,7 +87,7 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
             title: "Reports",
             icon: <BarChart3 className="h-5 w-5" />,
             route: "admin.reports",
-            path: "/admin/reports",
+            path: route("admin.reports"),
             id: "reports",
             roles: ["Admin"],
         },
@@ -106,15 +105,6 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         item.roles.includes(userRole)
     );
 
-    const landingPageLinks = [
-        {
-            title: "Messages",
-            icon: <Mail className="h-5 w-5" />,
-            route: "admin.landing.messages", // FOR ACTIVE NAV
-            path: route("admin.landing.messages"),
-            id: "messages",
-        },
-    ];
 
     const user = usePage().props.auth.user;
     const role = usePage().props.auth.role;
@@ -171,28 +161,6 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
                         <b>Menu</b>
                     </div>
                     {filteredMenuItems.map((item) => (
-                        <li key={item.id}>
-                            <Link
-                                href={item.path}
-                                className={cn(
-                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                                    route().current(item.route) && item.route
-                                        ? "bg-primary text-primary-foreground"
-                                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                                    sidebarstate && "justify-center px-0"
-                                )}
-                            >
-                                {item.icon}
-                                {!sidebarstate && (
-                                    <span className="ml-3">{item.title}</span>
-                                )}
-                            </Link>
-                        </li>
-                    ))}
-                    <div>
-                        <b>Landing Page</b>
-                    </div>
-                    {landingPageLinks.map((item) => (
                         <li key={item.id}>
                             <Link
                                 href={item.path}

@@ -141,7 +141,7 @@ class VaccineController extends Controller
                     $user->gender = $request->sex;
                     $user->contact = $request->contact_number;
                     $user->email = $request->email;
-                    $user->roleID = 3; // Patient role
+                    $user->roleID = 7; // Admin role
                     $user->password = bcrypt('password'); // Default password
                     $user->save();
                 }

@@ -242,34 +242,26 @@ export default function Login2({ flash, roles }) {
                                 </Select>
                             </div>
 
-                            {/* Remember Me and Forgot Password */}
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <input
-                                        type="checkbox"
-                                        id="remember"
-                                        checked={data.remember}
-                                        onChange={(e) =>
-                                            setData(
-                                                "remember",
-                                                e.target.checked
-                                            )
-                                        }
-                                        className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
-                                    />
-                                    <label
-                                        htmlFor="remember"
-                                        className="ml-2 block text-sm text-gray-700"
-                                    >
-                                        Remember me
-                                    </label>
-                                </div>
-                                <Link
-                                    className="text-sm font-medium text-black hover:text-gray-800 transition-colors"
-                                    href="/forgot-password"
+                            {/* Remember Me */}
+                            <div className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    id="remember"
+                                    checked={data.remember}
+                                    onChange={(e) =>
+                                        setData(
+                                            "remember",
+                                            e.target.checked
+                                        )
+                                    }
+                                    className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                                />
+                                <label
+                                    htmlFor="remember"
+                                    className="ml-2 block text-sm text-gray-700"
                                 >
-                                    Forgot your password?
-                                </Link>
+                                    Remember me
+                                </label>
                             </div>
                         </div>
 
