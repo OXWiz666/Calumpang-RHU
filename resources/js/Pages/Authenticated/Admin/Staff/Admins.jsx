@@ -75,6 +75,7 @@ import {
 } from "@/components/tempo/components/ui/dropdown-menu";
 
 import Modal2 from "@/components/CustomModal";
+import EditAdminModal from "./EditAdminModal";
 import StaffLayout from "./StaffLayout";
 import Sidebar from "./Sidebar";
 import Label from "@/components/InputLabel";
@@ -86,8 +87,9 @@ export default function Admins({ admins = [] }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedAdmin, setSelectedAdmin] = useState(null);
+    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
@@ -147,6 +149,21 @@ export default function Admins({ admins = [] }) {
         setIsModalOpen(false);
         clearErrors();
         reset();
+    };
+
+    const openEditModal = (admin) => {
+        setSelectedAdmin(admin);
+        setIsEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedAdmin(null);
+    };
+
+    const handleEditSuccess = (updatedAdmin) => {
+        // Refresh the page or update the admin in the list
+        window.location.reload();
     };
 
     const handleSubmit = (e) => {
@@ -440,7 +457,7 @@ export default function Admins({ admins = [] }) {
                                                                                 <Eye className="h-4 w-4 mr-2" />
                                                                                 View Details
                                                                             </DropdownMenuItem>
-                                                                            <DropdownMenuItem>
+                                                                            <DropdownMenuItem onClick={() => openEditModal(admin)}>
                                                                                 <Edit className="h-4 w-4 mr-2" />
                                                                                 Edit Admin
                                                                             </DropdownMenuItem>
@@ -675,6 +692,14 @@ export default function Admins({ admins = [] }) {
             </Dialog>
 
             <ConfirmationDialog />
+
+            {/* Edit Admin Modal */}
+            <EditAdminModal
+                admin={selectedAdmin}
+                isOpen={isEditModalOpen}
+                onClose={closeEditModal}
+                onSuccess={handleEditSuccess}
+            />
         </StaffLayout>
     );
 }

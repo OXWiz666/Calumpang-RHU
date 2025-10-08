@@ -656,10 +656,8 @@ export default function Patients({ patients_ }) {
                                                     <div className="flex items-center gap-3">
                                                         <Avatar>
                                                             <AvatarImage
-                                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=metformin`}
-                                                                alt={
-                                                                    p.firstname
-                                                                }
+                                                                src={p.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.firstname}`}
+                                                                alt={p.firstname || 'Patient'}
                                                             />
                                                             <AvatarFallback>
                                                                 {`${p.firstname} ${p.lastname}`

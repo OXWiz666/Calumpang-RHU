@@ -16,16 +16,16 @@ use App\Models\MedicalRecord;
 class DoctorController extends Controller
 {
     public function index(){
-        // Get prescriptions with patient data from users table
-        $prescriptions = Prescription::with(['patient'])
-            ->where('doctor_id', Auth::id())
+        // Get prescriptions with patient data from Patient Records
+        $prescriptions = Prescription::where('doctor_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function($prescription) {
                 return [
                     'id' => $prescription->id,
                     'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
-                    'patient_name' => $prescription->patient ? $prescription->patient->full_name : 'Unknown Patient',
+                    'patient_name' => $prescription->patient_name ?: 'Unknown Patient',
+                    'patient_id' => $prescription->patient_id,
                     'status' => $prescription->status,
                     'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
                     'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
@@ -34,10 +34,12 @@ class DoctorController extends Controller
 
         $recentPrescriptions = $prescriptions->take(5);
 
-        // Get admin count from users table with Admin role
-        $patientCount = \App\Models\User::whereHas('role', function($query) {
-            $query->where('roletype', 'Admin');
-        })->count();
+        // Get patient count from Patient Records (appointments table)
+        $patientCount = \App\Models\appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
+            ->distinct('firstname', 'lastname')
+            ->count();
 
         $stats = [
             'pending' => $prescriptions->where('status', 'pending')->count(),
@@ -61,15 +63,14 @@ class DoctorController extends Controller
      */
     public function getDashboardData()
     {
-        $prescriptions = Prescription::with(['patient'])
-            ->where('doctor_id', Auth::id())
+        $prescriptions = Prescription::where('doctor_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function($prescription) {
                 return [
                     'id' => $prescription->id,
                     'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
-                    'patient_name' => $prescription->patient ? $prescription->patient->full_name : 'Unknown Patient',
+                    'patient_name' => $prescription->patient_name ?: 'Unknown Patient',
                     'status' => $prescription->status,
                     'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
                     'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
@@ -78,10 +79,12 @@ class DoctorController extends Controller
 
         $recentPrescriptions = $prescriptions->take(5);
 
-        // Get admin count from users table with Admin role
-        $patientCount = \App\Models\User::whereHas('role', function($query) {
-            $query->where('roletype', 'Admin');
-        })->count();
+        // Get patient count from Patient Records (appointments table)
+        $patientCount = \App\Models\appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
+            ->distinct('firstname', 'lastname')
+            ->count();
 
         $stats = [
             'pending' => $prescriptions->where('status', 'pending')->count(),
@@ -105,7 +108,7 @@ class DoctorController extends Controller
      */
     public function prescriptions()
     {
-        $prescriptions = Prescription::with(['patient', 'medicines'])
+        $prescriptions = Prescription::with(['medicines'])
             ->where('doctor_id', Auth::id())
             ->orderBy('created_at', 'desc')
             ->get()
@@ -113,7 +116,7 @@ class DoctorController extends Controller
                 return [
                     'id' => $prescription->id,
                     'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
-                    'patient_name' => $prescription->patient->full_name,
+                    'patient_name' => $prescription->patient_name, // Use the stored patient_name field
                     'patient_id' => $prescription->patient_id,
                     'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
                     'status' => $prescription->status,
@@ -133,20 +136,31 @@ class DoctorController extends Controller
      */
     public function createPrescription()
     {
-        $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Admin');
-            })
-            ->select('id', 'firstname', 'lastname', 'middlename')
+        // Get patients from appointments table (same as Patient Records system)
+        $patients = \App\Models\appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
+            ->select('firstname', 'lastname', 'middlename', 'email', 'phone', 'created_at')
             ->get()
-            ->map(function($patient) {
+            ->groupBy(function($appointment) {
+                return strtolower($appointment->firstname . '_' . $appointment->lastname);
+            })
+            ->map(function($appointments, $nameKey) {
+                $firstAppointment = $appointments->first();
+                
                 return [
-                    'id' => $patient->id,
-                    'name' => $patient->firstname . ' ' . $patient->lastname,
-                    'first_name' => $patient->firstname,
-                    'last_name' => $patient->lastname,
-                    'middle_name' => $patient->middlename
+                    'id' => 'PAT_' . strtoupper(substr($firstAppointment->firstname, 0, 3)) . '_' . 
+                           strtoupper(substr($firstAppointment->lastname, 0, 3)) . '_' . 
+                           $firstAppointment->created_at->format('Ymd'),
+                    'name' => $firstAppointment->firstname . ' ' . $firstAppointment->lastname,
+                    'first_name' => $firstAppointment->firstname,
+                    'last_name' => $firstAppointment->lastname,
+                    'middle_name' => $firstAppointment->middlename,
+                    'email' => $firstAppointment->email,
+                    'phone' => $firstAppointment->phone
                 ];
-            });
+            })
+            ->values();
 
         // Get medicines from inventory table (same as Patient Record modal)
         $medicines = \App\Models\inventory::with(['istocks', 'icategory'])
@@ -186,11 +200,11 @@ class DoctorController extends Controller
     public function storePrescription(Request $request)
     {
         $request->validate([
-            'patient_id' => 'required|exists:users,id',
+            'patient_id' => 'required|string',
             'prescription_date' => 'required|date|before_or_equal:today',
             'case_id' => 'required|string|max:255',
             'medicines' => 'required|array|min:1',
-            'medicines.*.medicine_id' => 'required|exists:medicines,id',
+            'medicines.*.medicine_id' => 'required|exists:inventory,id',
             'medicines.*.dosage' => 'required|string',
             'medicines.*.frequency' => 'required|string',
             'medicines.*.duration' => 'required|string',
@@ -202,9 +216,27 @@ class DoctorController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get patient name from the patient_id
+            $patientName = '';
+            if (preg_match('/^PAT_([A-Z]{3})_([A-Z]{3})_(\d{8})$/', $request->patient_id, $matches)) {
+                $firstName = $matches[1];
+                $lastName = $matches[2];
+                
+                // Find the full patient name from appointments
+                $appointment = \App\Models\appointments::whereNull('user_id')
+                    ->where('firstname', 'like', $firstName . '%')
+                    ->where('lastname', 'like', $lastName . '%')
+                    ->first();
+                    
+                if ($appointment) {
+                    $patientName = $appointment->firstname . ' ' . $appointment->lastname;
+                }
+            }
+
             // Create prescription
             $prescription = Prescription::create([
                 'patient_id' => $request->patient_id,
+                'patient_name' => $patientName,
                 'doctor_id' => Auth::id(),
                 'prescription_date' => $request->prescription_date,
                 'case_id' => $request->case_id,
@@ -247,20 +279,24 @@ class DoctorController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $prescription->load(['patient', 'medicines', 'doctor']);
+        $prescription->load(['medicines', 'doctor']);
+
+        // Get patient info from appointments table using the patient_id
+        $patientInfo = $prescription->getPatientInfo();
 
         $prescriptionData = [
             'id' => $prescription->id,
             'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
             'patient' => [
-                'id' => $prescription->patient->id,
-                'name' => $prescription->patient->firstname . ' ' . $prescription->patient->lastname,
-                'first_name' => $prescription->patient->firstname,
-                'last_name' => $prescription->patient->lastname,
-                'middle_name' => $prescription->patient->middlename,
-                'date_of_birth' => $prescription->patient->date_of_birth ?? 'N/A',
-                'gender' => $prescription->patient->gender ?? 'N/A',
-                'contact_number' => $prescription->patient->contact_number ?? 'N/A'
+                'id' => $prescription->patient_id,
+                'name' => $prescription->patient_name ?: 'Unknown Patient',
+                'first_name' => $patientInfo['first_name'] ?? 'N/A',
+                'last_name' => $patientInfo['last_name'] ?? 'N/A',
+                'middle_name' => $patientInfo['middle_name'] ?? 'N/A',
+                'date_of_birth' => $patientInfo['date_of_birth'] ?? 'N/A',
+                'age' => $patientInfo['age'] ?? 'N/A',
+                'gender' => $patientInfo['gender'] ?? 'N/A',
+                'contact_number' => $patientInfo['contact_number'] ?? 'N/A'
             ],
             'doctor' => [
                 'id' => $prescription->doctor->id,
@@ -304,7 +340,7 @@ class DoctorController extends Controller
     public function getPatients()
     {
         $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Admin');
+                $query->where('roletype', 'Patient');
             })
             ->select('id', 'firstname', 'lastname', 'middlename', 'contact_number')
             ->get()

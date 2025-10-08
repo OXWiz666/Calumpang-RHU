@@ -23,8 +23,18 @@ class AppointmentsController extends Controller
     public function index(){
         $appointments = appointments::whereNull('user_id')
             ->with(['service', 'subservice'])
+            ->select([
+                'id', 'reference_number', 'user_id', 'firstname', 'lastname', 'middlename', 
+                'email', 'phone', 'date', 'time', 'servicetype_id', 'subservice_id', 
+                'notes', 'status', 'priority_number', 'created_at',
+                // Patient profile fields
+                'date_of_birth', 'gender', 'civil_status', 'nationality', 'religion',
+                'country', 'region', 'province', 'city', 'barangay', 'street', 
+                'zip_code', 'profile_picture'
+            ])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
+        
         
         return Inertia::render('Authenticated/Admin/Appointments',[
             'appointments_' => $appointments
@@ -36,8 +46,10 @@ class AppointmentsController extends Controller
         ]);
     }
     public function GetAppointment(appointments $appointment){
-        $appointment->load(['user','service']);
-        return response()->json($appointment);
+        $appointment->load(['user','service','subservice']);
+        // Make sure all patient profile fields are included
+        $appointmentData = $appointment->toArray();
+        return response()->json($appointmentData);
     }
 
     public function UpdateStatus(Request $request, appointments $appointment){

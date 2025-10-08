@@ -263,8 +263,18 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         setShowDisposalModal(true);
     };
 
-    const handleUpdateStocks = (item) => {
-        setSelectedItem(item);
+    const handleUpdateStocks = (item, batchItem = null) => {
+        // If batchItem is provided, use its ID and details, otherwise use the main item
+        const selectedItem = batchItem ? {
+            ...item,
+            id: batchItem.id, // Use the specific batch item's ID
+            batch_number: batchItem.batchNumber,
+            expiry_date: batchItem.expiryDate,
+            quantity: batchItem.quantity,
+            stock: { stocks: batchItem.quantity }
+        } : item;
+        
+        setSelectedItem(selectedItem);
         setShowUpdateStocksModal(true);
     };
 
@@ -634,14 +644,6 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         <p className="text-gray-600">Manage your pharmacy inventory efficiently</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <Button 
-                            variant="outline" 
-                            className="flex items-center gap-2"
-                            onClick={() => { setSelectedItem(null); setDisposalMode('multi'); setShowDisposalModal(true); }}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Dispose Multiple Batches
-                        </Button>
                         <Button 
                             variant="outline" 
                             className="flex items-center gap-2"

@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class subservices extends Model
 {
-    //
+    protected $fillable = [
+        'service_id',
+        'subservicename'
+    ];
 
     public function service(){
         return $this->belongsTo(servicetypes::class,'service_id');

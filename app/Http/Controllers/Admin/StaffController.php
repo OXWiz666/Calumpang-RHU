@@ -287,4 +287,166 @@ class StaffController extends Controller
             ], 500);
         }
     }
+
+    // Update Admin
+    public function updateAdmin(Request $request, $id)
+    {
+        $request->validate([
+            'firstname' => 'required|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'contactno' => 'required|string|max:20',
+            'status' => 'required|in:active,inactive,suspended',
+            'password' => 'nullable|string|min:8|confirmed',
+        ]);
+
+        try {
+            $admin = User::findOrFail($id);
+            
+            // Check if this is actually an admin
+            if ($admin->roleID != 7) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not an admin'
+                ], 400);
+            }
+
+            $updateData = [
+                'firstname' => $request->firstname,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'contactno' => $request->contactno,
+                'status' => $request->status,
+            ];
+
+            // Only update password if provided
+            if ($request->filled('password')) {
+                $updateData['password'] = bcrypt($request->password);
+            }
+
+            $admin->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin updated successfully',
+                'admin' => $admin
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update admin: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Update Doctor
+    public function updateDoctor(Request $request, $id)
+    {
+        $request->validate([
+            'firstname' => 'required|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'contactno' => 'required|string|max:20',
+            'status' => 'required|in:active,inactive,suspended',
+            'password' => 'nullable|string|min:8|confirmed',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $doctor = User::findOrFail($id);
+            
+            // Check if this is actually a doctor
+            if ($doctor->roleID != 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not a doctor'
+                ], 400);
+            }
+
+            // Update user details
+            $updateData = [
+                'firstname' => $request->firstname,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'contactno' => $request->contactno,
+                'status' => $request->status,
+            ];
+
+            // Only update password if provided
+            if ($request->filled('password')) {
+                $updateData['password'] = bcrypt($request->password);
+            }
+
+            $doctor->update($updateData);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Doctor updated successfully',
+                'doctor' => $doctor
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update doctor: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Update Pharmacist
+    public function updatePharmacist(Request $request, $id)
+    {
+        $request->validate([
+            'firstname' => 'required|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'contactno' => 'required|string|max:20',
+            'status' => 'required|in:active,inactive,suspended',
+            'password' => 'nullable|string|min:8|confirmed',
+        ]);
+
+        try {
+            $pharmacist = User::findOrFail($id);
+            
+            // Check if this is actually a pharmacist
+            if ($pharmacist->roleID != 6) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not a pharmacist'
+                ], 400);
+            }
+
+            $updateData = [
+                'firstname' => $request->firstname,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'contactno' => $request->contactno,
+                'status' => $request->status,
+            ];
+
+            // Only update password if provided
+            if ($request->filled('password')) {
+                $updateData['password'] = bcrypt($request->password);
+            }
+
+            $pharmacist->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Pharmacist updated successfully',
+                'pharmacist' => $pharmacist
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update pharmacist: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

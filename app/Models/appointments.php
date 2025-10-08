@@ -27,7 +27,21 @@ class appointments extends Model
         'status',
         'priority_number',
         'subservice_id',
-        'doctor_id'
+        'doctor_id',
+        // Patient profile fields
+        'date_of_birth',
+        'gender',
+        'civil_status',
+        'nationality',
+        'religion',
+        'country',
+        'region',
+        'province',
+        'city',
+        'barangay',
+        'street',
+        'zip_code',
+        'profile_picture'
     ];
 
     public function user(){

@@ -15,7 +15,6 @@ import { usePage } from "@inertiajs/react";
 import CustomCalendar from "./CustomCalendar";
 import moment from "moment";
 import { tokenSessionManager } from "../../../../utils/tokenSession";
-import VerificationModal from "../../../../components/tempo/components/landing/VerificationModal";
 import ConfirmationModal from "../../../../components/tempo/components/landing/ConfirmationModal";
 
 
@@ -30,10 +29,10 @@ const AppointmentForm = ({
     //programs,
 }) => {
     const user = usePage().props.auth.user;
-    const [showVerificationModal, setShowVerificationModal] = useState(false);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
     const [validationError, setValidationError] = useState("");
     const [isFormLocked, setIsFormLocked] = useState(false);
+    const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
 
     useEffect(() => {
         if (user && !formData.firstname) {
@@ -48,7 +47,20 @@ const AppointmentForm = ({
                 service: "",
                 gender: user.gender,
                 birth: user.birth,
-                priorityNumber: Math.floor(1000 + Math.random() * 9000), // Generate random 4-digit priority number
+                priorityNumber: "", // Will be set by backend
+                // Patient profile fields
+                date_of_birth: user.birth || "",
+                civil_status: user.civil_status || "",
+                nationality: user.nationality || "",
+                religion: user.religion || "",
+                country: user.country || "",
+                region: user.region || "",
+                province: user.province || "",
+                city: user.city || "",
+                barangay: user.barangay || "",
+                street: user.street || "",
+                zip_code: user.zip_code || "",
+                profile_picture: user.profile_picture || "",
             });
             // Lock form for authenticated users
             setIsFormLocked(true);
@@ -73,7 +85,20 @@ const AppointmentForm = ({
                         birth: patientData.birthdate || "",
                         servicename: "",
                         service: "",
-                        priorityNumber: Math.floor(1000 + Math.random() * 9000),
+                        priorityNumber: "", // Will be set by backend
+                        // Patient profile fields
+                        date_of_birth: patientData.birthdate || "",
+                        civil_status: patientData.civilStatus || "",
+                        nationality: patientData.nationality || "",
+                        religion: patientData.religion || "",
+                        country: patientData.country || "",
+                        region: patientData.region || "",
+                        province: patientData.province || "",
+                        city: patientData.city || "",
+                        barangay: patientData.barangay || "",
+                        street: patientData.street || "",
+                        zip_code: patientData.zipCode || "",
+                        profile_picture: patientData.profileImage || "",
                     });
                     // Lock form for guest users who have completed verification
                     setIsFormLocked(true);
@@ -95,7 +120,20 @@ const AppointmentForm = ({
                             birth: patientInfo.birthdate || "",
                             servicename: "",
                             service: "",
-                            priorityNumber: Math.floor(1000 + Math.random() * 9000),
+                            priorityNumber: "", // Will be set by backend
+                            // Patient profile fields
+                            date_of_birth: patientInfo.birthdate || "",
+                            civil_status: patientInfo.civilStatus || "",
+                            nationality: patientInfo.nationality || "",
+                            religion: patientInfo.religion || "",
+                            country: patientInfo.country || "",
+                            region: patientInfo.region || "",
+                            province: patientInfo.province || "",
+                            city: patientInfo.city || "",
+                            barangay: patientInfo.barangay || "",
+                            street: patientInfo.street || "",
+                            zip_code: patientInfo.zipCode || "",
+                            profile_picture: patientInfo.profileImage || "",
                         });
                         
                         // Clear the stored data after using it
@@ -117,12 +155,6 @@ const AppointmentForm = ({
     const [date, setDate] = useState(new Date());
 
 
-    // Handler for verification completion
-    const handleVerificationComplete = () => {
-        setShowVerificationModal(false);
-        // Show confirmation modal after verification
-        setShowConfirmationModal(true);
-    };
 
     // Handler for final confirmation
     const handleFinalConfirmation = () => {
@@ -292,7 +324,7 @@ const AppointmentForm = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <Label htmlFor="email">Email Address</Label>
+                        <Label htmlFor="email">Email Address (Optional)</Label>
                         <Input
                             id="email"
                             name="email"
@@ -300,12 +332,11 @@ const AppointmentForm = ({
                             value={formData.email}
                             placeholder="juan@example.com"
                             disabled={isFormLocked}
-                            required
                         />
                         <InputError message={errors.email} />
                     </div>
                     <div>
-                        <Label htmlFor="phone">Phone Number</Label>
+                        <Label htmlFor="phone">Phone Number (Optional)</Label>
                         <Input
                             id="phone"
                             name="phone"
@@ -314,10 +345,197 @@ const AppointmentForm = ({
                             onChange={handleChange}
                             placeholder="+63 912 345 6789"
                             disabled={isFormLocked}
-                            required
                         />
                         <InputError message={errors.phone} />
                     </div>
+                </div>
+
+                {/* Patient Profile Information - Collapsible Section */}
+                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-800">Additional Patient Information (Optional)</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                                This information will be automatically stored in your Patient Record for future appointments
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowAdditionalInfo(!showAdditionalInfo)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                            {showAdditionalInfo ? 'Hide Details' : 'Show Details'}
+                        </button>
+                    </div>
+                    
+                    {showAdditionalInfo && (
+                        <div className="space-y-4">
+                            {/* Personal Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <Label htmlFor="date_of_birth">Date of Birth</Label>
+                                    <Input
+                                        id="date_of_birth"
+                                        name="date_of_birth"
+                                        type="date"
+                                        value={formData.date_of_birth}
+                                        onChange={handleChange}
+                                        disabled={isFormLocked}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="gender">Gender</Label>
+                                    <Select
+                                        value={formData.gender}
+                                        onValueChange={(value) => handleInputChange("gender", value)}
+                                        disabled={isFormLocked}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select gender" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Male">Male</SelectItem>
+                                            <SelectItem value="Female">Female</SelectItem>
+                                            <SelectItem value="Other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="civil_status">Civil Status</Label>
+                                    <Select
+                                        value={formData.civil_status}
+                                        onValueChange={(value) => handleInputChange("civil_status", value)}
+                                        disabled={isFormLocked}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Single">Single</SelectItem>
+                                            <SelectItem value="Married">Married</SelectItem>
+                                            <SelectItem value="Widowed">Widowed</SelectItem>
+                                            <SelectItem value="Divorced">Divorced</SelectItem>
+                                            <SelectItem value="Separated">Separated</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Nationality and Religion */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="nationality">Nationality</Label>
+                                    <Input
+                                        id="nationality"
+                                        name="nationality"
+                                        value={formData.nationality}
+                                        onChange={handleChange}
+                                        placeholder="e.g., Filipino"
+                                        disabled={isFormLocked}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="religion">Religion</Label>
+                                    <Input
+                                        id="religion"
+                                        name="religion"
+                                        value={formData.religion}
+                                        onChange={handleChange}
+                                        placeholder="e.g., Catholic"
+                                        disabled={isFormLocked}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Address Information */}
+                            <div className="space-y-4">
+                                <h4 className="font-medium text-gray-700">Address Information</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="country">Country</Label>
+                                        <Input
+                                            id="country"
+                                            name="country"
+                                            value={formData.country}
+                                            onChange={handleChange}
+                                            placeholder="e.g., Philippines"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="region">Region</Label>
+                                        <Input
+                                            id="region"
+                                            name="region"
+                                            value={formData.region}
+                                            onChange={handleChange}
+                                            placeholder="e.g., Region IV-A"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="province">Province</Label>
+                                        <Input
+                                            id="province"
+                                            name="province"
+                                            value={formData.province}
+                                            onChange={handleChange}
+                                            placeholder="e.g., Laguna"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="city">City/Municipality</Label>
+                                        <Input
+                                            id="city"
+                                            name="city"
+                                            value={formData.city}
+                                            onChange={handleChange}
+                                            placeholder="e.g., Calumpang"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="barangay">Barangay</Label>
+                                        <Input
+                                            id="barangay"
+                                            name="barangay"
+                                            value={formData.barangay}
+                                            onChange={handleChange}
+                                            placeholder="e.g., Barangay Name"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="zip_code">Zip Code</Label>
+                                        <Input
+                                            id="zip_code"
+                                            name="zip_code"
+                                            value={formData.zip_code}
+                                            onChange={handleChange}
+                                            placeholder="e.g., 4000"
+                                            disabled={isFormLocked}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label htmlFor="street">Street Address</Label>
+                                    <Input
+                                        id="street"
+                                        name="street"
+                                        value={formData.street}
+                                        onChange={handleChange}
+                                        placeholder="e.g., 123 Main Street"
+                                        disabled={isFormLocked}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -534,7 +752,7 @@ const AppointmentForm = ({
                             e.stopPropagation();
                             
                             // Validate required fields before showing verification modal
-                            const requiredFields = ['firstname', 'lastname', 'email', 'phone', 'service', 'date', 'time'];
+                            const requiredFields = ['firstname', 'lastname', 'service', 'date', 'time'];
                             const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
                             
                             if (missingFields.length > 0) {
@@ -542,8 +760,6 @@ const AppointmentForm = ({
                                 const fieldNames = {
                                     'firstname': 'First Name',
                                     'lastname': 'Last Name', 
-                                    'email': 'Email Address',
-                                    'phone': 'Phone Number',
                                     'service': 'Service Type',
                                     'date': 'Appointment Date',
                                     'time': 'Appointment Time'
@@ -559,8 +775,8 @@ const AppointmentForm = ({
                             // Clear any previous errors
                             setValidationError("");
                             
-                            // All required fields are filled, show verification modal
-                            setShowVerificationModal(true);
+                            // All required fields are filled, submit the appointment directly
+                            onSubmit(formData);
                         }}
                         disabled={processing} 
                         className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
@@ -600,7 +816,7 @@ const AppointmentForm = ({
                                     e.stopPropagation();
                                     
                                     // Validate required fields before showing verification modal
-                                    const requiredFields = ['firstname', 'lastname', 'email', 'phone', 'service', 'date', 'time'];
+                                    const requiredFields = ['firstname', 'lastname', 'service', 'date', 'time'];
                                     const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
                                     
                                     if (missingFields.length > 0) {
@@ -608,8 +824,6 @@ const AppointmentForm = ({
                                         const fieldNames = {
                                             'firstname': 'First Name',
                                             'lastname': 'Last Name', 
-                                            'email': 'Email Address',
-                                            'phone': 'Phone Number',
                                             'service': 'Service Type',
                                             'date': 'Appointment Date',
                                             'time': 'Appointment Time'
@@ -625,8 +839,8 @@ const AppointmentForm = ({
                                     // Clear any previous errors
                                     setValidationError("");
                                     
-                                    // All required fields are filled, show verification modal
-                                    setShowVerificationModal(true);
+                                    // All required fields are filled, submit the appointment directly
+                                    onSubmit(formData);
                                 }}
                                 className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                             >
@@ -654,16 +868,6 @@ const AppointmentForm = ({
             cancelText="Cancel"
         />
 
-        {/* Verification Modal */}
-        <VerificationModal
-            isOpen={showVerificationModal}
-            onClose={() => setShowVerificationModal(false)}
-            onVerify={handleVerificationComplete}
-            patientData={{
-                emailAddress: formData.email || '',
-                mobileNo: formData.phone || ''
-            }}
-        />
         </>
     );
 };

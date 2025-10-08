@@ -60,6 +60,8 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
     const [successMessage, setSuccessMessage] = useState("");
     const [notification, setNotification] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
     const [profileImage, setProfileImage] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof PatientData, string>>>({});
+    const [profileImageError, setProfileImageError] = useState<string>("");
 
     const calculateAge = (birthDate: string): number => {
         if (!birthDate) return 0;
@@ -82,6 +84,77 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
         }, 4000);
     };
 
+    const validateField = (field: keyof PatientData, value: string): string => {
+        switch (field) {
+            case 'civilStatus':
+                return !value || value === 'SELECT' ? 'Please select your civil status' : '';
+            case 'nationality':
+                return !value.trim() ? 'Nationality is required' : '';
+            case 'religion':
+                return !value || value === 'SELECT' ? 'Please select your religion' : '';
+            case 'country':
+                return !value.trim() ? 'Country is required' : '';
+            case 'region':
+                return !value || value === 'Select Region' ? 'Please select your region' : '';
+            case 'province':
+                return !value.trim() ? 'Province is required' : '';
+            case 'city':
+                return !value.trim() ? 'City is required' : '';
+            case 'barangay':
+                return !value.trim() ? 'Barangay is required' : '';
+            case 'street':
+                return !value.trim() ? 'Street address is required' : '';
+            case 'zipCode':
+                if (!value.trim()) return 'Zip code is required';
+                if (!/^\d{4}$/.test(value.trim())) return 'Zip code must be 4 digits';
+                return '';
+            case 'mobileNo':
+                if (!value.trim()) return 'Mobile number is required';
+                if (!/^(\+63|0)?9\d{9}$/.test(value.replace(/[\s-]/g, ''))) {
+                    return 'Please enter a valid Philippine mobile number';
+                }
+                return '';
+            case 'emailAddress':
+                if (!value.trim()) return 'Email address is required';
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+                    return 'Please enter a valid email address';
+                }
+                return '';
+            default:
+                return '';
+        }
+    };
+
+    const validateAllFields = (): boolean => {
+        const errors: Partial<Record<keyof PatientData, string>> = {};
+        let hasErrors = false;
+
+        const requiredFields: (keyof PatientData)[] = [
+            'civilStatus', 'nationality', 'religion', 'country', 
+            'region', 'province', 'city', 'barangay', 'street', 
+            'zipCode', 'mobileNo', 'emailAddress'
+        ];
+
+        requiredFields.forEach(field => {
+            const error = validateField(field, String(patientData[field]));
+            if (error) {
+                errors[field] = error;
+                hasErrors = true;
+            }
+        });
+
+        // Validate profile picture requirement
+        if (!profileImage) {
+            setProfileImageError("Profile picture is required to complete verification");
+            hasErrors = true;
+        } else {
+            setProfileImageError("");
+        }
+
+        setFieldErrors(errors);
+        return !hasErrors;
+    };
+
     const handleInputChange = (field: keyof PatientData, value: string) => {
         setPatientData(prev => {
             const updatedData = {
@@ -96,6 +169,14 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
             
             return updatedData;
         });
+
+        // Clear error for this field when user starts typing
+        if (fieldErrors[field]) {
+            setFieldErrors(prev => ({
+                ...prev,
+                [field]: ''
+            }));
+        }
     };
 
     const submitStep1 = async () => {
@@ -118,13 +199,23 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
         setIsLoading(true);
         setErrorMessage("");
         
+        // Validate all fields before proceeding
+        if (!validateAllFields()) {
+            setIsLoading(false);
+            if (!profileImage) {
+                showNotification('error', 'Profile picture is required to complete verification');
+            } else {
+                showNotification('error', 'Please correct the errors below before proceeding');
+            }
+            return;
+        }
+        
         // Simulate API call - replace with actual API call
         setTimeout(() => {
-            if (patientData.civilStatus && patientData.nationality && patientData.country && patientData.region && patientData.province && patientData.city && patientData.barangay && patientData.zipCode && patientData.mobileNo && patientData.emailAddress) {
-                setSuccessMessage("Patient profile completed. Creating token session...");
-                
-                // Prepare patient data for token session
-                const patientInfo = {
+            setSuccessMessage("Patient profile completed. Creating token session...");
+            
+            // Prepare patient data for token session
+            const patientInfo = {
                     firstname: patientData.firstname,
                     middlename: patientData.middlename,
                     lastname: patientData.lastname,
@@ -153,12 +244,18 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                 // Also store in localStorage for backward compatibility
                 localStorage.setItem('patientVerificationData', JSON.stringify(patientInfo));
                 
-                // Close modal and redirect to appointments page
-                onClose();
-                window.location.href = "/appointments";
-            } else {
-                setErrorMessage("Please fill in all required fields");
-            }
+                // Set verification session to prevent bypass
+                fetch('/set-verification-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    }
+                }).then(() => {
+                    // Close modal and redirect to appointments page
+                    onClose();
+                    window.location.href = "/appointments";
+                });
             setIsLoading(false);
         }, 1500);
     };
@@ -195,15 +292,52 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                     return;
                 }
                 
-                // Process the file (you can add actual upload logic here)
-                
-                // Create image preview
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const result = e.target?.result as string;
-                    setProfileImage(result);
+                // Compress and resize image to reduce base64 size
+                const compressImage = (file: File): Promise<string> => {
+                    return new Promise((resolve) => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const img = new Image();
+                        
+                        img.onload = () => {
+                            // Set maximum dimensions
+                            const maxWidth = 300;
+                            const maxHeight = 300;
+                            
+                            // Calculate new dimensions
+                            let { width, height } = img;
+                            if (width > height) {
+                                if (width > maxWidth) {
+                                    height = (height * maxWidth) / width;
+                                    width = maxWidth;
+                                }
+                            } else {
+                                if (height > maxHeight) {
+                                    width = (width * maxHeight) / height;
+                                    height = maxHeight;
+                                }
+                            }
+                            
+                            // Set canvas dimensions
+                            canvas.width = width;
+                            canvas.height = height;
+                            
+                            // Draw and compress
+                            ctx?.drawImage(img, 0, 0, width, height);
+                            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7); // 70% quality
+                            resolve(compressedDataUrl);
+                        };
+                        
+                        img.src = URL.createObjectURL(file);
+                    });
                 };
-                reader.readAsDataURL(file);
+                
+                // Compress the image and set it
+                compressImage(file).then((compressedDataUrl) => {
+                    setProfileImage(compressedDataUrl);
+                    // Clear profile image error when user uploads a picture
+                    setProfileImageError("");
+                });
                 
                 showNotification('success', `Photo uploaded successfully: ${file.name}`);
                 
@@ -247,11 +381,28 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
         setErrorMessage("");
         setSuccessMessage("");
         setProfileImage(null);
+        setFieldErrors({});
+        setProfileImageError("");
     };
 
     const handleClose = () => {
         resetModal();
         onClose();
+    };
+
+    // Error display component
+    const ErrorMessage = ({ field }: { field: keyof PatientData }) => {
+        const error = fieldErrors[field];
+        if (!error) return null;
+        
+        return (
+            <div className="mt-1 flex items-center space-x-1">
+                <svg className="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span className="text-xs text-red-600 font-medium">{error}</span>
+            </div>
+        );
     };
 
     if (!isOpen) return null;
@@ -507,10 +658,14 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                 
                                 <form onSubmit={(e) => { e.preventDefault(); submitStep2(); }} className="space-y-8">
                                     {/* Profile Picture Section */}
-                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8">
+                                    <div className={`bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8 border-2 ${
+                                        profileImageError ? 'border-red-300 bg-red-50' : 'border-transparent'
+                                    }`}>
                                         <div className="flex items-center space-x-6">
                                             <div className="relative">
-                                                <div className="w-28 h-28 bg-white rounded-full flex items-center justify-center shadow-lg border-4 border-white overflow-hidden">
+                                                <div className={`w-28 h-28 bg-white rounded-full flex items-center justify-center shadow-lg border-4 overflow-hidden ${
+                                                    profileImageError ? 'border-red-300' : 'border-white'
+                                                }`}>
                                                     {profileImage ? (
                                                         <img 
                                                             src={profileImage} 
@@ -523,15 +678,29 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                         </svg>
                                                     )}
                                                 </div>
-                                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                                                <div className={`absolute -bottom-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                                                    profileImageError ? 'bg-red-500' : 'bg-green-500'
+                                                }`}>
                                                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                                     </svg>
                                                 </div>
                                             </div>
                                             <div className="flex-1">
-                                                <h5 className="text-lg font-semibold text-gray-900 mb-2">Profile Picture</h5>
-                                                <p className="text-sm text-gray-600 mb-4">Upload a clear photo of yourself for identification purposes</p>
+                                                <h5 className="text-lg font-semibold text-gray-900 mb-2">
+                                                    Profile Picture <span className="text-red-500">*</span>
+                                                </h5>
+                                                <p className="text-sm text-gray-600 mb-4">
+                                                    Upload a clear photo of yourself for identification purposes
+                                                </p>
+                                                {profileImageError && (
+                                                    <div className="mb-4 flex items-center space-x-1">
+                                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                        <span className="text-sm text-red-600 font-medium">{profileImageError}</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex space-x-3">
                                                     <button 
                                                         type="button" 
@@ -572,7 +741,9 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.civilStatus}
                                                     onChange={(e) => handleInputChange('civilStatus', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.civilStatus ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 >
                                                     <option value="">SELECT</option>
                                                     <option value="Single">Single</option>
@@ -581,6 +752,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     <option value="Divorced">Divorced</option>
                                                     <option value="Separated">Separated</option>
                                                 </select>
+                                                <ErrorMessage field="civilStatus" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Nationality *</label>
@@ -594,11 +766,13 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Religion</label>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Religion *</label>
                                                 <select 
                                                     value={patientData.religion}
                                                     onChange={(e) => handleInputChange('religion', e.target.value)}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.religion ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 >
                                                     <option value="">SELECT</option>
                                                     <option value="Catholic">Catholic</option>
@@ -608,6 +782,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     <option value="Hindu">Hindu</option>
                                                     <option value="Other">Other</option>
                                                 </select>
+                                                <ErrorMessage field="religion" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Country *</label>
@@ -636,7 +811,9 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.region}
                                                     onChange={(e) => handleInputChange('region', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.region ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                 >
                                                     <option value="">Select Region</option>
                                                     <option value="NCR">NCR</option>
@@ -656,6 +833,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     <option value="CAR">CAR</option>
                                                     <option value="ARMM">ARMM</option>
                                                 </select>
+                                                <ErrorMessage field="region" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Province *</label>
@@ -664,9 +842,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.province}
                                                     onChange={(e) => handleInputChange('province', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.province ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter province"
                                                 />
+                                                <ErrorMessage field="province" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">City *</label>
@@ -675,9 +856,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.city}
                                                     onChange={(e) => handleInputChange('city', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.city ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter city"
                                                 />
+                                                <ErrorMessage field="city" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Barangay *</label>
@@ -686,9 +870,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.barangay}
                                                     onChange={(e) => handleInputChange('barangay', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.barangay ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter barangay"
                                                 />
+                                                <ErrorMessage field="barangay" />
                                             </div>
                                         </div>
                                     </div>
@@ -701,14 +888,17 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                         </h6>
                                         <div className="grid grid-cols-4 gap-6">
                                             <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Street</label>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Street *</label>
                                                 <input 
                                                     type="text" 
                                                     value={patientData.street}
                                                     onChange={(e) => handleInputChange('street', e.target.value)}
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.street ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter street address"
                                                 />
+                                                <ErrorMessage field="street" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Zip Code *</label>
@@ -717,9 +907,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.zipCode}
                                                     onChange={(e) => handleInputChange('zipCode', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.zipCode ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter zip code"
                                                 />
+                                                <ErrorMessage field="zipCode" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Mobile No. *</label>
@@ -728,9 +921,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.mobileNo}
                                                     onChange={(e) => handleInputChange('mobileNo', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.mobileNo ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="+63999-999-9999"
                                                 />
+                                                <ErrorMessage field="mobileNo" />
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
@@ -739,9 +935,12 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     value={patientData.emailAddress}
                                                     onChange={(e) => handleInputChange('emailAddress', e.target.value)}
                                                     required
-                                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white"
+                                                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                        fieldErrors.emailAddress ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                    }`}
                                                     placeholder="Enter email address"
                                                 />
+                                                <ErrorMessage field="emailAddress" />
                                             </div>
                                         </div>
                                     </div>
@@ -760,7 +959,11 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                         <button 
                                             type="submit"
                                             disabled={isLoading}
-                                            className="px-8 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2 transform hover:scale-105"
+                                            className={`px-8 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2 transform hover:scale-105 ${
+                                                !profileImage 
+                                                    ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700' 
+                                                    : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
+                                            } disabled:opacity-50`}
                                         >
                                             {isLoading ? (
                                                 <>
@@ -772,7 +975,9 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span>Proceed to Appointments</span>
+                                                    <span>
+                                                        {!profileImage ? 'Upload Profile Picture Required' : 'Proceed to Appointments'}
+                                                    </span>
                                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
                                                     </svg>

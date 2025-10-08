@@ -75,6 +75,7 @@ import {
 } from "@/components/tempo/components/ui/dropdown-menu";
 
 import Modal2 from "@/components/CustomModal";
+import EditPharmacistModal from "./EditPharmacistModal";
 import StaffLayout from "./StaffLayout";
 import Sidebar from "./Sidebar";
 import Label from "@/components/InputLabel";
@@ -86,8 +87,9 @@ export default function Pharmacists({ pharmacists = [] }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedPharmacist, setSelectedPharmacist] = useState(null);
+    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
@@ -147,6 +149,21 @@ export default function Pharmacists({ pharmacists = [] }) {
         setIsModalOpen(false);
         clearErrors();
         reset();
+    };
+
+    const openEditModal = (pharmacist) => {
+        setSelectedPharmacist(pharmacist);
+        setIsEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedPharmacist(null);
+    };
+
+    const handleEditSuccess = (updatedPharmacist) => {
+        // Refresh the page or update the pharmacist in the list
+        window.location.reload();
     };
 
     const handleSubmit = (e) => {
@@ -475,7 +492,7 @@ export default function Pharmacists({ pharmacists = [] }) {
                                                                                 <Eye className="h-4 w-4 mr-2" />
                                                                                 View Details
                                                                             </DropdownMenuItem>
-                                                                            <DropdownMenuItem>
+                                                                            <DropdownMenuItem onClick={() => openEditModal(pharmacist)}>
                                                                                 <Edit className="h-4 w-4 mr-2" />
                                                                                 Edit Pharmacist
                                                                             </DropdownMenuItem>
@@ -710,6 +727,14 @@ export default function Pharmacists({ pharmacists = [] }) {
             </Dialog>
 
             <ConfirmationDialog />
+
+            {/* Edit Pharmacist Modal */}
+            <EditPharmacistModal
+                pharmacist={selectedPharmacist}
+                isOpen={isEditModalOpen}
+                onClose={closeEditModal}
+                onSuccess={handleEditSuccess}
+            />
         </StaffLayout>
     );
 }

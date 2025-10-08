@@ -146,6 +146,13 @@ class PatientController extends Controller
     }
 
     public function appointments(){
+        // Check if user has completed patient verification
+        // This prevents bypassing the Patient Verification modal by direct URL access
+        if (!session('patient_verification_completed')) {
+            // Redirect to home page with a message to complete verification first
+            return redirect()->route('home')->with('error', 'Please complete patient verification first by clicking "Book Appointment" from the home page.');
+        }
+
         // Only get active services (status = 1, not archived)
         $serv = servicetypes::with(['servicedays'])
             ->where('status', 1) // Only show active services, not archived ones
@@ -176,11 +183,11 @@ class PatientController extends Controller
 
     public function storeAppointment(Request $request){
         $request->validate([
-            'phone' => 'required|min:10',
             'date' => 'required|date',
             'time' => 'required',
             'service' => 'required|exists:servicetypes,id'
         ]);
+
 
         $user = Auth::user();
         $service = servicetypes::find($request->service);
@@ -190,7 +197,15 @@ class PatientController extends Controller
         $userName = $user ? "{$user->firstname} {$user->lastname}" : "{$request->firstname} {$request->lastname}";
         $userRole = $user ? $user->role->roletype : "Guest";
 
-        $appointment = appointments::create([
+        // Generate priority number for the same date and service
+        $latestAppointment = appointments::where('date', \Carbon\Carbon::parse($request->date)->format("Y-m-d"))
+            ->where('servicetype_id', $request->service)
+            ->orderBy('priority_number', 'desc')
+            ->first();
+        
+        $priorityNumber = $latestAppointment ? $latestAppointment->priority_number + 1 : 1;
+
+        $appointmentData = [
             'user_id' => $userId,
             'firstname' => $request->firstname,
             'lastname' => $request->lastname,
@@ -202,8 +217,26 @@ class PatientController extends Controller
             'servicetype_id' => $request->service,
             'subservice_id' => $request->subservice ?? null,
             'notes' => $request->notes,
-            'status' => 6
-        ]);
+            'priority_number' => $priorityNumber,
+            'status' => 6,
+            // Patient profile fields for Patient Records
+            'date_of_birth' => $request->date_of_birth ?? null,
+            'gender' => $request->gender ?? null,
+            'civil_status' => $request->civil_status ?? null,
+            'nationality' => $request->nationality ?? null,
+            'religion' => $request->religion ?? null,
+            'country' => $request->country ?? null,
+            'region' => $request->region ?? null,
+            'province' => $request->province ?? null,
+            'city' => $request->city ?? null,
+            'barangay' => $request->barangay ?? null,
+            'street' => $request->street ?? null,
+            'zip_code' => $request->zip_code ?? null,
+            'profile_picture' => $request->profile_picture ?? null,
+        ];
+
+
+        $appointment = appointments::create($appointmentData);
 
         // Only send notification if user is authenticated
         if ($user) {
@@ -227,7 +260,23 @@ class PatientController extends Controller
         // Send confirmation email and SMS
         $this->sendAppointmentConfirmation($appointment);
 
-        return redirect()->back()->with('success', 'Appointment scheduled successfully');
+        // Store the appointment data in session for the frontend to access
+        session([
+            'appointment_priority_number' => $priorityNumber,
+            'appointment_reference_number' => $appointment->reference_number ?? null,
+            'appointment_id' => $appointment->id
+        ]);
+
+        // Clear patient verification session after successful appointment creation
+        // This ensures users need to verify again for the next appointment
+        session()->forget('patient_verification_completed');
+
+        return redirect()->back()->with([
+            'success' => 'Appointment scheduled successfully! Your patient record has been automatically created.',
+            'priority_number' => $priorityNumber,
+            'reference_number' => $appointment->reference_number ?? null,
+            'appointment_id' => $appointment->id
+        ]);
     }
 
     /**

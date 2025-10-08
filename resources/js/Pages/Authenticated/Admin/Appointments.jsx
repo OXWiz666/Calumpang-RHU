@@ -138,8 +138,6 @@ const mockAppointments = [
 ];
 
 export default function appointments({ appointments_ }) {
-    // Debug: Log the appointments data to see what we're receiving
-    console.log('Appointments data received:', appointments_);
     
     const [appointments, setAppointments] = useState(appointments_.data || []);
     const [searchTerm, setSearchTerm] = useState("");
@@ -155,7 +153,14 @@ export default function appointments({ appointments_ }) {
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return 'Invalid date';
-            return date.toLocaleDateString();
+            
+            // Format with more detail: "Wednesday, Oct 8, 2025"
+            return date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
         } catch (error) {
             return 'Invalid date';
         }
@@ -190,6 +195,23 @@ export default function appointments({ appointments_ }) {
         } catch (error) {
             console.error('Error formatting time:', error);
             return timeString; // Return original if formatting fails
+        }
+    };
+
+    // Helper function to format datetime to 12-hour format with AM/PM
+    const formatDateTime = (dateTimeString) => {
+        if (!dateTimeString) return 'Not specified';
+        try {
+            const date = new Date(dateTimeString);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            
+            return date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        } catch (error) {
+            return 'Invalid time';
         }
     };
 
@@ -524,6 +546,9 @@ export default function appointments({ appointments_ }) {
                                             <SortableTableHead sortKey="date">
                                                 Date & Time
                                             </SortableTableHead>
+                                            <SortableTableHead sortKey="created_at">
+                                                Created Date & Time
+                                            </SortableTableHead>
                                             <SortableTableHead>
                                                 Doctor
                                             </SortableTableHead>
@@ -553,14 +578,11 @@ export default function appointments({ appointments_ }) {
                                                     <div className="flex items-center gap-3">
                                                         <Avatar>
                                                             <AvatarImage
-                                                                //   src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${appointment.avatar}`}
-                                                                alt={
-                                                                    aa.user
-                                                                        ?.firstname
-                                                                }
+                                                                src={aa.profile_picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${aa.firstname}`}
+                                                                alt={aa.firstname || 'Patient'}
                                                             />
                                                             <AvatarFallback>
-                                                                {aa.user?.firstname
+                                                                {aa.firstname
                                                                     ?.split(" ")
                                                                     ?.map(
                                                                         (n) =>
@@ -583,14 +605,51 @@ export default function appointments({ appointments_ }) {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {/* moment(
-                                                                                                            activity.created_at
-                                                                                                        ).format("h:mm A") */}
-                                                    <div className="font-medium">
-                                                        {formatDate(aa.date)}
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-1 bg-blue-100 rounded">
+                                                                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                                </svg>
+                                                            </div>
+                                                            <div className="font-semibold text-gray-800">
+                                                                {formatDate(aa.date)}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 ml-6">
+                                                            <div className="p-1 bg-green-100 rounded">
+                                                                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                </svg>
+                                                            </div>
+                                                            <div className="text-sm font-medium text-gray-600">
+                                                                {formatTime(aa.time)}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-sm text-muted-foreground">
-                                                        {formatTime(aa.time)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="p-1 bg-purple-100 rounded">
+                                                                <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                </svg>
+                                                            </div>
+                                                            <div className="font-semibold text-gray-800">
+                                                                {formatDate(aa.created_at)}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 ml-6">
+                                                            <div className="p-1 bg-orange-100 rounded">
+                                                                <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                                </svg>
+                                                            </div>
+                                                            <div className="text-sm font-medium text-gray-600">
+                                                                {formatDateTime(aa.created_at)}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>Not Set</TableCell>
@@ -744,6 +803,31 @@ export default function appointments({ appointments_ }) {
                                 </div>
                             </CardHeader>
                             <CardContent className="p-3 space-y-3">
+                                {/* Profile Picture */}
+                                {appointment_?.profile_picture && (
+                                    <div className="flex justify-center mb-4">
+                                        <div className="relative">
+                                            <Avatar className="w-20 h-20 border-4 border-blue-200 shadow-lg">
+                                                <AvatarImage
+                                                    src={appointment_.profile_picture}
+                                                    alt={appointment_.firstname || 'Patient'}
+                                                />
+                                                <AvatarFallback>
+                                                    {appointment_.firstname
+                                                        ?.split(" ")
+                                                        ?.map((n) => n[0])
+                                                        ?.join("") || "N/A"}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white">
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Patient Type Indicator */}
                                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 shadow-sm">
                                     <div className="p-1.5 bg-blue-500 rounded-md">
@@ -816,6 +900,60 @@ export default function appointments({ appointments_ }) {
                                         </div>
                                         <p className="text-sm text-gray-900">
                                             {appointment_?.phone || <span className="text-gray-400 italic">Not provided</span>}
+                                        </p>
+                                    </div>
+
+                                    {/* Date of Birth */}
+                                    <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="p-1.5 bg-pink-500 rounded-md">
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                </svg>
+                                            </div>
+                                            <p className="text-xs font-semibold text-gray-700">Date of Birth</p>
+                                        </div>
+                                        <p className="text-sm text-gray-900">
+                                            {appointment_?.date_of_birth ? new Date(appointment_.date_of_birth).toLocaleDateString() : <span className="text-gray-400 italic">Not provided</span>}
+                                        </p>
+                                    </div>
+
+                                    {/* Age */}
+                                    <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="p-1.5 bg-indigo-500 rounded-md">
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                </svg>
+                                            </div>
+                                            <p className="text-xs font-semibold text-gray-700">Age</p>
+                                        </div>
+                                        <p className="text-sm text-gray-900">
+                                            {appointment_?.date_of_birth ? (() => {
+                                                const birthDate = new Date(appointment_.date_of_birth);
+                                                const today = new Date();
+                                                let age = today.getFullYear() - birthDate.getFullYear();
+                                                const monthDiff = today.getMonth() - birthDate.getMonth();
+                                                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                                                    age--;
+                                                }
+                                                return age;
+                                            })() : <span className="text-gray-400 italic">Not available</span>}
+                                        </p>
+                                    </div>
+
+                                    {/* Gender */}
+                                    <div className="p-2.5 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="p-1.5 bg-cyan-500 rounded-md">
+                                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                                </svg>
+                                            </div>
+                                            <p className="text-xs font-semibold text-gray-700">Gender</p>
+                                        </div>
+                                        <p className="text-sm text-gray-900">
+                                            {appointment_?.gender || <span className="text-gray-400 italic">Not provided</span>}
                                         </p>
                                     </div>
 

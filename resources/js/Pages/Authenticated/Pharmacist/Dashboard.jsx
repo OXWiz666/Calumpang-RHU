@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { usePage } from "@inertiajs/react";
 import AdminLayout from "@/Layouts/AdminLayout";
@@ -41,6 +41,16 @@ export default function PharmacistDashboard({
 }) {
     const { auth } = usePage().props;
     const user = auth.user;
+    const [currentTime, setCurrentTime] = useState(new Date());
+    
+    // Real-time clock effect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
     
     // Add custom scrollbar styles
     React.useEffect(() => {
@@ -170,13 +180,24 @@ export default function PharmacistDashboard({
                         
                         <div className="hidden md:block text-right">
                             <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4">
-                                <p className="text-blue-100 text-sm font-medium">Today's Date</p>
-                                <p className="text-white text-xl font-bold">
-                                    {new Date().toLocaleDateString("en-US", {
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Clock className="h-4 w-4 text-blue-100" />
+                                    <p className="text-blue-100 text-sm font-medium">Current Date & Time</p>
+                                </div>
+                                <p className="text-white text-lg font-bold">
+                                    {currentTime.toLocaleDateString("en-US", {
                                         weekday: "long",
                                         year: "numeric",
                                         month: "long",
                                         day: "numeric",
+                                    })}
+                                </p>
+                                <p className="text-blue-100 text-sm font-semibold">
+                                    {currentTime.toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        second: "2-digit",
+                                        hour12: true,
                                     })}
                                 </p>
                             </div>

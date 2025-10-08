@@ -52,6 +52,7 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 import Modal2 from "@/components/CustomModal";
+import EditDoctorModal from "./EditDoctorModal";
 
 import AdminLayout from "@/Layouts/AdminLayout";
 import PrimaryButton from "@/components/PrimaryButton";
@@ -102,6 +103,8 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
     const [isLoading, setIsLoading] = useState(false);
     const [isArchiveLoading, setIsArchiveLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedDoctor, setSelectedDoctor] = useState(null);
     const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
 
     
@@ -153,6 +156,21 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
         clearErrors();
         reset();
     };
+
+    const openEditModal = (doctor) => {
+        setSelectedDoctor(doctor);
+        setIsEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedDoctor(null);
+    };
+
+    const handleEditSuccess = (updatedDoctor) => {
+        // Refresh the page or update the doctor in the list
+        window.location.reload();
+    };
     const [showPositionDropdown, setShowPositionDropdown] = useState(false);
     const [showSecurityDropdown, setShowSecurityDropdown] = useState(false);
     const [selectedPosition, setSelectedPosition] = useState("");
@@ -177,8 +195,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
             },
         });
     };
-    // State for the selected doctor and status
-    const [selectedDoctor, setSelectedDoctor] = useState(null);
+    // State for the selected status
     const [selectedStatus, setSelectedStatus] = useState(1);
 
     // Function to open the status change modal
@@ -599,6 +616,12 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                                         <DropdownMenuSeparator />
                                                                         <DropdownMenuItem
+                                                                            onClick={() => openEditModal(d)}
+                                                                        >
+                                                                            <Edit className="h-4 w-4 mr-2" />
+                                                                            Edit Doctor
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
                                                                             onClick={() => openStatusModal(d)}
                                                                         >
                                                                             <Edit className="h-4 w-4 mr-2" />
@@ -739,6 +762,14 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                 </div>
             </Modal2>
             <ConfirmationDialog />
+
+            {/* Edit Doctor Modal */}
+            <EditDoctorModal
+                doctor={selectedDoctor}
+                isOpen={isEditModalOpen}
+                onClose={closeEditModal}
+                onSuccess={handleEditSuccess}
+            />
         </StaffLayout>
     );
 }
