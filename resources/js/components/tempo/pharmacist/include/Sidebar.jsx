@@ -16,7 +16,6 @@ import {
     Stethoscope,
     UsersRound,
     Layers,
-    Mail,
     Boxes,
     TrendingUp,
     FileText,
@@ -75,15 +74,6 @@ const Sidebar = ({ activePage, userRole = "Pharmacist" }) => {
         item.roles.includes(userRole)
     );
 
-    const landingPageLinks = [
-        {
-            title: "Messages",
-            icon: <Mail className="h-5 w-5" />,
-            route: "admin.landing.messages", // FOR ACTIVE NAV
-            path: route("admin.landing.messages"),
-            id: "messages",
-        },
-    ];
 
     const user = usePage().props.auth.user;
     const role = usePage().props.auth.role;
@@ -140,28 +130,6 @@ const Sidebar = ({ activePage, userRole = "Pharmacist" }) => {
                         <b>Menu</b>
                     </div>
                     {filteredMenuItems.map((item) => (
-                        <li key={item.id}>
-                            <Link
-                                href={item.path}
-                                className={cn(
-                                    "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                                    route().current(item.route) && item.route
-                                        ? "bg-primary text-primary-foreground"
-                                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                                    sidebarstate && "justify-center px-0"
-                                )}
-                            >
-                                {item.icon}
-                                {!sidebarstate && (
-                                    <span className="ml-3">{item.title}</span>
-                                )}
-                            </Link>
-                        </li>
-                    ))}
-                    <div>
-                        <b>Landing Page</b>
-                    </div>
-                    {landingPageLinks.map((item) => (
                         <li key={item.id}>
                             <Link
                                 href={item.path}

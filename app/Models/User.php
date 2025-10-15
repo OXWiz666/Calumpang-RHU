@@ -9,11 +9,12 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 use App\Models\roles;
+use Yajra\Address\HasAddress;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, HasAddress;
 
     /**
      * The attributes that are mass assignable.
@@ -39,7 +40,8 @@ class User extends Authenticatable
         'suffix',
         'bloodtype',
         'avatar',
-        'address'
+        'address',
+        'status'
     ];
 
     /**

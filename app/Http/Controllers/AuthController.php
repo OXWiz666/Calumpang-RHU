@@ -48,8 +48,6 @@ class AuthController extends Controller
                 return redirect()->route('doctor.home');
             // case "4":
             //     return redirect()->route('midwife.dashboard');
-            case "5":
-                return redirect()->route('home');
             case "6":
                 return redirect()->route('pharmacist.dashboard');
             case "7":
@@ -317,8 +315,16 @@ class AuthController extends Controller
                     ]);
         }
 
-        // // Get the authenticated user
-        // $user = Auth::user();
+        // Get the authenticated user
+        $user = Auth::user();
+
+        // Check if the user's account is archived
+        if ($user->status == 5) { // 5 = Archived status
+            Auth::logout(); // Log the user out
+            return back()->withErrors([
+                'error' => 'Your account has been archived. Please contact an administrator for assistance.',
+            ]);
+        }
 
         // // Check if the user's role doesn't match the expected role
         // if ($user->roleID != $role) { // Assuming the role is stored in a 'role' column
@@ -365,7 +371,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'contactno' => $request->contactNumber,
-                'roleID' => $request->isAdmin == 'true' ? 1 : 5,
+                'roleID' => $request->isAdmin == 'true' ? 1 : 7,
                 'questionID' => $request->securityQuestion ?? null,
                 'answer' => $request->securityAnswer ?? null,
                 'gender' => $request->gender,
@@ -375,8 +381,8 @@ class AuthController extends Controller
             $admins = User::where('roleID', '7')->get();
             foreach ($admins as $admin) {
                 $admin->notify(new SystemNotification(
-                    "{$newUser->firstname} {$newUser->lastname} registered as Patient!",
-                    'New Patient has been registered!',
+                    "{$newUser->firstname} {$newUser->lastname} registered as Admin!",
+                    'New Admin has been registered!',
                     'new_patient'
                 ));
 
@@ -440,16 +446,26 @@ class AuthController extends Controller
                 doctor_details::create([
                     'user_id' => $newUser->id
                 ]);
-
-                $mssg = "";
             }
+
+            // Create notification message based on role
+            $roleNames = [
+                1 => 'Doctor',
+                6 => 'Pharmacist', 
+                7 => 'Admin'
+            ];
+            $roleName = $roleNames[$newUser->roleID] ?? 'Staff';
+            $mssg = "New {$roleName} registered: {$newUser->firstname} {$newUser->lastname}";
 
             NotifSender::SendNotif(false,[1,7,6],$mssg,'New staff registered!','new_staff');
 
             DB::commit();
+            
+            return redirect()->back()->with('success', 'Staff registered successfully!');
         }
         catch(\Exception $er){
             DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to register staff: ' . $er->getMessage());
         }
     }
 

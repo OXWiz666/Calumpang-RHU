@@ -38,6 +38,24 @@ import Sidebar from "./Sidebar";
 import AppointmentLayout from "../Appointments/AppointmentLayout";
 export default function AppointmentHistory({ appointments }) {
     const { links } = usePage().props.appointments; // Get pagination links
+    const [existingPatientData, setExistingPatientData] = useState(null);
+    const [isExistingPatient, setIsExistingPatient] = useState(false);
+
+    // Check for existing patient data on component mount
+    useEffect(() => {
+        const existingPatientData = localStorage.getItem('existingPatientData');
+        const patientType = localStorage.getItem('selectedPatientType');
+        
+        if (existingPatientData && patientType === 'existing') {
+            try {
+                const patient = JSON.parse(existingPatientData);
+                setExistingPatientData(patient);
+                setIsExistingPatient(true);
+            } catch (error) {
+                console.error('Error parsing existing patient data:', error);
+            }
+        }
+    }, []);
 
     // useEffect(() => {
     //     console.log(links);

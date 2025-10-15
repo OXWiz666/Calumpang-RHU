@@ -39,6 +39,26 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
         batch_number: "",
         expiry_date: "",
     });
+    
+    const [availableBatches, setAvailableBatches] = useState([]);
+    const [loadingBatches, setLoadingBatches] = useState(false);
+
+    const fetchAvailableBatches = async () => {
+        if (!item?.id) return;
+        
+        setLoadingBatches(true);
+        try {
+            const response = await fetch(`/pharmacist/inventory/item/${item.id}/batches?t=${Date.now()}`);
+            if (response.ok) {
+                const batches = await response.json();
+                setAvailableBatches(batches);
+            }
+        } catch (error) {
+            console.error('Error fetching batches:', error);
+        } finally {
+            setLoadingBatches(false);
+        }
+    };
 
     useEffect(() => {
         if (item) {
@@ -98,8 +118,13 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
                     return "";
                 })(),
             });
+            
+            // Fetch available batches when modal opens
+            if (open) {
+                fetchAvailableBatches();
+            }
         }
-    }, [item]);
+    }, [item, open]);
 
     const { data, setData, put, processing, errors } = useForm(formData);
 
@@ -294,16 +319,61 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
                                     Batch/Lot Number
                                 </Label>
                                 <div className="relative">
-                                    <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="batch_number"
-                                        name="batch_number"
-                                        value={data.batch_number}
-                                        onChange={handleChange}
-                                        placeholder="e.g., RX12001121"
-                                        className="w-full pl-10"
-                                    />
+                                    <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
+                                    <Select value={data.batch_number} onValueChange={(value) => {
+                                        if (value === "new_batch") {
+                                            setData("batch_number", "");
+                                        } else {
+                                            setData("batch_number", value);
+                                        }
+                                    }}>
+                                        <SelectTrigger className="w-full pl-10">
+                                            <SelectValue placeholder={loadingBatches ? "Loading batches..." : "Select a batch number"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableBatches.length > 0 ? (
+                                                <>
+                                                    {availableBatches.map((batch) => (
+                                                        <SelectItem key={batch.batch_number} value={batch.batch_number}>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium">{batch.batch_number}</span>
+                                                                {batch.expiry_date && (
+                                                                    <span className="text-xs text-gray-500">
+                                                                        Expires: {new Date(batch.expiry_date).toLocaleDateString()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                    <SelectItem value="new_batch">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium">+ Add New Batch</span>
+                                                            <span className="text-xs text-gray-500">Create a new batch number</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                </>
+                                            ) : (
+                                                <SelectItem value="new_batch">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">+ Add New Batch</span>
+                                                        <span className="text-xs text-gray-500">Create a new batch number</span>
+                                                    </div>
+                                                </SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
+                                {(availableBatches.length === 0 || data.batch_number === "") && !loadingBatches && (
+                                    <div className="mt-1">
+                                        <Input
+                                            id="batch_number_input"
+                                            value={data.batch_number}
+                                            onChange={handleChange}
+                                            placeholder="Enter new batch number (e.g., RX12001121)"
+                                            className="pl-10"
+                                        />
+                                    </div>
+                                )}
                                 {errors.batch_number && (
                                     <p className="text-sm text-red-600">{errors.batch_number}</p>
                                 )}

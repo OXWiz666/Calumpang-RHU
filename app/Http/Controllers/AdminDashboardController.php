@@ -27,24 +27,41 @@ class AdminDashboardController extends Controller
         // Get the authenticated user
         $user = Auth::user();
         
-        // Get real patient data
-        $totalPatients = User::where('roleID', '5')->count();
-        $currentMonthPatients = User::where('roleID', '5')
+        // Get real patient data - count only guest patients (matching Patient Records page)
+        // Guest patients (from appointments table) - same logic as Patient Records
+        $guestPatients = appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
+            ->distinct('firstname', 'lastname')
+            ->count();
+        
+        $totalPatients = $guestPatients; // Only count guest patients
+        
+        // Current month patients (guest patients only)
+        $currentMonthPatients = appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
+            ->distinct('firstname', 'lastname')
             ->count();
-        $previousMonthPatients = User::where('roleID', '5')
+        
+        // Previous month patients (guest patients only)
+        $previousMonthPatients = appointments::whereNull('user_id')
+            ->whereNotNull('firstname')
+            ->whereNotNull('lastname')
             ->whereMonth('created_at', now()->subMonth()->month)
             ->whereYear('created_at', now()->subMonth()->year)
+            ->distinct('firstname', 'lastname')
             ->count();
         
         // Calculate patient growth percentage
         $max = max($previousMonthPatients, $currentMonthPatients);
         $patientGrowthPercentage = $max == 0 ? 0 : ($currentMonthPatients - $previousMonthPatients) / $max * 100;
         
-        // Get real appointment data
-        $todayAppointments = appointments::whereDate('date', now()->toDateString())->count();
-        $yesterdayAppointments = appointments::whereDate('date', now()->subDay()->toDateString())->count();
+        // Get real appointment data - count appointments created today (new appointments)
+        $todayAppointments = appointments::whereDate('created_at', now()->toDateString())->count();
+        $yesterdayAppointments = appointments::whereDate('created_at', now()->subDay()->toDateString())->count();
         $appointmentGrowth = $yesterdayAppointments > 0 ? (($todayAppointments - $yesterdayAppointments) / $yesterdayAppointments) * 100 : 0;
         
         // Get real inventory data
@@ -59,8 +76,8 @@ class AdminDashboardController extends Controller
             ->count();
         
         // Get real staff data
-        $totalStaff = User::whereIn('roleID', ['1', '2', '3', '4'])->count(); // Doctor, Nurse, Admin, etc.
-        $activeStaff = User::whereIn('roleID', ['1', '2', '3', '4'])
+        $totalStaff = User::whereIn('roleID', ['1', '6', '7'])->count(); // Doctor, Pharmacist, Admin
+        $activeStaff = User::whereIn('roleID', ['1', '6', '7'])
             ->where('status', 'active')
             ->count();
         $staffOnLeave = $totalStaff - $activeStaff;
@@ -281,3 +298,4 @@ class AdminDashboardController extends Controller
         return round((($currentWeek - $previousWeek) / $previousWeek) * 100, 2);
     }
 }
+

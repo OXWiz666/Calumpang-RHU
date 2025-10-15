@@ -126,14 +126,14 @@
                             <svg class="w-4 h-4 transition-transform duration-300" :class="{ 'rotate-180': servicesOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </button>
                         <div x-show="servicesOpen" x-collapse class="pl-10 pr-3 py-1 space-y-1">
-                            <a href="#" class="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm">
+                            <a href="/appointments" class="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm">
                                 <svg class="w-4 h-4 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                                 Appointments
                             </a>
-                            <a href="#" class="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm">
+                            <button onclick="openMedicalRecordsModal()" class="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm w-full text-left">
                                 <svg class="w-4 h-4 mr-2 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2m14 0V5a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                                 Medical Records
-                            </a>
+                            </button>
                             <a href="#" class="flex items-center py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm">
                                 <svg class="w-4 h-4 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"></path></svg>
                                 Vaccinations
@@ -159,12 +159,6 @@
                         </a>
                     </li>
                 </ul>
-                <div class="mt-8">
-                    <a href="{{ route('login') }}" class="flex items-center justify-center w-full py-3 px-4 bg-gray-800 text-white text-center font-semibold rounded-lg transition-all duration-300 transform hover:bg-gray-700 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 active:scale-95 hover:shadow-lg">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                        Login
-                    </a>
-                </div>
             </nav>
         </div>
 
@@ -197,7 +191,7 @@
                         class="absolute left-0 mt-2 w-72 origin-top-right rounded-xl bg-white p-4 shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none"
                         style="display: none;">
                         <div class="space-y-2">
-                            <a href="#" class="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1">
+                            <a href="/appointments" class="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1">
                                 <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
                                 </svg>
@@ -206,16 +200,16 @@
                                     <p class="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">Schedule your visit to the health center</p>
                                 </div>
                             </a>
-                            <a href="#" class="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1">
+                            <button onclick="openMedicalRecordsModal()" class="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 w-full text-left">
                                 <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                                     <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
                                 </svg>
                                 <div>
                                     <p class="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">Medical Records</p>
-                                    <p class="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">Access your health records securely</p>
+                                    <p class="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">Request your health records</p>
                                 </div>
-                            </a>
+                            </button>
                             <a href="{{ route('services.vaccinations') }}" class="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1">
                                 <svg class="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
@@ -248,15 +242,6 @@
 
         {{-- User Menu --}}
         <div class="flex items-center">
-            @guest
-                <a href="{{ route('login') }}" class="hidden md:flex items-center gap-1.5 px-4 py-2 border rounded-lg text-gray-700 hover:text-black hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 text-sm group hover:shadow-md">
-                    <svg class="h-4 w-4 text-gray-600 group-hover:text-black transition-colors duration-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                    </svg>
-                    <span>Login</span>
-                </a>
-            @endguest
-
             @auth
                 <div x-data="{ open: false }" class="relative">
                     <button @click="open = !open" @click.away="open = false" @keydown.escape.window="open = false"
@@ -289,4 +274,164 @@
                 </div>
             @endauth
     </div>
+
+    <!-- Medical Records Request Modal -->
+    <div id="medicalRecordsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Request Medical Records</h2>
+                            <p class="text-gray-600">Fill out the form below to request your medical records</p>
+                        </div>
+                    </div>
+                    <button onclick="closeMedicalRecordsModal()" class="text-gray-400 hover:text-gray-600 transition-colors duration-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="medicalRecordsForm" class="space-y-6">
+                    <!-- Personal Information -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="fullName" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Full Name *
+                                </label>
+                                <input type="text" id="fullName" name="fullName" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Enter your full name">
+                            </div>
+                            <div>
+                                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Email Address *
+                                </label>
+                                <input type="email" id="email" name="email" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="your.email@example.com">
+                            </div>
+                            <div>
+                                <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Phone Number *
+                                </label>
+                                <input type="tel" id="phone" name="phone" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="+63 912 345 6789">
+                            </div>
+                            <div>
+                                <label for="birthDate" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Birth Date *
+                                </label>
+                                <input type="date" id="birthDate" name="birthDate" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Request Details -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Request Details</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Reason for Request *
+                                </label>
+                                <textarea id="reason" name="reason" required rows="3"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Please specify why you need your medical records (e.g., for insurance, second opinion, personal records)"></textarea>
+                            </div>
+                            <div>
+                                <label for="additionalInfo" class="block text-sm font-medium text-gray-700 mb-1">
+                                    Additional Information
+                                </label>
+                                <textarea id="additionalInfo" name="additionalInfo" rows="2"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Any additional information that might help us locate your records"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Important Notice -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-start space-x-3">
+                            <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="text-sm text-blue-800">
+                                <p class="font-medium mb-1">Important Notice:</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>Medical records will be processed within 3-5 business days</li>
+                                    <li>You will be contacted via email or phone for verification</li>
+                                    <li>Records can be picked up at the health center or sent via secure email</li>
+                                    <li>Valid ID is required for record pickup</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeMedicalRecordsModal()"
+                            class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200">
+                            Submit Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openMedicalRecordsModal() {
+            document.getElementById('medicalRecordsModal').classList.remove('hidden');
+        }
+
+        function closeMedicalRecordsModal() {
+            document.getElementById('medicalRecordsModal').classList.add('hidden');
+            document.getElementById('medicalRecordsForm').reset();
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('medicalRecordsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeMedicalRecordsModal();
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('medicalRecordsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
+            
+            // Simulate API call
+            setTimeout(() => {
+                // Show success message
+                alert('Request submitted successfully! We will contact you within 3-5 business days.');
+                closeMedicalRecordsModal();
+                
+                // Reset button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }, 2000);
+        });
+    </script>
 </header>

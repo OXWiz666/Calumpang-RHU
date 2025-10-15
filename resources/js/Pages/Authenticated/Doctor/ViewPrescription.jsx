@@ -70,6 +70,10 @@ export default function ViewPrescription({ prescription }) {
                                 <p className="font-medium">{prescription.patient.date_of_birth}</p>
                             </div>
                             <div>
+                                <p className="text-sm text-gray-600">Age</p>
+                                <p className="font-medium">{prescription.patient.age}</p>
+                            </div>
+                            <div>
                                 <p className="text-sm text-gray-600">Gender</p>
                                 <p className="font-medium capitalize">{prescription.patient.gender}</p>
                             </div>

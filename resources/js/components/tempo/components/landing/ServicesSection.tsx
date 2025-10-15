@@ -1,220 +1,309 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
+import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
+import { Calendar, FileText, Clock, ArrowRight, Users, Check, Star } from "lucide-react";
+
 interface Service {
-    icon: "calendar" | "file-text" | "clock";
+    icon: any; // ComponentType<IconProps>
     title: string;
     description: string;
-    ctaText: string;
+    features: string[];
+    color: string;
+    bgColor: string;
+    iconColor: string;
+    buttonColor: string;
 }
 
 interface ServicesSectionProps {
-    title: string;
-    subtitle: string;
-    services: Service[];
+    title?: string;
+    subtitle?: string;
+    services?: Service[];
 }
 
 const ServicesSection: React.FC<ServicesSectionProps> = ({
-    title,
-    subtitle,
+    title = "Our Digital Healthcare Services",
+    subtitle = "Discover the comprehensive range of digital services available to Barangay Calumpang residents through our innovative health center management system.",
     services,
 }) => {
-    const renderIcon = (icon: string) => {
-        switch (icon) {
-            case "calendar":
-                return (
-                    <svg
-                        className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        ></path>
-                    </svg>
-                );
-            case "file-text":
-                return (
-                    <svg
-                        className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        ></path>
-                    </svg>
-                );
-            case "clock":
-                return (
-                    <svg
-                        className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        ></path>
-                    </svg>
-                );
-            default:
-                return null;
+    const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
+    const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+    const [loadingStates, setLoadingStates] = useState<{ [key: number]: boolean }>({});
+    
+    console.log('ServicesSection component rendered');
+    console.log('isInAppointmentSession:', isInAppointmentSession);
+    console.log('loadingStates:', loadingStates);
+
+    // Button handler functions
+    const handleGetConsultation = () => {
+        // Navigate to contact page for consultation requests
+        console.log('Navigating to contact page...');
+        window.location.href = '/contact';
+    };
+
+    const handleViewSchedule = () => {
+        // Navigate to seasonal programs/vaccination schedule
+        console.log('Navigating to vaccination registration...');
+        window.location.href = '/services/vaccinations/registration';
+    };
+
+
+    const handleServiceClick = async (serviceIndex: number, action: string, event?: React.MouseEvent) => {
+        console.log(`Service ${serviceIndex + 1} - ${action} clicked`);
+        console.log('Event:', event);
+        console.log('Loading states:', loadingStates);
+        
+        // Set loading state
+        setLoadingStates(prev => ({ ...prev, [serviceIndex]: true }));
+        
+        try {
+            // Add analytics tracking or other functionality here
+            switch (serviceIndex) {
+                case 0: // Online Appointment Booking
+                    if (action === 'book') {
+                        console.log('Booking appointment...');
+                        if (event) {
+                            const result = handleAppointmentClick(event);
+                            console.log('Appointment click result:', result);
+                            if (!result) {
+                                // If appointment click was prevented, clear loading state
+                                setLoadingStates(prev => ({ ...prev, [serviceIndex]: false }));
+                                return;
+                            }
+                        }
+                    }
+                    break;
+                case 1: // Health Consultation Services
+                    if (action === 'consultation') {
+                        console.log('Getting consultation...');
+                        // Add a small delay for better UX
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        handleGetConsultation();
+                    }
+                    break;
+                case 2: // Seasonal Health Programs
+                    if (action === 'schedule') {
+                        console.log('Viewing schedule...');
+                        // Add a small delay for better UX
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        handleViewSchedule();
+                    }
+                    break;
+                default:
+                    console.log('Unknown service action');
+            }
+        } catch (error) {
+            console.error('Error handling service click:', error);
+        } finally {
+            // Clear loading state
+            setLoadingStates(prev => ({ ...prev, [serviceIndex]: false }));
         }
     };
 
+    const serviceData = [
+        {
+            icon: Calendar,
+            title: "Online Appointment Booking",
+            description: "Schedule medical consultations, check-ups, and other health services online without the need to visit the health center in person.",
+            features: ["24/7 Online Booking", "Real-time Availability", "Fast Confirmation", "SMS & Email Reminders"],
+            color: "from-blue-500 to-blue-600",
+            bgColor: "bg-blue-50",
+            iconColor: "text-blue-600",
+            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+        },
+        {
+            icon: FileText,
+            title: "Health Consultation Services",
+            description: "Connect with qualified healthcare professionals for online consultations, health advice, and medical guidance from the comfort of your home.",
+            features: ["Online Consultations", "Health Advice", "Medical Guidance", "Remote Care"],
+            color: "from-green-500 to-green-600",
+            bgColor: "bg-green-50",
+            iconColor: "text-green-600",
+            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+        },
+        {
+            icon: Clock,
+            title: "Seasonal Health Programs",
+            description: "Stay informed about our seasonal health programs, vaccination drives, and other community health initiatives.",
+            features: ["Program Schedules", "Vaccination Tracking", "Health Alerts", "Community Updates"],
+            color: "from-purple-500 to-purple-600",
+            bgColor: "bg-purple-50",
+            iconColor: "text-purple-600",
+            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+        }
+    ];
+
     return (
-        <section className="py-12 px-4 md:px-8 lg:px-16 bg-slate-50">
+        <section className="py-20 px-4 md:px-8 lg:px-16 bg-white">
             <div className="container mx-auto max-w-7xl">
-                <div className="text-center mb-8">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                        Our Digital Healthcare Services
+                {/* Header */}
+                <div className="text-center mb-16">
+                    <div className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-full text-sm font-medium mb-4">
+                        <Star className="w-4 h-4 mr-2" />
+                        Trusted Digital Healthcare
+                    </div>
+                    <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
+                        {title}
                     </h2>
-                    <p className="text-lg text-gray-700 max-w-3xl mx-auto leading-relaxed">
-                        Discover the range of digital services available to
-                        Barangay Calumpang residents through our health center
-                        management system.
+                    <p className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed">
+                        {subtitle}
                     </p>
                 </div>
 
+                {/* Services Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div
-                        // key={index}
-                        className="bg-white p-6 rounded-lg shadow-lg h-full border border-gray-300 flex flex-col"
-                    >
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-4">
-                            <svg
-                                className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                    {(services || serviceData).map((service, index) => {
+                        const Icon = service.icon;
+                        return (
+                            <div
+                                key={index}
+                                className={`group relative bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 flex flex-col h-full ${
+                                    hoveredCard === index ? 'ring-4 ring-blue-200' : ''
+                                }`}
+                                onMouseEnter={() => setHoveredCard(index)}
+                                onMouseLeave={() => setHoveredCard(null)}
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                ></path>
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-5">
-                            Online Appointment Booking
-                        </h3>
-                        <p className="text-gray-700 mb-4 leading-relaxed flex-grow">
-                            Schedule medical consultations, check-ups, and other
-                            health services online without the need to visit the
-                            health center in person.
-                        </p>
-                        <div className="mt-auto">
-                            <Link
-                                href="/appointments"
-                                className="inline-block px-4 py-2 text-sm font-medium text-black border border-black rounded-md hover:bg-black hover:text-white transition-colors"
-                            >
-                                Book Now
-                            </Link>
-                        </div>
-                    </div>
+                                {/* Card Header */}
+                                <div className={`${service.bgColor} p-8 relative overflow-hidden`}>
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -translate-y-16 translate-x-16"></div>
+                                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                                            <Icon className={`w-8 h-8 ${service.iconColor}`} />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors duration-300">
+                                            {service.title}
+                                        </h3>
+                                        <p className="text-gray-600 leading-relaxed">
+                                            {service.description}
+                                        </p>
+                                    </div>
+                                </div>
 
-                    <div
-                        // key={index}
-                        className="bg-white p-6 rounded-lg shadow-lg h-full border border-gray-300 flex flex-col"
-                    >
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-4">
-                            <svg
-                                className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                ></path>
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-5">
-                            Medical Records Access
-                        </h3>
-                        <p className="text-gray-700 mb-4 leading-relaxed flex-grow">
-                            Securely access your personal medical history, immunization record, and treatment plans through
-                            our digital platform.
-                        </p>
-                        <div className="mt-auto">
-                            <Link
-                                href="/patient/medical-records"
-                                className="inline-block px-4 py-2 text-sm font-medium text-black border border-black rounded-md hover:bg-black hover:text-white transition-colors"
-                            >
-                                Access Records
-                            </Link>
-                        </div>
-                    </div>
+                                {/* Card Body */}
+                                <div className="p-8 flex flex-col flex-grow">
+                                    <div className="space-y-4 mb-8 flex-grow">
+                                        <h4 className="font-semibold text-gray-900 mb-3">Key Features:</h4>
+                                        {service.features.map((feature, featureIndex) => (
+                                            <div key={featureIndex} className="flex items-center space-x-3">
+                                                <Check className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                                                <span className="text-gray-600 text-sm">{feature}</span>
+                                            </div>
+                                        ))}
+                                        
+                                        {/* Statistics Bar */}
+                                        <div className="mt-6">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-sm font-medium text-gray-700">Service Efficiency</span>
+                                                <span className="text-sm text-gray-500">
+                                                    {index === 0 ? '95%' : index === 1 ? '88%' : '92%'}
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div 
+                                                    className="h-2 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 transition-all duration-1000 ease-out"
+                                                    style={{ 
+                                                        width: index === 0 ? '95%' : index === 1 ? '88%' : '92%' 
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                    <div
-                        // key={index}
-                        className="bg-white p-6 rounded-lg shadow-lg h-full border border-gray-300 flex flex-col"
-                    >
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-4">
-                            <svg
-                                className="w-8 h-8 bg-gray-200 p-1 rounded-full"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                ></path>
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-bold mb-5">
-                            Seasonal Health Programs Schedules
-                        </h3>
-                        <p className="text-gray-700 mb-4 leading-relaxed flex-grow">
-                            Stay informed about our seasonal health programs,
-                            vaccination drives, and other community health
-                            initiatives.
-                        </p>
-                        <div className="mt-auto">
-                            <a
-                                href="#"
-                                className="inline-block px-4 py-2 text-sm font-medium text-black border border-black rounded-md hover:bg-black hover:text-white transition-colors"
-                            >
-                                View Schedule
-                            </a>
-                        </div>
-                    </div>
-                    {/* {services.map((service, index) => (
-            <div key={index} className="bg-white p-6 rounded-lg shadow-lg h-full border border-gray-300 flex flex-col">
-              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary mb-4">
-                {renderIcon(service.icon)}
-              </div>
-              <h3 className="text-xl font-bold mb-5">{service.title}</h3>
-              <p className="text-gray-700 mb-4 leading-relaxed flex-grow">{service.description}</p>
-              <div className="mt-auto">
-                <a
-                  href="#"
-                  className="inline-block px-4 py-2 text-sm font-medium text-black border border-black rounded-md hover:bg-black hover:text-white transition-colors"
-                >
-                  {service.ctaText}
-                </a>
-              </div>
-            </div>
-          ))} */}
+                                    {/* CTA Button */}
+                                    <div className="pt-4 border-t border-gray-100 mt-auto">
+                                        {index === 0 ? (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleServiceClick(index, 'book', e);
+                                                }}
+                                                disabled={isInAppointmentSession || loadingStates[index]}
+                                                className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
+                                                    isInAppointmentSession || loadingStates[index]
+                                                        ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
+                                                        : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
+                                                }`}
+                                                title={isInAppointmentSession ? 'You are already in an appointment session' : 'Book an appointment'}
+                                            >
+                                                {loadingStates[index] ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                                        Loading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {isInAppointmentSession ? 'Book Now (Active)' : 'Book Now'}
+                                                        <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                                                    </>
+                                                )}
+                                            </button>
+                                          ) : index === 1 ? (
+                                              <button
+                                                  onClick={(e) => {
+                                                      e.preventDefault();
+                                                      e.stopPropagation();
+                                                      handleServiceClick(index, 'consultation');
+                                                  }}
+                                                  disabled={loadingStates[index]}
+                                                  className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
+                                                      loadingStates[index] 
+                                                          ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
+                                                          : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
+                                                  }`}
+                                                  title="Get health consultation services"
+                                              >
+                                                  {loadingStates[index] ? (
+                                                      <>
+                                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                                          Loading...
+                                                      </>
+                                                  ) : (
+                                                      <>
+                                                          Get Consultation
+                                                          <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                                                      </>
+                                                  )}
+                                              </button>
+                                        ) : (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleServiceClick(index, 'schedule');
+                                                }}
+                                                disabled={loadingStates[index]}
+                                                className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
+                                                    loadingStates[index] 
+                                                        ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
+                                                        : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
+                                                }`}
+                                                title="View seasonal health program schedules"
+                                            >
+                                                {loadingStates[index] ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                                        Loading...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        View Schedule
+                                                        <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                                                    </>
+                                                )}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Hover Effect Overlay */}
+                                <div className={`absolute inset-0 bg-gradient-to-br ${service.color} opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none`}></div>
+                            </div>
+                        );
+                    })}
                 </div>
+
             </div>
         </section>
     );

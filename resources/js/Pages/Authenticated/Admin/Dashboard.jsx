@@ -46,6 +46,7 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
     const [activities, setActivities] = useState(notifs);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [currentTime, setCurrentTime] = useState(new Date());
 
     const [patients, setPatients] = useState({
         total: totalPatients,
@@ -97,6 +98,15 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
     useEffect(() => {
         setActivities(notifs);
     }, [auth]);
+
+    // Real-time clock effect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
 
     const refreshDashboard = async () => {
         setIsRefreshing(true);
@@ -167,6 +177,34 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
                                     <span className="text-sm font-medium">Data Synced</span>
                                 </div>
                             </div>
+                            
+                            {/* Real-time Clock */}
+                            <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Clock className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-blue-100 font-medium">Current Date & Time</p>
+                                        <p className="text-xl font-bold text-white">
+                                            {currentTime.toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-lg font-semibold text-blue-100">
+                                            {currentTime.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: true
+                                            })}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div className="flex items-center gap-4">
@@ -207,26 +245,26 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
                     transition={{ duration: 0.6, delay: 0.3 }}
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
                 >
-                    {/* Appointments Today */}
+                    {/* Total Patients */}
                     <Card className="group border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-all duration-300">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-green-700">Today's Appointments</p>
-                                    <p className="text-3xl font-bold text-green-800">{dashboardStats.appointments?.today || 0}</p>
+                                    <p className="text-sm font-medium text-green-700">Total Patients</p>
+                                    <p className="text-3xl font-bold text-green-800">{dashboardStats.patients?.total || 0}</p>
                                     <div className="flex items-center mt-2">
-                                        {dashboardStats.appointments?.growth >= 0 ? (
+                                        {dashboardStats.patients?.growth >= 0 ? (
                                             <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
                                         ) : (
                                             <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
                                         )}
-                                        <span className={`text-xs ${dashboardStats.appointments?.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {dashboardStats.appointments?.growth >= 0 ? '+' : ''}{Math.abs(dashboardStats.appointments?.growth || 0)}% from yesterday
+                                        <span className={`text-xs ${dashboardStats.patients?.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {dashboardStats.patients?.growth >= 0 ? '+' : ''}{Math.abs(dashboardStats.patients?.growth || 0)}% this month
                                         </span>
                                     </div>
                                 </div>
                                 <div className="p-3 rounded-xl bg-green-500 text-white group-hover:scale-110 transition-transform">
-                                    <Calendar className="h-6 w-6" />
+                                    <Users className="h-6 w-6" />
                                 </div>
                             </div>
                         </CardContent>

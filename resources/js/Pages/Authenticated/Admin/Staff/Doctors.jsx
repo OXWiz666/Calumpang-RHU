@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Head, Link, useForm, usePage, router } from "@inertiajs/react";
 import axios from "axios";
-import { toast } from "react-toastify";
+import { showToast } from "@/utils/toast.jsx";
+import { useArchiveConfirmation } from "@/utils/confirmation.jsx";
 import {
     Search,
     Filter,
@@ -15,6 +16,14 @@ import {
     ChevronLeft,
     ChevronRight,
     UsersRound,
+    Stethoscope,
+    Edit,
+    Trash2,
+    Eye,
+    MoreHorizontal,
+    UserPlus,
+    Archive,
+    ArchiveRestore,
 } from "lucide-react";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
@@ -32,8 +41,7 @@ import {
     TableRow,
     TableCell,
     TableCaption,
-    SortableTable,
-    SortableTableHead,
+    TableHead,
 } from "@/components/tempo/components/ui/table2";
 import {
     Select,
@@ -44,6 +52,7 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 import Modal2 from "@/components/CustomModal";
+import EditDoctorModal from "./EditDoctorModal";
 
 import AdminLayout from "@/Layouts/AdminLayout";
 import PrimaryButton from "@/components/PrimaryButton";
@@ -66,66 +75,45 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/tempo/components/ui/card";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/tempo/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/tempo/components/ui/alert-dialog";
 
 import Sidebar from "./Sidebar";
 
 import StaffLayout from "./StaffLayout";
-// Helper function for toast notifications
-const enhanced_toast = (title, message, type) => {
-    toast[type](message, {
-        position: "top-right",
-        autoClose: 5000, // Longer display time
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        className: `custom-toast custom-toast-${type}`,
-        bodyClassName: "custom-toast-body",
-        progressClassName: "custom-toast-progress",
-        icon: type === "success" ? "✅" : type === "error" ? "❌" : "ℹ️",
-        style: {
-            borderRadius: "8px",
-            padding: "12px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        },
-    });
-};
 
 export default function Doctors({ doctorsitems, doctors, questions }) {
     const { flash } = usePage().props;
     const [isLoading, setIsLoading] = useState(false);
     const [isArchiveLoading, setIsArchiveLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedDoctor, setSelectedDoctor] = useState(null);
+    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
 
-    // Enhanced toast notification function
-    const enhanced_toast = (title, message, icon) => {
-        toast(
-            <div className="flex">
-                <div className="ml-4">
-                    <p className="font-bold">{title}</p>
-                    <p>{message}</p>
-                </div>
-            </div>,
-            {
-                position: "top-right",
-                autoClose: 5000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                progress: undefined,
-                theme: "light",
-            }
-        );
-    };
     
     // This section was removed to fix duplicate declarations
     
     // Handle flash messages from the server
     useEffect(() => {
         if (flash && flash.message) {
-            enhanced_toast(flash.title, flash.message, flash.icon);
+            showToast(flash.title, flash.message, flash.icon);
         }
     }, [flash]);
 
@@ -168,6 +156,21 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
         clearErrors();
         reset();
     };
+
+    const openEditModal = (doctor) => {
+        setSelectedDoctor(doctor);
+        setIsEditModalOpen(true);
+    };
+
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedDoctor(null);
+    };
+
+    const handleEditSuccess = (updatedDoctor) => {
+        // Refresh the page or update the doctor in the list
+        window.location.reload();
+    };
     const [showPositionDropdown, setShowPositionDropdown] = useState(false);
     const [showSecurityDropdown, setShowSecurityDropdown] = useState(false);
     const [selectedPosition, setSelectedPosition] = useState("");
@@ -179,10 +182,11 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
         post(route("admin.register.doctor"), {
             onSuccess: (r) => {
                 CloseModal();
-                enhanced_toast(
+                showToast(
                     "Success!",
                     "Doctor has been registered successfully!",
-                    "success"
+                    "success",
+                    "create"
                 );
                 router.reload({
                     only: ["auth"],
@@ -191,8 +195,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
             },
         });
     };
-    // State for the selected doctor and status
-    const [selectedDoctor, setSelectedDoctor] = useState(null);
+    // State for the selected status
     const [selectedStatus, setSelectedStatus] = useState(1);
 
     // Function to open the status change modal
@@ -230,10 +233,11 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
             {
                 onSuccess: (res) => {
                     CloseModalView();
-                    enhanced_toast(
+                    showToast(
                         "Success!",
                         "Doctor status updated successfully",
-                        "success"
+                        "success",
+                        "update"
                     );
                 },
             }
@@ -268,158 +272,134 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
         });
     };
 
-    // Custom Confirmation Dialog Component
-    const ConfirmationDialog = () => {
-        if (!confirmDialog.isOpen) return null;
-        
-        const isArchive = confirmDialog.type === 'archive';
-        
-        return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-                {/* Backdrop */}
-                <div 
-                    className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
-                    onClick={closeConfirmDialog}
-                ></div>
-                
-                {/* Dialog */}
-                <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden transform transition-all">
-                    {/* Header */}
-                    <div className={`px-6 py-4 border-b ${isArchive ? 'bg-red-50 dark:bg-red-900/20 border-red-100' : 'bg-blue-50 dark:bg-blue-900/20 border-blue-100'}`}>
-                        <h3 className={`text-lg font-medium ${isArchive ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'} flex items-center`}>
-                            {isArchive ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                            )}
-                            {confirmDialog.title}
-                        </h3>
-                    </div>
-                    
-                    {/* Body */}
-                    <div className="px-6 py-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{confirmDialog.message}</p>
-                    </div>
-                    
-                    {/* Footer */}
-                    <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 flex justify-end space-x-2">
-                        <button
-                            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                            onClick={closeConfirmDialog}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${isArchive ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'}`}
-                            onClick={() => {
-                                if (confirmDialog.onConfirm) {
-                                    confirmDialog.onConfirm();
-                                }
-                                closeConfirmDialog();
-                            }}
-                        >
-                            {isArchive ? 'Archive' : 'Unarchive'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     // Function to archive a doctor account with enhanced feedback
     const archiveDoctor = (doctor) => {
         const doctorName = `${doctor.user?.firstname} ${doctor.user?.lastname}`;
         
-        // Show loading toast
-        const loadingToastId = toast.loading(`Archiving ${doctorName}'s account...`, {
-            position: "top-right",
-        });
-        
-        // Set loading state
-        setIsArchiveLoading(true);
-        
-        axios.post(route("admin.staff.archive"), { staff_id: doctor.id })
-            .then(response => {
-                // Dismiss loading toast
-                toast.dismiss(loadingToastId);
-                
-                // Show success toast
-                enhanced_toast(
-                    "Account Archived",
-                    `${doctorName}'s account has been archived successfully.`,
-                    "success"
-                );
-                
-                // Reload the page to show updated data
-                window.location.reload();
-            })
-            .catch(error => {
-                // Dismiss loading toast
-                toast.dismiss(loadingToastId);
-
-                // Show error toast
-                enhanced_toast(
-                    "Archive Failed",
-                    `There was a problem archiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
-                    "error"
-                );
-                
-                console.error('Error archiving staff:', error);
-            })
-            .finally(() => {
-                // Reset loading state
-                setIsArchiveLoading(false);
+        confirmArchive(doctorName, () => {
+            // Show loading toast
+            const loadingToastId = toast.loading(`Archiving ${doctorName}'s account...`, {
+                position: "top-right",
             });
+            
+            // Set loading state
+            setIsArchiveLoading(true);
+            
+            axios.post(route("admin.staff.archive"), { staff_id: doctor.id })
+                .then(response => {
+                    // Dismiss loading toast
+                    toast.dismiss(loadingToastId);
+                    
+                    // Show success toast
+                    showToast(
+                        "Account Archived",
+                        `${doctorName}'s account has been archived successfully.`,
+                        "success",
+                        "archive"
+                    );
+                    
+                    // Reload the page to show updated data
+                    window.location.reload();
+                })
+                .catch(error => {
+                    // Dismiss loading toast
+                    toast.dismiss(loadingToastId);
+
+                    // Show error toast
+                    showToast(
+                        "Archive Failed",
+                        `There was a problem archiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
+                        "error"
+                    );
+                    
+                    console.error('Error archiving staff:', error);
+                })
+                .finally(() => {
+                    // Reset loading state
+                    setIsArchiveLoading(false);
+                });
+        });
     };
 
     // Function to unarchive a doctor account with enhanced feedback
     const unarchiveDoctor = (doctor) => {
         const doctorName = `${doctor.user?.firstname} ${doctor.user?.lastname}`;
         
-        // Show loading toast
-        const loadingToastId = toast.loading(`Unarchiving ${doctorName}'s account...`, {
-            position: "top-right",
-        });
-        
-        // Set loading state
-        setIsArchiveLoading(true);
-        
-        axios.post(route("admin.staff.unarchive"), { staff_id: doctor.id })
-            .then(response => {
-                // Dismiss loading toast
-                toast.dismiss(loadingToastId);
-                
-                // Show success toast
-                enhanced_toast(
-                    "Account Unarchived",
-                    `${doctorName}'s account has been unarchived successfully.`,
-                    "success"
-                );
-                
-                // Reload the page to show updated data
-                window.location.reload();
-            })
-            .catch(error => {
-                // Dismiss loading toast
-                toast.dismiss(loadingToastId);
-
-                // Show error toast
-                enhanced_toast(
-                    "Unarchive Failed",
-                    `There was a problem unarchiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
-                    "error"
-                );
-                
-                console.error('Error unarchiving staff:', error);
-            })
-            .finally(() => {
-                // Reset loading state
-                setIsArchiveLoading(false);
+        confirmUnarchive(doctorName, () => {
+            // Show loading toast
+            const loadingToastId = toast.loading(`Unarchiving ${doctorName}'s account...`, {
+                position: "top-right",
             });
+            
+            // Set loading state
+            setIsArchiveLoading(true);
+            
+            axios.post(route("admin.staff.unarchive"), { staff_id: doctor.id })
+                .then(response => {
+                    // Dismiss loading toast
+                    toast.dismiss(loadingToastId);
+                    
+                    // Show success toast
+                    showToast(
+                        "Account Unarchived",
+                        `${doctorName}'s account has been unarchived successfully.`,
+                        "success",
+                        "unarchive"
+                    );
+                    
+                    // Reload the page to show updated data
+                    window.location.reload();
+                })
+                .catch(error => {
+                    // Dismiss loading toast
+                    toast.dismiss(loadingToastId);
+
+                    // Show error toast
+                    showToast(
+                        "Unarchive Failed",
+                        `There was a problem unarchiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
+                        "error"
+                    );
+                    
+                    console.error('Error unarchiving staff:', error);
+                })
+                .finally(() => {
+                    // Reset loading state
+                    setIsArchiveLoading(false);
+                });
+        });
+    };
+
+    const handleExport = () => {
+        const csvContent = [
+            ['Doctor ID', 'Name', 'Specialization', 'Email', 'Contact', 'Status', 'Created At'],
+            ...doctorsitems.map(doctor => [
+                `DOC-${doctor.id}`,
+                `${doctor.user?.firstname} ${doctor.user?.lastname}`,
+                doctor.specialty?.specialty || 'Not Set',
+                doctor.user?.email,
+                doctor.user?.contactno || 'Not provided',
+                doctor.status === 1 ? 'Available' : 
+                doctor.status === 2 ? 'Inactive' : 
+                doctor.status === 3 ? 'On Leave' : 
+                doctor.status === 4 ? 'In Consultation' : 
+                doctor.status === 5 ? 'Archived' : 'Unknown',
+                new Date(doctor.user?.created_at).toLocaleDateString()
+            ])
+        ].map(row => row.join(',')).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `doctors_export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showToast("Success!", "Doctors exported successfully!", "success", "export");
     };
     
     const getStatusBadge = (doctor) => {
@@ -430,51 +410,40 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
         switch (status) {
             case 1:
                 return (
-                    <Badge
-                        variant="solid"
-                        className="bg-green-500 text-white rounded-full px-4 py-2 text-sm font-semibold"
-                    >
+                    <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                         Available
                     </Badge>
                 );
             case 2:
                 return (
-                    <Badge
-                        variant="outline"
-                        className="text-gray-600 bg-gray-100 border border-gray-300 rounded-full px-4 py-2 text-sm font-semibold"
-                    >
+                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
                         Inactive
                     </Badge>
                 );
             case 3:
                 return (
-                    <Badge
-                        variant="outline"
-                        className="text-amber-700 bg-amber-200 border border-amber-300 rounded-full px-4 py-2 text-sm font-semibold"
-                    >
+                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
                         On Leave
                     </Badge>
                 );
             case 4:
                 return (
-                    <Badge
-                        variant="outline"
-                        className="text-blue-700 bg-blue-200 border border-blue-300 rounded-full px-4 py-2 text-sm font-semibold"
-                    >
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">
                         In Consultation
                     </Badge>
                 );
             case 5:
                 return (
-                    <Badge
-                        variant="outline"
-                        className="text-red-700 bg-red-100 border border-red-300 rounded-full px-4 py-2 text-sm font-semibold"
-                    >
+                    <Badge className="bg-red-100 text-red-800 hover:bg-red-200">
                         Archived
                     </Badge>
                 );
             default:
-                return null;
+                return (
+                    <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">
+                        Unknown
+                    </Badge>
+                );
         }
     };
 
@@ -487,160 +456,180 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
 
     return (
         <StaffLayout>
+            <div className="space-y-8">
+                {/* Page Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    <h1 className="text-4xl font-bold text-gray-900 mb-3">Doctors</h1>
+                    <p className="text-lg text-gray-600">
+                        Manage medical professionals and their availability
+                    </p>
+                </motion.div>
+
+                <div className="flex flex-col xl:flex-row gap-8">
+                    <Sidebar activeTab={"doctors"} />
+                    
+                    <div className="flex-1 space-y-8">
+                        {/* Quick Actions */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.1 }}
+                        >
+                            <Card className="shadow-lg border-0">
+                                <CardHeader>
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-                <h1 className="text-3xl font-bold mb-2">Doctors</h1>
-                {/* <p className="text-gray-600">
-                            Book your visit to Barangay Calumpang Health Center.
-                            Please fill out the form below with your information
-                            and preferred appointment details.
-                        </p> */}
-                <p className="text-muted-foreground"></p>
-            </div>
-            <div className="flex flex-col md:flex-row gap-6">
-                <Sidebar activeTab={"doctors"} />
-                <div className=" bg-accent  rounded-lg shadow-sm p-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 className="text-xl font-semibold text-primary">
-                            {/* Doctors */}
-                        </h2>
-                        <div className="flex flex-wrap items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">
-                                    Filter by:
-                                </span>
+                                            <CardTitle className="text-2xl font-bold text-gray-900">All Doctors</CardTitle>
+                                            <CardDescription className="text-gray-600 mt-1">
+                                                Manage and configure doctor profiles
+                                            </CardDescription>
+                                        </div>
                             </div>
+                                </CardHeader>
+                            </Card>
+                        </motion.div>
 
+                        {/* Filters and Search */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                        >
+                            <Card className="shadow-lg border-0">
+                                <CardContent className="p-6">
+                                    <div className="flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1">
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                                <Input
+                                                    placeholder="Search doctors..."
+                                                    className="pl-10 border-2 focus:border-green-500"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Filter className="h-4 w-4 text-gray-500" />
                             <Select>
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Status" />
+                                                <SelectTrigger className="w-[180px] border-2">
+                                                    <SelectValue placeholder="Filter by status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">
-                                        All Statuses
-                                    </SelectItem>
-                                    <SelectItem value="In Stock">
-                                        In Stock
-                                    </SelectItem>
-                                    <SelectItem value="Low Stock">
-                                        Low Stock
-                                    </SelectItem>
-                                    <SelectItem value="Out of Stock">
-                                        Out of Stock
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                            // value={categoryFilter}
-                            // onValueChange={setCategoryFilter}
-                            >
-                                <SelectTrigger className="w-[150px]">
-                                    <SelectValue placeholder="Category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Categories
-                                    </SelectItem>
-                                    <SelectItem value="Medication">
-                                        Medication
-                                    </SelectItem>
-                                    <SelectItem value="Supplies">
-                                        Supplies
-                                    </SelectItem>
-                                    <SelectItem value="Equipment">
-                                        Equipment
-                                    </SelectItem>
+                                                    <SelectItem value="all">All Statuses</SelectItem>
+                                                    <SelectItem value="1">Available</SelectItem>
+                                                    <SelectItem value="2">Inactive</SelectItem>
+                                                    <SelectItem value="3">On Leave</SelectItem>
+                                                    <SelectItem value="4">In Consultation</SelectItem>
+                                                    <SelectItem value="5">Archived</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
 
-                    <div className="rounded-md border text-sm">
-                        <SortableTable
-                            data={doctorsitems}
-                            defaultSort={{
-                                key: "user.firstname",
-                                direction: "asc",
-                            }}
+                        {/* Doctors Table */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.3 }}
                         >
-                            {({ sortedData }) => (
+                            <Card className="shadow-lg border-0 overflow-hidden">
+                                <CardContent className="p-0">
+                                    <div className="overflow-x-auto">
                                 <Table>
-                                    <TableHeader>
+                                            <TableHeader className="bg-gray-50">
                                         <TableRow>
-                                            <SortableTableHead
-                                                sortKey="id"
-                                                sortable
-                                            >
-                                                ID
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                sortKey="user.firstname"
-                                                sortable
-                                            >
-                                                Fullname
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                sortKey="specialty.specialty"
-                                                sortable
-                                            >
-                                                Specialization
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                sortKey="user.contactno"
-                                                sortable
-                                            >
-                                                Contact Information
-                                            </SortableTableHead>
-                                            <SortableTableHead
-                                                sortKey="status"
-                                                sortable
-                                            >
-                                                Availability Status
-                                            </SortableTableHead>
-                                            <SortableTableHead sortable>
-                                                Action
-                                            </SortableTableHead>
+                                                    <TableHead>ID</TableHead>
+                                                    <TableHead>Doctor</TableHead>
+                                                    <TableHead>Specialization</TableHead>
+                                                    <TableHead>Contact Information</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {sortedData.map((d) => (
-                                            <TableRow key={d.id}>
+                                                {doctorsitems.map((d) => (
+                                                    <TableRow key={d.id} className="hover:bg-gray-50 transition-colors">
                                                 <TableCell>
-                                                    DOC - {d.id}
+                                                            <div className="font-medium text-gray-900">
+                                                                DOC-{d.id}
+                                                            </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {d.user?.firstname}{" "}
-                                                    {d.user?.lastname}
+                                                            <div className="flex items-center gap-3">
+                                                                <Avatar className="h-10 w-10">
+                                                                    <AvatarFallback className="bg-green-100 text-green-700 font-semibold">
+                                                                        {d.user?.firstname?.charAt(0)}{d.user?.lastname?.charAt(0)}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div>
+                                                                    <div className="font-semibold text-gray-900">
+                                                                        {d.user?.firstname} {d.user?.lastname}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-500">
+                                                                        Doctor
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {d.specialty?.specialty ??
-                                                        "Not Set"}
+                                                            <div className="text-sm text-gray-700">
+                                                                {d.specialty?.specialty || "Not Set"}
+                                                            </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {d.user?.contactno} |{" "}
-                                                    {d.user?.email}
+                                                            <div className="text-sm text-gray-700">
+                                                                <div>{d.user?.contactno || 'Not provided'}</div>
+                                                                <div className="text-gray-500">{d.user?.email}</div>
+                                                            </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     {getStatusBadge(d)}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex gap-2">
-                                                        <PrimaryButton
-                                                            className="h-8 px-3 text-xs shadow-sm flex items-center justify-center rounded-md"
-                                                            onClick={() =>
-                                                                openStatusModal(d)
-                                                            }
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                            </svg>
-                                                            Edit
-                                                        </PrimaryButton>
-                                                        
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 w-8 p-0 hover:bg-green-100 hover:text-green-600"
+                                                                    onClick={() => openStatusModal(d)}
+                                                                    title="Edit status"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-8 w-8 p-0 hover:bg-gray-100"
+                                                                        >
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                        <DropdownMenuSeparator />
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => openEditModal(d)}
+                                                                        >
+                                                                            <Edit className="h-4 w-4 mr-2" />
+                                                                            Edit Doctor
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => openStatusModal(d)}
+                                                                        >
+                                                                            <Edit className="h-4 w-4 mr-2" />
+                                                                            Edit Status
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuSeparator />
                                                         {d.status === 5 ? (
-                                                            <PrimaryButton
-                                                                className="h-8 px-3 bg-green-600 hover:bg-green-700 text-xs shadow-sm flex items-center justify-center rounded-md"
+                                                                            <DropdownMenuItem
                                                                 onClick={() =>
                                                                     openConfirmDialog(
                                                                         "Unarchive Doctor",
@@ -649,16 +638,13 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                                         'unarchive'
                                                                     )
                                                                 }
+                                                                                className="text-green-600"
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                                </svg>
+                                                                                <ArchiveRestore className="h-4 w-4 mr-2" />
                                                                 Unarchive
-                                                            </PrimaryButton>
+                                                                            </DropdownMenuItem>
                                                         ) : (
-                                                            <>
-                                                                <PrimaryButton
-                                                                    className="h-8 px-3 bg-red-600 hover:bg-red-700 text-xs shadow-sm flex items-center justify-center rounded-md"
+                                                                            <DropdownMenuItem
                                                                     onClick={() =>
                                                                         openConfirmDialog(
                                                                             "Archive Doctor",
@@ -667,35 +653,43 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                                             'archive'
                                                                         )
                                                                     }
+                                                                                className="text-red-600"
                                                                 >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                                                    </svg>
+                                                                                <Archive className="h-4 w-4 mr-2" />
                                                                     Archive
-                                                                </PrimaryButton>
-                                                            </>
+                                                                            </DropdownMenuItem>
                                                         )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
-                            )}
-                        </SortableTable>
                     </div>
-                    <CardFooter className=" mt-2">
-                        <div className="text-sm text-muted-foreground">
-                            Showing {doctors.from} to {doctors.to} of{" "}
-                            {doctors.total} Results
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+
+                        {/* Pagination */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                        >
+                            <Card className="shadow-lg border-0">
+                                <CardContent className="p-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                        <div className="text-sm text-gray-600">
+                                            Showing {doctors.from} to {doctors.to} of {doctors.total} Results
                         </div>
-                        <div className="flex ml-2 space-x-2">
+                                        
+                                        <div className="flex items-center gap-2">
                             {links.map((link, index) => (
                                 <Button
                                     key={index}
-                                    variant={
-                                        link.active ? "default" : "outline"
-                                    }
+                                                    variant={link.active ? "default" : "outline"}
                                     size="sm"
                                     disabled={!link.url || link.active}
                                     onClick={() => {
@@ -714,7 +708,11 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                 </Button>
                             ))}
                         </div>
-                    </CardFooter>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    </div>
                 </div>
             </div>
             <Modal2 isOpen={view} maxWidth="sm" onClose={CloseModalView}>
@@ -764,6 +762,14 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                 </div>
             </Modal2>
             <ConfirmationDialog />
+
+            {/* Edit Doctor Modal */}
+            <EditDoctorModal
+                doctor={selectedDoctor}
+                isOpen={isEditModalOpen}
+                onClose={closeEditModal}
+                onSuccess={handleEditSuccess}
+            />
         </StaffLayout>
     );
 }

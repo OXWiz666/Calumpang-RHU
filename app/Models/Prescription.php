@@ -12,6 +12,7 @@ class Prescription extends Model
 
     protected $fillable = [
         'patient_id',
+        'patient_name',
         'doctor_id',
         'medical_record_id',
         'prescription_date',
@@ -30,7 +31,56 @@ class Prescription extends Model
     // Relationships
     public function patient()
     {
-        return $this->belongsTo(User::class, 'patient_id');
+        // Since patient_id is now a string (Patient Records ID), we don't have a direct relationship
+        // The patient information is stored in the appointments table
+        return null;
+    }
+    
+    // Get patient information from appointments table
+    public function getPatientInfo()
+    {
+        // Extract patient name from patient_id format: PAT_KEV_JUM_20251006
+        if (preg_match('/^PAT_([A-Z]{3})_([A-Z]{3})_(\d{8})$/', $this->patient_id, $matches)) {
+            $firstName = $matches[1];
+            $lastName = $matches[2];
+            $date = $matches[3];
+            
+            // Find the appointment record for this patient
+            $appointment = \App\Models\appointments::whereNull('user_id')
+                ->where('firstname', 'like', $firstName . '%')
+                ->where('lastname', 'like', $lastName . '%')
+                ->whereDate('created_at', \Carbon\Carbon::createFromFormat('Ymd', $date))
+                ->first();
+                
+            if ($appointment) {
+                // Calculate age from date of birth
+                $age = 'N/A';
+                if ($appointment->date_of_birth) {
+                    $birthDate = \Carbon\Carbon::parse($appointment->date_of_birth);
+                    $age = $birthDate->age;
+                }
+
+                return [
+                    'first_name' => $appointment->firstname,
+                    'last_name' => $appointment->lastname,
+                    'middle_name' => $appointment->middlename,
+                    'date_of_birth' => $appointment->date_of_birth ?: 'N/A',
+                    'age' => $age,
+                    'gender' => $appointment->gender ?: 'N/A',
+                    'contact_number' => $appointment->phone ?: 'N/A'
+                ];
+            }
+        }
+        
+        return [
+            'first_name' => 'N/A',
+            'last_name' => 'N/A',
+            'middle_name' => 'N/A',
+            'date_of_birth' => 'N/A',
+            'age' => 'N/A',
+            'gender' => 'N/A',
+            'contact_number' => 'N/A'
+        ];
     }
 
     public function doctor()

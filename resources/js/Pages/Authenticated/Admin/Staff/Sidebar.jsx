@@ -22,6 +22,7 @@ import {
     Shield,
     ShieldPlus,
     SquareKanban,
+    Pill,
 } from "lucide-react";
 import LandingLayout from "@/Layouts/LandingLayout";
 import { Head, useForm, router, usePage } from "@inertiajs/react";
@@ -69,7 +70,7 @@ export default function Sidebar({ activeTab }) {
                                 }
                                 className="w-full justify-start"
                                 size="lg"
-                                onClick={(e) => router.visit("/appointments")}
+                                onClick={(e) => router.visit(route("admin.staff.admins"))}
                             >
                                 <Shield className="mr-2 h-5 w-5" />
                                 Admins
@@ -88,8 +89,23 @@ export default function Sidebar({ activeTab }) {
                                 }
                             >
                                 <Stethoscope className="mr-2 h-5 w-5" />
-                                {/* <Pill className="mr-2 h-5 w-5" /> */}
                                 Doctors
+                            </Button>
+
+                            <Button
+                                variant={
+                                    activeTab === "pharmacists"
+                                        ? "secondary"
+                                        : "ghost"
+                                }
+                                className="w-full justify-start"
+                                size="lg"
+                                onClick={(e) =>
+                                    router.visit(route("admin.staff.pharmacists"))
+                                }
+                            >
+                                <Pill className="mr-2 h-5 w-5" />
+                                Pharmacists
                             </Button>
                         </div>
                     </CardContent>

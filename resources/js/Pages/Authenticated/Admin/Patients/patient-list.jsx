@@ -28,7 +28,7 @@ import { router } from "@inertiajs/react";
 //   onSelectPatient: (patient: Patient) => void
 // }
 
-export default function PatientList({ patients, onSelectPatient }) {
+export default function PatientList({ patients, onSelectPatient, isGuestPatients = false }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [genderFilter, setGenderFilter] = useState("all");
@@ -40,12 +40,19 @@ export default function PatientList({ patients, onSelectPatient }) {
     const filteredPatients = patients.filter((patient) => {
         const matchesSearch =
             patient?.firstname
-                .toLowerCase()
+                ?.toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
             patient?.lastname
-                .toLowerCase()
+                ?.toLowerCase()
+                .includes(searchTerm.toLowerCase()) ||
+            patient?.middlename
+                ?.toLowerCase()
+                .includes(searchTerm.toLowerCase()) ||
+            patient?.email
+                ?.toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
             patient?.contactno?.toString().toLowerCase().includes(searchTerm) ||
+            patient?.phone?.toString().toLowerCase().includes(searchTerm) ||
             patient?.id?.toString().includes(searchTerm);
 
         const matchesStatus =
@@ -53,7 +60,8 @@ export default function PatientList({ patients, onSelectPatient }) {
 
         const matchesGender =
             genderFilter === "all" ||
-            patient?.gender?.toLowerCase() == genderFilter;
+            patient?.gender?.toLowerCase() == genderFilter ||
+            patient?.sex?.toLowerCase() == genderFilter;
 
         //console.log("filter:", matchesGender);
 
@@ -144,40 +152,52 @@ export default function PatientList({ patients, onSelectPatient }) {
                         className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center gap-3 rounded-lg border px-4 py-3 hover:shadow-sm transition bg-white hover:bg-accent/30"
                     >
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-full flex items-center justify-center font-semibold shrink-0 bg-primary/10 text-primary">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold shrink-0 ${
+                                isGuestPatients ? 'bg-blue-100 text-blue-600' : 'bg-primary/10 text-primary'
+                            }`}>
                                 {`${patient?.firstname?.[0] ?? ''}${patient?.lastname?.[0] ?? ''}`}
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <div className="font-medium truncate text-gray-900">
-                                        {patient?.firstname} {patient?.lastname}
+                                        {patient?.firstname} {patient?.middlename} {patient?.lastname}
                                     </div>
-                                    {patient?.gender && (
-                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0.5"> 
-                                            {patient.gender.toLowerCase() === 'm' ? 'Male' : patient.gender.toLowerCase() === 'f' ? 'Female' : patient.gender}
-                                        </Badge>
-                                    )}
-                                </div>
-                                <div className="text-xs truncate text-muted-foreground">
-                                    ID: {patient.id} • Age: {calculateAge(patient.birth)} • Joined {moment(patient?.created_at).format("MM-DD-yyyy")}
+                                    <div className="flex gap-1">
+                                        {(patient?.gender || patient?.sex) && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5"> 
+                                                {(patient.gender || patient.sex)?.toLowerCase() === 'm' ? 'Male' : 
+                                                 (patient.gender || patient.sex)?.toLowerCase() === 'f' ? 'Female' : 
+                                                 (patient.gender || patient.sex)}
+                                            </Badge>
+                                        )}
+                                        {isGuestPatients && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-600 border-blue-200">
+                                                Patient
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <Phone className="h-4 w-4" />
-                            <span className="truncate w-[160px]">{patient?.contactno || 'Not Set'}</span>
+                            <span className="truncate w-[160px]">{patient?.contactno || patient?.phone || 'Not Set'}</span>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <MapPin className="h-4 w-4" />
-                            <span className="truncate w-[220px]">{patient?.address ?? 'Not Set'}</span>
+                            <span className="truncate w-[220px]">{patient?.email || 'Not Set'}</span>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <Calendar className="h-4 w-4" />
                             <span className="truncate w-[140px]">
-                                {(() => {
-                                    const lv = patient?.lastVisit ?? patient?.last_visit ?? patient?.lastvisit;
-                                    return lv ? moment(lv).format('MM-DD-YYYY') : 'Not Set';
-                                })()}
+                                {isGuestPatients ? (
+                                    `Appointments: ${patient?.appointment_count || 1}`
+                                ) : (
+                                    (() => {
+                                        const lv = patient?.lastVisit ?? patient?.last_visit ?? patient?.lastvisit;
+                                        return lv ? moment(lv).format('MM-DD-YYYY') : 'Not Set';
+                                    })()
+                                )}
                             </span>
                         </div>
                         <div className="hidden md:flex shrink-0 justify-center">
@@ -190,7 +210,7 @@ export default function PatientList({ patients, onSelectPatient }) {
                         </div>
                         <div className="flex md:justify-end shrink-0">
                             <Button
-                                onClick={() => router.visit(route('patients.details.view', { id: patient?.id }))}
+                                onClick={() => onSelectPatient(patient)}
                                 variant="outline"
                                 className="h-8 px-3 text-xs"
                             >

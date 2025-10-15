@@ -1,55 +1,8 @@
-import { useState, FormEvent } from "react";
-import { usePage, useForm, router } from "@inertiajs/react";
 import LandingLayout from "@/Layouts/LandingLayout";
-
-import PrintErrors from "@/components/PrintErrors";
+import { useAppointmentSession } from "@/hooks/useAppointmentSession";
 const ContactSection = () => {
-    const { props } = usePage();
-    const { flash, errors } = props;
+    const { handleAppointmentClick } = useAppointmentSession();
 
-    const [formData, setFormData] = useState({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
-    });
-
-    const {
-        data: messageData,
-        setData: messageSetData,
-        post: messagePost,
-        processing: messageProcess,
-        recentlySuccessful: messageRecentSuccess,
-        errors: messageErrors,
-    } = useForm({
-        user_id: props.auth?.user?.id,
-        subject: "",
-        message: "",
-    });
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        messageSetData((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-
-        messagePost(route("patient.landing.sendmessage"), {
-            onError: () => {},
-            onFinish: () => {
-                router.reload({
-                    only: ["flash"],
-                    preserveScroll: true,
-                });
-            },
-        });
-        // Handle form submission with Inertia
-        // router.post('/contact', formData);
-    };
 
     return (
         <LandingLayout>
@@ -181,226 +134,114 @@ const ContactSection = () => {
                             </div>
                         </div>
 
-                        {/* Contact Form */}
+                        {/* Quick Contact Options */}
                         <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-sm border border-gray-100 relative overflow-hidden group">
                             {/* Decorative Elements */}
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-100 via-gray-900 to-gray-100" />
-                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gray-900 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700" />
-                            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-gray-900 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700" />
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-100 via-gray-900 to-gray-100"></div>
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-gray-900 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700"></div>
+                            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-gray-900 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700"></div>
 
                             <h3 className="text-2xl font-semibold text-gray-900 mb-6 relative">
                                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
-                                    Send us a messages
+                                    Get in Touch
                                 </span>
-                                <div className="absolute -bottom-2 left-0 w-12 h-1 bg-gray-900 rounded-full" />
+                                <div className="absolute -bottom-2 left-0 w-12 h-1 bg-gray-900 rounded-full"></div>
                             </h3>
 
-                            <PrintErrors errors={messageErrors} />
+                            <p className="text-gray-600 mb-8 text-lg">
+                                Choose the most convenient way to reach us. We're here to help with your healthcare needs.
+                            </p>
 
-                            {errors && Object.keys(errors).length > 0 && (
-                                <div className="mb-6 transform transition-all duration-300 hover:scale-[1.02]">
-                                    <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-transparent opacity-50" />
-                                        <div className="relative">
-                                            <ul className="list-disc list-inside text-sm text-red-700">
-                                                {Object.entries(errors).map(
-                                                    ([field, message]) => (
-                                                        <li
-                                                            key={field}
-                                                            className="flex items-center space-x-2"
-                                                        >
-                                                            <svg
-                                                                className="h-4 w-4 text-red-500 flex-shrink-0"
-                                                                xmlns="http://www.w3.org/2000/svg"
-                                                                viewBox="0 0 20 20"
-                                                                fill="currentColor"
-                                                            >
-                                                                <path
-                                                                    fillRule="evenodd"
-                                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                                                    clipRule="evenodd"
-                                                                />
-                                                            </svg>
-                                                            <span>
-                                                                {message}
-                                                            </span>
-                                                        </li>
-                                                    )
-                                                )}
-                                            </ul>
+                            {/* Quick Contact Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                {/* Call Us */}
+                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+                                    <div className="flex items-center mb-4">
+                                        <div className="bg-primary/10 p-3 rounded-full mr-4 group-hover:scale-110 transition-transform">
+                                            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-gray-900">Call Us</h4>
+                                            <p className="text-sm text-gray-600">Speak directly with our staff</p>
                                         </div>
                                     </div>
-                                </div>
-                            )}
-
-                            <form onSubmit={handleSubmit} className="space-y-6">
-                                <div className="grid grid-cols-1 gap-6">
-                                    <div className="relative group">
-                                        <label
-                                            htmlFor="name"
-                                            className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-gray-900 transition-colors"
-                                        >
-                                            Full Name
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <svg
-                                                    className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                id="name"
-                                                name="name"
-                                                value={`${props.auth?.user?.firstname} ${props.auth?.user?.lastname}`}
-                                                onChange={handleChange}
-                                                disabled
-                                                placeholder="Your name"
-                                                className="pl-10 w-full rounded-lg border-gray-300 bg-white/70 focus:bg-white py-3 text-gray-900 shadow-sm transition-all duration-300
-                      focus:ring-2 focus:ring-gray-900 focus:border-transparent hover:border-gray-400 backdrop-blur-sm"
-                                            />
-                                            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-gray-900 to-gray-800 opacity-0 group-hover:opacity-[0.02] transition-opacity pointer-events-none"></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative group">
-                                        <label
-                                            htmlFor="email"
-                                            className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-gray-900 transition-colors"
-                                        >
-                                            Email Address
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <svg
-                                                    className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                                                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                                                </svg>
-                                            </div>
-                                            <input
-                                                type="email"
-                                                id="email"
-                                                name="email"
-                                                value={props.auth?.user?.email}
-                                                onChange={handleChange}
-                                                disabled
-                                                placeholder="you@example.com"
-                                                className="pl-10 w-full rounded-lg border-gray-300 bg-white/70 focus:bg-white py-3 text-gray-900 shadow-sm transition-all duration-300
-                      focus:ring-2 focus:ring-gray-900 focus:border-transparent hover:border-gray-400 backdrop-blur-sm"
-                                            />
-                                            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-gray-900 to-gray-800 opacity-0 group-hover:opacity-[0.02] transition-opacity pointer-events-none"></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative group">
-                                        <label
-                                            htmlFor="subject"
-                                            className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-gray-900 transition-colors"
-                                        >
-                                            Subject
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <svg
-                                                    className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                id="subject"
-                                                name="subject"
-                                                value={messageData.subject}
-                                                onChange={handleChange}
-                                                placeholder="Message subject"
-                                                className="pl-10 w-full rounded-lg border-gray-300 bg-white/70 focus:bg-white py-3 text-gray-900 shadow-sm transition-all duration-300
-                      focus:ring-2 focus:ring-gray-900 focus:border-transparent hover:border-gray-400 backdrop-blur-sm"
-                                            />
-                                            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-gray-900 to-gray-800 opacity-0 group-hover:opacity-[0.02] transition-opacity pointer-events-none"></div>
-                                        </div>
-                                    </div>
-
-                                    <div className="relative group">
-                                        <label
-                                            htmlFor="message"
-                                            className="block text-sm font-medium text-gray-700 mb-1 group-hover:text-gray-900 transition-colors"
-                                        >
-                                            Message
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute top-3 left-3 flex items-start pointer-events-none">
-                                                <svg
-                                                    className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                            <textarea
-                                                id="message"
-                                                name="message"
-                                                value={messageData.message}
-                                                onChange={handleChange}
-                                                placeholder="Your message"
-                                                className="pl-10 w-full rounded-lg border-gray-300 bg-white/70 focus:bg-white py-3 text-gray-900 shadow-sm transition-all duration-300
-                      focus:ring-2 focus:ring-gray-900 focus:border-transparent hover:border-gray-400 backdrop-blur-sm resize-none"
-                                                rows={4}
-                                            />
-                                            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-gray-900 to-gray-800 opacity-0 group-hover:opacity-[0.02] transition-opacity pointer-events-none"></div>
-                                        </div>
-                                    </div>
+                                    <a href="tel:+63835540146" className="text-primary font-medium hover:text-primary/80 transition-colors">
+                                        (083) 554-0146
+                                    </a>
                                 </div>
 
-                                <button
-                                    type="submit"
-                                    disabled={messageProcess}
-                                    className="w-full bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-all duration-300
-                transform hover:scale-[1.02] hover:shadow-lg flex items-center justify-center space-x-2 relative overflow-hidden group"
-                                >
-                                    <span className="relative z-10 flex items-center">
-                                        <svg
-                                            className="w-5 h-5 mr-2 transition-transform duration-300 group-hover:rotate-12"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                            fill="currentColor"
-                                        >
-                                            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                                {/* Email Us */}
+                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+                                    <div className="flex items-center mb-4">
+                                        <div className="bg-primary/10 p-3 rounded-full mr-4 group-hover:scale-110 transition-transform">
+                                            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h4 className="font-semibold text-gray-900">Email Us</h4>
+                                            <p className="text-sm text-gray-600">Send us a detailed message</p>
+                                        </div>
+                                    </div>
+                                    <a href="mailto:calumpangrhu@gmail.com" className="text-primary font-medium hover:text-primary/80 transition-colors">
+                                        calumpangrhu@gmail.com
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Service Hours */}
+                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 mb-8 border border-gray-200">
+                                <div className="flex items-center mb-4">
+                                    <div className="bg-primary/10 p-3 rounded-full mr-4">
+                                        <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                         </svg>
-                                        <span className="font-medium">
-                                            Send Message
-                                        </span>
-                                    </span>
-                                    <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">Service Hours</h4>
+                                        <p className="text-sm text-gray-600">When we're available to help</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <p className="font-medium text-gray-700">Monday - Friday</p>
+                                        <p className="text-gray-600">8:00 AM - 5:00 PM</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-700">Saturday</p>
+                                        <p className="text-gray-600">8:00 AM - 12:00 PM</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <p className="text-sm text-yellow-800">
+                                        <span className="font-medium">Note:</span> Sunday is closed. For emergencies, please call our hotline.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button 
+                                    onClick={handleAppointmentClick}
+                                    className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2 group"
+                                >
+                                    <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    <span className="font-medium">Book Appointment</span>
                                 </button>
-                            </form>
+                                <button 
+                                    onClick={() => window.location.href = '/#services'}
+                                    className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2 group"
+                                >
+                                    <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span className="font-medium">View Services</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

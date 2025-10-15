@@ -726,11 +726,12 @@ class PharmacistController extends Controller
             'batch_number' => 'required|string',
             'quantity' => 'required|integer|min:1',
             'reason' => 'required|string',
-            'patient_name' => 'required|string',
-            'case_id' => 'required|string',
+            'patient_name' => 'nullable|string',
+            'case_id' => 'nullable|string',
             'dispensed_by' => 'required|string',
             'doctor_id' => 'nullable|integer|exists:users,id',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
+            'dispense_mode' => 'nullable|string|in:prescription,manual'
         ]);
 
         try {
@@ -760,10 +761,10 @@ class PharmacistController extends Controller
                 'reason' => $request->reason,
                 'batch_number' => $request->batch_number,
                 'inventory_name' => $inventory->name,
-                'patient_name' => $request->patient_name,
-                'prescription_number' => $request->case_id,
+                'patient_name' => $request->patient_name ?? 'Manual Dispense',
+                'prescription_number' => $request->case_id ?? null,
                 'dispensed_by' => $request->dispensed_by,
-                'notes' => $request->notes
+                'notes' => $request->notes ?? ($request->dispense_mode === 'manual' ? 'Manual dispense' : null)
             ]);
 
             DB::commit();
@@ -853,6 +854,11 @@ class PharmacistController extends Controller
      */
     public function bulk_dispose(Request $request)
     {
+        \Log::info('Bulk dispose request received', [
+            'request_data' => $request->all(),
+            'batches_count' => count($request->batches ?? [])
+        ]);
+        
         $request->validate([
             'item_id' => 'required|exists:inventory,id',
             'batches' => 'required|array|min:1',
@@ -869,31 +875,50 @@ class PharmacistController extends Controller
         try {
             DB::beginTransaction();
 
-            $inventory = inventory::findOrFail($request->item_id);
-            $stock = $inventory->stock;
-            $available = $stock ? (int) $stock->stocks : 0;
-            $totalToDispose = collect($request->batches)->sum('quantity');
-
-            if ($totalToDispose > $available) {
-                return back()->withErrors(['quantity' => 'Insufficient stock. Available: ' . $available]);
-            }
-
-            // Reduce stock
-            if ($stock) {
-                $stock->update(['stocks' => $available - $totalToDispose]);
-            }
-
-            // Create a movement per batch
+            // Get the main inventory item to get the name
+            $mainInventory = inventory::findOrFail($request->item_id);
+            
+            // Process each batch disposal individually
             foreach ($request->batches as $batch) {
+                // Find the specific inventory record for this batch
+                $batchInventory = inventory::where('name', $mainInventory->name)
+                    ->where('batch_number', $batch['batch_number'])
+                    ->first();
+                
+                if (!$batchInventory) {
+                    throw new \Exception("Batch {$batch['batch_number']} not found for item {$mainInventory->name}");
+                }
+                
+                $stock = $batchInventory->stock;
+                $available = $stock ? (int) $stock->stocks : 0;
+                $quantityToDispose = (int) $batch['quantity'];
+
+                if ($quantityToDispose > $available) {
+                    throw new \Exception("Insufficient stock for batch {$batch['batch_number']}. Available: {$available}, Requested: {$quantityToDispose}");
+                }
+
+                // Reduce stock for this specific batch
+                if ($stock) {
+                    $newStock = $available - $quantityToDispose;
+                    $stock->update(['stocks' => $newStock]);
+                    \Log::info("Updated stock for batch {$batch['batch_number']}", [
+                        'inventory_id' => $batchInventory->id,
+                        'old_stock' => $available,
+                        'disposed' => $quantityToDispose,
+                        'new_stock' => $newStock
+                    ]);
+                }
+
+                // Create a movement for this batch
                 istock_movements::create([
-                    'inventory_id' => $inventory->id,
+                    'inventory_id' => $batchInventory->id,
                     'staff_id' => Auth::user()->id,
-                    'stock_id' => optional($inventory->stock)->id,
-                    'quantity' => (int) $batch['quantity'],
+                    'stock_id' => optional($batchInventory->stock)->id,
+                    'quantity' => $quantityToDispose,
                     'type' => 'Disposal',
                     'reason' => $request->disposal_reason,
                     'batch_number' => $batch['batch_number'],
-                    'inventory_name' => $inventory->name,
+                    'inventory_name' => $batchInventory->name,
                     'patient_name' => null,
                     'prescription_number' => null,
                     'dispensed_by' => $request->disposed_by,
@@ -903,12 +928,13 @@ class PharmacistController extends Controller
             }
 
             DB::commit();
-            event(new InventoryUpdated('item.dispose.bulk', ['id' => $inventory->id]));
+            event(new InventoryUpdated('item.dispose.bulk', ['id' => $mainInventory->id]));
 
+            $totalDisposed = collect($request->batches)->sum('quantity');
             return back()->with([
                 'flash' => [
                     'title' => 'Success!',
-                    'message' => "Disposed {$totalToDispose} units across " . count($request->batches) . " batches for {$inventory->name}.",
+                    'message' => "Disposed {$totalDisposed} units across " . count($request->batches) . " batches for {$mainInventory->name}.",
                     'icon' => 'success'
                 ]
             ]);
@@ -1313,9 +1339,9 @@ class PharmacistController extends Controller
      */
     public function get_patients_and_doctors()
     {
-        // Get patients from users table with Patient role
+        // Get admins from users table with Admin role
         $patients = \App\Models\User::whereHas('role', function($query) {
-                $query->where('roletype', 'Patient');
+                $query->where('roletype', 'Admin');
             })
             ->select('id', 'firstname', 'lastname', 'middlename')
             ->get()
@@ -1358,14 +1384,77 @@ class PharmacistController extends Controller
     public function get_item_batches(inventory $inventory)
     {
         $batches = [];
-        // If you have multiple batches in a separate table, map them here.
-        // For now, return the current inventory batch and available stocks.
-        $batches[] = [
-            'batch_number' => $inventory->batch_number,
-            'expiry_date' => $inventory->expiry_date,
-            'available_quantity' => optional($inventory->stock)->stocks ?? 0,
-            'location' => $inventory->storage_location,
-        ];
+        
+        // Get all stock movements for this inventory item and calculate net quantities per batch
+        $stockMovements = istock_movements::where('inventory_id', $inventory->id)
+            ->whereNotNull('batch_number')
+            ->where('batch_number', '!=', '')
+            ->select('batch_number', 'expiry_date', 'type', 'quantity', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Group by batch number and calculate net quantity
+        $batchQuantities = [];
+        foreach ($stockMovements as $movement) {
+            $batchNumber = $movement->batch_number;
+            
+            if (!isset($batchQuantities[$batchNumber])) {
+                $batchQuantities[$batchNumber] = [
+                    'batch_number' => $batchNumber,
+                    'expiry_date' => $movement->expiry_date,
+                    'net_quantity' => 0,
+                    'latest_movement' => $movement
+                ];
+            }
+            
+            // Add incoming quantities, subtract outgoing/disposal quantities
+            if ($movement->type === 'Incoming') {
+                $batchQuantities[$batchNumber]['net_quantity'] += $movement->quantity;
+            } elseif (in_array($movement->type, ['Outgoing', 'Disposal'])) {
+                $batchQuantities[$batchNumber]['net_quantity'] -= $movement->quantity;
+            }
+        }
+
+        // Show all batches for all inventory items with the same name (excluding expired batches)
+        $allItemsWithSameName = inventory::where('name', $inventory->name)->get();
+        
+        foreach ($allItemsWithSameName as $item) {
+            if ($item->batch_number) {
+                // Check if the batch is expired
+                $isExpired = false;
+                if ($item->expiry_date) {
+                    $expiryDate = \Carbon\Carbon::parse($item->expiry_date);
+                    $isExpired = $expiryDate->isPast();
+                }
+                
+                // Only include non-expired batches
+                if (!$isExpired) {
+                    $batches[] = [
+                        'batch_number' => $item->batch_number,
+                        'expiry_date' => $item->expiry_date,
+                        'available_quantity' => optional($item->stock)->stocks ?? 0,
+                        'location' => $item->storage_location,
+                    ];
+                }
+            }
+        }
+        
+        // Remove duplicate batches (in case multiple items have the same batch number)
+        $batches = array_unique($batches, SORT_REGULAR);
+        
+        // Debug: Log the results
+        \Log::info('Batch filtering results for inventory ' . $inventory->id, [
+            'inventory_name' => $inventory->name,
+            'inventory_batch' => $inventory->batch_number,
+            'all_items_with_same_name' => $allItemsWithSameName->pluck('batch_number')->toArray(),
+            'filtered_batches' => $batches,
+            'expired_batches_filtered' => $allItemsWithSameName->filter(function($item) {
+                if ($item->expiry_date) {
+                    return \Carbon\Carbon::parse($item->expiry_date)->isPast();
+                }
+                return false;
+            })->pluck('batch_number')->toArray()
+        ]);
 
         return response()->json($batches);
     }

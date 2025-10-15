@@ -13,9 +13,9 @@ class AppointmentsController extends Controller
 
 
     public function index(){
-        $appointments = appointments::get();
-        $appointments->load('user');
-        $appointments->load('service');
+        $appointments = appointments::with(['user', 'service', 'subservice'])
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return Inertia::render('Authenticated/Doctor/Appointments',[
             'Appoints' => $appointments

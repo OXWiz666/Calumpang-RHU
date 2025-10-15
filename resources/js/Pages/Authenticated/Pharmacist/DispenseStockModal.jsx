@@ -26,7 +26,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     const [availableBatches, setAvailableBatches] = useState([]);
     const [selectedBatch, setSelectedBatch] = useState(null);
     const [validationErrors, setValidationErrors] = useState({});
-    const [dispenseMode, setDispenseMode] = useState('prescription'); // Only 'prescription' mode
+    const [dispenseMode, setDispenseMode] = useState('prescription'); // 'prescription' or 'manual'
     const [pendingPrescriptions, setPendingPrescriptions] = useState([]);
     const [selectedPrescription, setSelectedPrescription] = useState(null);
     const [patients, setPatients] = useState([]);
@@ -59,53 +59,83 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         doctor_id: ""
     });
 
+    // Filter out expired batches
+    const filterExpiredBatches = (batches) => {
+        const currentDate = new Date();
+        return batches.filter(batch => {
+            // Skip filtering if expiry date is 'N/A' or invalid
+            if (!batch.expiry_date || batch.expiry_date === 'N/A' || batch.expiry_date === 'Invalid Date') {
+                return true; // Keep batches without valid expiry dates
+            }
+            
+            try {
+                const expiryDate = new Date(batch.expiry_date);
+                // Check if the batch is not expired (expiry date is today or in the future)
+                return expiryDate >= currentDate;
+            } catch (error) {
+                console.warn('Invalid expiry date format:', batch.expiry_date);
+                return true; // Keep batches with invalid date formats
+            }
+        });
+    };
+
     // Load real-time batch data
     const loadAvailableBatches = async () => {
         if (!item || !open) return;
         
         setLoadingBatches(true);
         try {
+            let batches = [];
+            
             // Check if item has the new grouped structure with batches array
             if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
                 // Use the grouped batch data directly
-                const batches = item.batches.map(batch => ({
+                batches = item.batches.map(batch => ({
                     batch_number: batch.batchNumber || 'N/A',
                     expiry_date: batch.expiryDate || 'N/A',
                     available_quantity: batch.quantity || 0,
                     location: batch.storageLocation || 'N/A',
                     batch_id: batch.id // Store the individual batch ID for dispensing
                 }));
-                setAvailableBatches(batches);
                 console.log('Loaded grouped batches:', batches);
             } else {
                 // Fallback to API call for single batch items
                 const response = await fetch(route('pharmacist.inventory.item.batches', item.id));
                 if (response.ok) {
-                    const batches = await response.json();
-                    setAvailableBatches(batches);
+                    batches = await response.json();
                     console.log('Loaded API batches:', batches);
                 } else {
                     console.error('Failed to load batches:', response.statusText);
                     // Fallback to item data if API fails
-                    setAvailableBatches([{
+                    batches = [{
                         batch_number: item.batchNumber || item.batch_number || "N/A",
                         expiry_date: item.expiryDate || item.expiry_date || "N/A",
                         available_quantity: item.quantity || item.totalQuantity || 0,
                         location: item.storageLocation || item.storage_location || "N/A",
                         batch_id: item.id
-                    }]);
+                    }];
                 }
             }
+            
+            // Filter out expired batches
+            const nonExpiredBatches = filterExpiredBatches(batches);
+            setAvailableBatches(nonExpiredBatches);
+            console.log('Filtered batches (expired removed):', nonExpiredBatches);
+            
         } catch (error) {
             console.error('Error loading batches:', error);
             // Fallback to item data if API fails
-            setAvailableBatches([{
+            const fallbackBatches = [{
                 batch_number: item.batchNumber || item.batch_number || "N/A",
                 expiry_date: item.expiryDate || item.expiry_date || "N/A",
                 available_quantity: item.quantity || item.totalQuantity || 0,
                 location: item.storageLocation || item.storage_location || "N/A",
                 batch_id: item.id
-            }]);
+            }];
+            
+            // Filter expired batches from fallback data too
+            const nonExpiredFallbackBatches = filterExpiredBatches(fallbackBatches);
+            setAvailableBatches(nonExpiredFallbackBatches);
         } finally {
             setLoadingBatches(false);
         }
@@ -113,13 +143,21 @@ const DispenseStockModal = ({ open, onClose, item }) => {
 
     useEffect(() => {
         if (item && open) {
+            console.log('Modal opened, resetting to prescription mode');
             loadAvailableBatches();
             setData('item_id', item.id);
             setData('dispensed_by', "Current User"); // This would be the logged-in user
             // Initialize current stock
             setCurrentStock(item.quantity || 0);
+            // Reset dispense mode to default
+            setDispenseMode('prescription');
         }
     }, [item, open]);
+
+    // Track mode changes
+    useEffect(() => {
+        console.log('Dispense mode changed to:', dispenseMode);
+    }, [dispenseMode]);
 
     // Real-time updates for batch data
     useEffect(() => {
@@ -792,11 +830,136 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         console.log('Confirm Dispense completed');
     };
 
+    // Separate validation functions for each mode
+    const validatePrescriptionMode = () => {
+        const errors = {};
+        
+        if (!selectedBatch) {
+            errors.batch_number = 'Please select a batch';
+        }
+        
+        if (!selectedPrescription) {
+            errors.prescription = 'Please select a prescription';
+        }
+        
+        return errors;
+    };
+
+    const validateManualMode = () => {
+        const errors = {};
+        
+        if (!selectedBatch) {
+            errors.batch_number = 'Please select a batch';
+        }
+        
+        if (!data.quantity || data.quantity <= 0) {
+            errors.quantity = 'Please enter a valid quantity';
+        }
+        
+        if (!data.reason) {
+            errors.reason = 'Please enter a reason for dispensing';
+        }
+        
+        return errors;
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
         
-        // Only prescription mode - show preview before dispensing
+        console.log('=== FORM SUBMITTED ===');
+        console.log('Form submitted, mode:', dispenseMode);
+        console.log('Selected batch:', selectedBatch);
+        console.log('Selected prescription:', selectedPrescription);
+        console.log('Form data:', data);
+        
+        // Validate form based on mode
+        let errors = {};
+        
+        if (dispenseMode === 'prescription') {
+            errors = validatePrescriptionMode();
+        } else if (dispenseMode === 'manual') {
+            errors = validateManualMode();
+        }
+        
+        console.log('Validation errors:', errors);
+        
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors);
+            return;
+        }
+        
+        setValidationErrors({});
+        
+        if (dispenseMode === 'prescription') {
+            // Show preview before dispensing for prescription mode
+            console.log('Calling previewDispense');
             previewDispense();
+        } else {
+            // Direct dispense for manual mode
+            console.log('Calling handleManualDispense');
+            handleManualDispense();
+        }
+    };
+
+    const handleManualDispense = () => {
+        console.log('=== MANUAL DISPENSE STARTED ===');
+        console.log('Selected batch:', selectedBatch);
+        console.log('Quantity:', data.quantity);
+        console.log('Reason:', data.reason);
+        console.log('Patient name:', data.patient_name);
+        console.log('Case ID:', data.case_id);
+        console.log('Notes:', data.notes);
+        
+        // Validate required fields
+        if (!selectedBatch) {
+            console.error('No batch selected');
+            setValidationErrors({ batch_number: 'Please select a batch' });
+            return;
+        }
+        
+        if (!data.quantity || data.quantity <= 0) {
+            console.error('Invalid quantity');
+            setValidationErrors({ quantity: 'Please enter a valid quantity' });
+            return;
+        }
+        
+        if (!data.reason) {
+            console.error('No reason provided');
+            setValidationErrors({ reason: 'Please enter a reason for dispensing' });
+            return;
+        }
+        
+        // Prepare the dispense data
+        const dispenseData = {
+            item_id: item.id,
+            batch_id: selectedBatch.batch_id || selectedBatch.id,
+            batch_number: selectedBatch.batch_number,
+            quantity: parseInt(data.quantity),
+            reason: data.reason,
+            patient_name: data.patient_name || 'Manual Dispense',
+            case_id: data.case_id || null,
+            dispensed_by: data.dispensed_by || 'Current User',
+            notes: data.notes || `Manual dispense - ${data.reason}`,
+            dispense_mode: 'manual'
+        };
+        
+        console.log('Dispense data prepared:', dispenseData);
+        console.log('Submitting to route:', route('pharmacist.inventory.dispense'));
+        
+        // Submit the dispense request
+        post(route('pharmacist.inventory.dispense'), dispenseData, {
+            onSuccess: () => {
+                console.log('=== MANUAL DISPENSE SUCCESSFUL ===');
+                onClose();
+                resetForm();
+                // Refresh the page to update inventory data
+                window.location.reload();
+            },
+            onError: (errors) => {
+                console.error('=== MANUAL DISPENSE ERROR ===', errors);
+                setValidationErrors(errors);
+            }
+        });
     };
 
     const resetForm = () => {
@@ -848,7 +1011,10 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         Dispense Stock - {item.name}
                     </DialogTitle>
                     <DialogDescription>
-                        Select a batch and enter dispensing details to dispense stock from inventory.
+                        {dispenseMode === 'prescription' 
+                            ? 'Select a prescription to automatically dispense the required medicines from available stock.'
+                            : 'Select a batch and enter dispensing details to dispense stock from inventory.'
+                        }
                     </DialogDescription>
                 </DialogHeader>
 
@@ -860,8 +1026,58 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                             Stock Dispense
                         </h3>
                         <p className="text-sm text-gray-600">
-                            Select a prescription to automatically dispense the required medicines from available stock.
+                            {dispenseMode === 'prescription' 
+                                ? 'Choose how you want to dispense this item from inventory.'
+                                : 'Enter the details for manual dispensing of this item.'
+                            }
                         </p>
+                    </div>
+
+                    {/* Dispense Mode Selector */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                        <h3 className="font-semibold text-gray-900 mb-3">Dispense Mode (Current: {dispenseMode})</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    console.log('Switching to prescription mode');
+                                    setDispenseMode('prescription');
+                                }}
+                                className={`p-3 border rounded-lg text-left transition-all ${
+                                    dispenseMode === 'prescription'
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <FileText className="h-4 w-4" />
+                                    <span className="font-medium">Prescription Based</span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                    Dispense based on existing prescriptions
+                                </p>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    console.log('Switching to manual mode');
+                                    setDispenseMode('manual');
+                                }}
+                                className={`p-3 border rounded-lg text-left transition-all ${
+                                    dispenseMode === 'manual'
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Package className="h-4 w-4" />
+                                    <span className="font-medium">Manual Dispense</span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                    Dispense directly without prescription
+                                </p>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Item Information */}
@@ -915,18 +1131,18 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 </div>
                             ) : (
                                 availableBatches.map((batch, index) => (
-                                <motion.div
-                                    key={batch.batch_number}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: index * 0.1 }}
-                                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                                        selectedBatch?.batch_number === batch.batch_number
-                                                ? 'border-blue-500 bg-blue-50'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                    onClick={() => handleBatchSelect(batch)}
-                                >
+                                    <motion.div
+                                        key={batch.batch_number}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: index * 0.1 }}
+                                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                                            selectedBatch?.batch_number === batch.batch_number
+                                                    ? 'border-blue-500 bg-blue-50'
+                                                    : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                        onClick={() => handleBatchSelect(batch)}
+                                    >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-3 h-3 rounded-full ${
@@ -957,8 +1173,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                             </div>
                                         </div>
                                     </div>
-                                </motion.div>
-                            ))
+                                    </motion.div>
+                                ))
                             )}
                         </div>
                         {validationErrors.batch_number && (
@@ -966,7 +1182,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         )}
                     </div>
 
-                    {/* Prescription Selection */}
+                    {/* Prescription Selection - Only show in prescription mode */}
+                    {dispenseMode === 'prescription' && (
                         <div>
                             <Label className="text-sm font-medium">Select Prescription</Label>
                             {loadingPrescriptions ? (
@@ -1071,7 +1288,64 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 <p className="text-sm text-red-600 mt-1">{validationErrors.prescription}</p>
                             )}
                         </div>
+                    )}
 
+                    {/* Manual Dispense Form - Only show in manual mode */}
+                    {dispenseMode === 'manual' && (
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="quantity">Quantity to Dispense *</Label>
+                                <Input
+                                    id="quantity"
+                                    type="number"
+                                    min="1"
+                                    value={data.quantity}
+                                    onChange={(e) => setData('quantity', e.target.value)}
+                                    placeholder="Enter quantity to dispense"
+                                    className="mt-1"
+                                />
+                                {validationErrors.quantity && (
+                                    <p className="text-sm text-red-600 mt-1">{validationErrors.quantity}</p>
+                                )}
+                            </div>
+                            
+                            <div>
+                                <Label htmlFor="reason">Reason for Dispensing *</Label>
+                                <Input
+                                    id="reason"
+                                    value={data.reason}
+                                    onChange={(e) => setData('reason', e.target.value)}
+                                    placeholder="e.g., Emergency use, Over-the-counter, etc."
+                                    className="mt-1"
+                                />
+                                {validationErrors.reason && (
+                                    <p className="text-sm text-red-600 mt-1">{validationErrors.reason}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="patient_name">Patient/Recipient Name</Label>
+                                <Input
+                                    id="patient_name"
+                                    value={data.patient_name}
+                                    onChange={(e) => setData('patient_name', e.target.value)}
+                                    placeholder="Enter patient or recipient name (optional)"
+                                    className="mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="case_id">Case ID</Label>
+                                <Input
+                                    id="case_id"
+                                    value={data.case_id}
+                                    onChange={(e) => setData('case_id', e.target.value)}
+                                    placeholder="Enter case ID (optional)"
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Additional Information */}
                     <div>
@@ -1145,8 +1419,20 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={processing || !selectedPrescription || !selectedBatch}
+                            disabled={processing || !selectedBatch || (dispenseMode === 'prescription' && !selectedPrescription)}
                             style={{ backgroundColor: '#2C3E50' }}
+                            onClick={(e) => {
+                                console.log('=== BUTTON CLICKED ===');
+                                console.log('Button type:', e.target.type);
+                                console.log('Form element:', e.target.closest('form'));
+                                console.log('Dispense mode:', dispenseMode);
+                                console.log('Selected batch:', selectedBatch);
+                                console.log('Form data:', data);
+                                console.log('Button disabled:', processing || !selectedBatch || (dispenseMode === 'prescription' && !selectedPrescription));
+                                console.log('Processing:', processing);
+                                console.log('Selected batch exists:', !!selectedBatch);
+                                console.log('Prescription mode check:', dispenseMode === 'prescription' && !selectedPrescription);
+                            }}
                         >
                             {processing ? "Stock Dispensing..." : "Stock Dispense"}
                         </Button>
@@ -1446,8 +1732,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                 </DialogContent>
             </Dialog>
         )}
-
-    </>
+        </>
     );
 };
 

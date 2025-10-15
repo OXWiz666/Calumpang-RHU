@@ -194,29 +194,21 @@ export default function Login2({ flash }) {
                 </div>
               </div>
 
-              {/* Remember Me and Forgot Password */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="remember"
-                    checked={data.remember}
-                    onChange={(e) => setData("remember", e.target.checked)}
-                    className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="remember"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    Remember me
-                  </label>
-                </div>
-                <Link
-                  className="text-sm font-medium text-black hover:text-gray-800 transition-colors"
-                  href="/forgot-password"
+              {/* Remember Me */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  checked={data.remember}
+                  onChange={(e) => setData("remember", e.target.checked)}
+                  className="h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                />
+                <label
+                  htmlFor="remember"
+                  className="ml-2 block text-sm text-gray-700"
                 >
-                  Forgot your password?
-                </Link>
+                  Remember me
+                </label>
               </div>
             </div>
 
@@ -273,18 +265,6 @@ export default function Login2({ flash }) {
               </button>
             </div>
 
-            {/* Register Link */}
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Don't have an account?
-                <NavLink
-                  href={route("register")}
-                  className="font-medium text-black hover:text-gray-800 transition-colors ml-1"
-                >
-                  Register now
-                </NavLink>
-              </p>
-            </div>
           </form>
         </div>
       </div>

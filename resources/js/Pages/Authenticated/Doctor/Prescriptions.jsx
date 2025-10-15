@@ -21,8 +21,12 @@ export default function DoctorPrescriptions({ prescriptions }) {
     const [statusFilter, setStatusFilter] = useState('all');
 
     const filteredPrescriptions = prescriptions.filter(prescription => {
-        const matchesSearch = prescription.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            prescription.prescription_number.toLowerCase().includes(searchTerm.toLowerCase());
+        const patientName = prescription.patient_name || '';
+        const prescriptionNumber = prescription.prescription_number || '';
+        const searchLower = searchTerm.toLowerCase();
+        
+        const matchesSearch = patientName.toLowerCase().includes(searchLower) ||
+                            prescriptionNumber.toLowerCase().includes(searchLower);
         const matchesStatus = statusFilter === 'all' || prescription.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -122,7 +126,7 @@ export default function DoctorPrescriptions({ prescriptions }) {
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                                                 <div className="flex items-center gap-2">
                                                     <User className="h-4 w-4" />
-                                                    <span>{prescription.patient_name}</span>
+                                                    <span>{prescription.patient_name || 'Unknown Patient'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Calendar className="h-4 w-4" />

@@ -68,17 +68,8 @@ import {
 } from "@/components/tempo/components/ui/card";
 
 import Sidebar from "./Sidebar";
-// Helper function for toast notifications
-const alert_toast = (title, message, type) => {
-    toast[type](message, {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-    });
-};
+import { showToast } from "@/utils/toast.jsx";
+import { Toaster } from "@/components/Toaster";
 
 export default function StaffLayout({ children }) {
     const { flash } = usePage().props;
@@ -87,7 +78,7 @@ export default function StaffLayout({ children }) {
     // Handle flash messages from the server
     useEffect(() => {
         if (flash && flash.message) {
-            alert_toast(flash.title, flash.message, flash.icon);
+            showToast(flash.title, flash.message, flash.icon);
         }
     }, [flash]);
 
@@ -118,10 +109,8 @@ export default function StaffLayout({ children }) {
             confirmPassword: "",
             gender: "",
             birth: "",
-
-            isAdmin: "true",
-            role: 7,
-            specialization: "", // Added specialization field
+            role: "", // Will be set based on selection
+            specialization: "", // For doctors
         });
 
     // Track if Doctor role is selected
@@ -129,7 +118,7 @@ export default function StaffLayout({ children }) {
 
     // Update isDoctorSelected when role changes
     useEffect(() => {
-        setIsDoctorSelected(data.role === 1);
+        setIsDoctorSelected(data.role === "1");
     }, [data.role]);
 
     const OpenModal = (e) => {
@@ -148,20 +137,32 @@ export default function StaffLayout({ children }) {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        //alert("wew");
-        post(route("admin.staff.register"), {
+        
+        // Use the unified staff registration route for all roles
+        let routeName = "admin.staff.register";
+        
+        post(route(routeName), {
             onSuccess: (r) => {
                 CloseModal();
-                alert_toast(
+                showToast(
                     "Success!",
                     "Staff has been registered successfully!",
-                    "success"
+                    "success",
+                    "create"
                 );
+                // Reload the current page to refresh the staff list
                 router.reload({
-                    only: ["auth"],
                     preserveScroll: true,
                 });
             },
+            onError: (errors) => {
+                console.error('Registration errors:', errors);
+                showToast(
+                    "Error!",
+                    "Failed to register staff. Please try again.",
+                    "error"
+                );
+            }
         });
     };
     // State for the selected doctor and status
@@ -203,10 +204,11 @@ export default function StaffLayout({ children }) {
             {
                 onSuccess: (res) => {
                     CloseModalView();
-                    alert_toast(
+                    showToast(
                         "Success!",
                         "Doctor status updated successfully",
-                        "success"
+                        "success",
+                        "update"
                     );
                 },
             }
@@ -218,10 +220,11 @@ export default function StaffLayout({ children }) {
         if (confirm("Are you sure you want to archive this doctor account?")) {
             axios.post(route("doctor.archive", { doctor: doctor.id }))
                 .then(response => {
-                    alert_toast(
+                    showToast(
                         "Success!",
                         "Doctor account has been archived",
-                        "success"
+                        "success",
+                        "archive"
                     );
                     router.reload({
                         only: ["auth"],
@@ -229,7 +232,7 @@ export default function StaffLayout({ children }) {
                     });
                 })
                 .catch(error => {
-                    alert_toast(
+                    showToast(
                         "Error!",
                         "Failed to archive doctor account",
                         "error"
@@ -243,10 +246,11 @@ export default function StaffLayout({ children }) {
         if (confirm("Are you sure you want to unarchive this doctor account?")) {
             axios.post(route("doctor.unarchive", { doctor: doctor.id }))
                 .then(response => {
-                    alert_toast(
+                    showToast(
                         "Success!",
                         "Doctor account has been unarchived",
-                        "success"
+                        "success",
+                        "unarchive"
                     );
                     router.reload({
                         only: ["auth"],
@@ -254,7 +258,7 @@ export default function StaffLayout({ children }) {
                     });
                 })
                 .catch(error => {
-                    alert_toast(
+                    showToast(
                         "Error!",
                         "Failed to unarchive doctor account",
                         "error"
@@ -750,21 +754,21 @@ export default function StaffLayout({ children }) {
                             <Select
                                 id="roleselect"
                                 value={data.role}
-                                onValueChange={(e) => {
-                                    const roleValue = Number(e);
-                                    setData("role", roleValue);
+                                onValueChange={(value) => {
+                                    setData("role", value);
                                     // Reset specialization when changing roles to non-Doctor
-                                    if (roleValue !== 1) {
+                                    if (value !== "1") {
                                         setData("specialization", "");
                                     }
                                 }}
                             >
-                                <SelectTrigger className=" w-full">
-                                    <SelectValue placeholder="Select Role" />
+                                <SelectTrigger className="w-full text-gray-900 bg-white">
+                                    <SelectValue placeholder="Select Role" className="text-gray-900" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={7}>Admin</SelectItem>
-                                    <SelectItem value={1}>Doctor</SelectItem>
+                                    <SelectItem value="7" className="text-gray-900">Admin</SelectItem>
+                                    <SelectItem value="1" className="text-gray-900">Doctor</SelectItem>
+                                    <SelectItem value="6" className="text-gray-900">Pharmacist</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -815,6 +819,7 @@ export default function StaffLayout({ children }) {
                     </PrimaryButton>
                 </form>
             </Modal2>
+            <Toaster />
         </AdminLayout>
     );
 }

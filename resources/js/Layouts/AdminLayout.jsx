@@ -27,6 +27,7 @@ import Sidebar2 from "@/components/tempo/doctor/include/Sidebar";
 import NotificationDropdown from "@/components/tempo/admin/include/NotificationDropdown";
 import { data } from "autoprefixer";
 import PusherListener from "@/components/pusher";
+import { Toaster } from "@/components/Toaster";
 
 import { create } from "zustand";
 
@@ -124,6 +125,7 @@ export default function AdminLayout({ header, children, tools }) {
                     {children}
                 </main>
             </div>
+            <Toaster />
         </div>
     );
 }

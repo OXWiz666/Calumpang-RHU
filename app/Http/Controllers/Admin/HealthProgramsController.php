@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\program_types;
 use App\Models\program_schedules;
+use App\Models\program_participants;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -279,6 +280,68 @@ class HealthProgramsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to unarchive program',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get registered patients for a specific program with pagination
+     */
+    public function getProgramPatients(Request $request, $programId)
+    {
+        try {
+            $perPage = $request->get('per_page', 10);
+            $page = $request->get('page', 1);
+            
+            // Get program details
+            $program = program_schedules::with('program_type')->findOrFail($programId);
+            
+            // Get registered participants with pagination
+            $participants = program_participants::where('program_schedule_id', $programId)
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage, ['*'], 'page', $page);
+            
+            // Format the participants data
+            $formattedParticipants = $participants->map(function ($participant) {
+                return [
+                    'id' => $participant->registration_id ?? $participant->id, // Use registration_id if available, fallback to id
+                    'first_name' => $participant->first_name,
+                    'middle_name' => $participant->middle_name,
+                    'last_name' => $participant->last_name,
+                    'suffix' => $participant->suffix,
+                    'sex' => $participant->sex,
+                    'birthdate' => $participant->birthdate,
+                    'age' => $participant->age,
+                    'contact_number' => $participant->contact_number,
+                    'email' => $participant->email,
+                    'status' => $participant->status,
+                    'registered_at' => $participant->created_at->format('Y-m-d H:i:s'),
+                    'full_name' => trim(($participant->first_name ?? '') . ' ' . ($participant->middle_name ?? '') . ' ' . ($participant->last_name ?? '') . ' ' . ($participant->suffix ?? '')),
+                ];
+            });
+            
+            return response()->json([
+                'program' => [
+                    'id' => $program->id,
+                    'name' => $program->program_type->programname,
+                    'date' => $program->date,
+                    'location' => $program->location,
+                ],
+                'participants' => $formattedParticipants,
+                'pagination' => [
+                    'current_page' => $participants->currentPage(),
+                    'last_page' => $participants->lastPage(),
+                    'per_page' => $participants->perPage(),
+                    'total' => $participants->total(),
+                    'from' => $participants->firstItem(),
+                    'to' => $participants->lastItem(),
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch program participants',
                 'error' => $e->getMessage()
             ], 500);
         }

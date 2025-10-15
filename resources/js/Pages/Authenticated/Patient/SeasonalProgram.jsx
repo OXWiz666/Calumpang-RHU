@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import LandingLayout from "@/Layouts/LandingLayout";
 import CustomCalendar from "@/components/CustomCalendar";
+import CustomModal from "@/components/CustomModal";
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -773,23 +774,25 @@ const SeasonalProgramDashboard = ({
 
     const [IsJoiningProgram, setIsJoiningProgram] = useState(false);
     const [selectedSched, setSelectedSched] = useState(null);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
     // useEffect(() => {
     //     console.log("selected:", selectedSched);
     // }, [selectedSched]);
     // Helper function to handle program registration
     const handleProgramJoin = (program) => {
-        // if (!auth?.user) {
-        //     router.visit(route("login"));
-        //     return;
-        // }
-        // Redirect to the dedicated registration page with the program ID
-        setIsJoiningProgram(true);
+        // Show privacy modal first
         if (program) {
             setSelectedSched(program);
         } else {
             setSelectedSched(null);
         }
-        //window.location.href = `/services/vaccinations/registration?program_id=${program.id}`;
+        setShowPrivacyModal(true);
+    };
+
+    // Handle privacy terms acceptance
+    const handlePrivacyAccept = () => {
+        setShowPrivacyModal(false);
+        setIsJoiningProgram(true);
     };
 
     //const xProps = usePage().props;
@@ -994,23 +997,13 @@ const SeasonalProgramDashboard = ({
                                                                     }
                                                                     className="ml-2"
                                                                 >
-                                                                    {myprograms.some(
-                                                                        (p) =>
-                                                                            p.program_schedule_id ==
-                                                                            schedule.id
-                                                                    ) ? (
-                                                                        <div>
-                                                                            Joined
-                                                                        </div>
-                                                                    ) : schedule.status ===
-                                                                      "completed" ? (
-                                                                        "Completed"
-                                                                    ) : schedule.availableSlots ===
-                                                                      0 ? (
-                                                                        "Fully Booked"
-                                                                    ) : (
-                                                                        "Available"
-                                                                    )}
+                                                                {schedule.status === "completed" ? (
+                                                                    "Completed"
+                                                                ) : schedule.availableSlots === 0 ? (
+                                                                    "Fully Booked"
+                                                                ) : (
+                                                                    "Available"
+                                                                )}
                                                                 </Badge>
                                                             </div>
                                                             <div className="flex items-center text-gray-600 text-sm gap-4">
@@ -1069,60 +1062,26 @@ const SeasonalProgramDashboard = ({
                                                             />
                                                             <Button
                                                                 disabled={
-                                                                    myprograms.some(
-                                                                        (p) =>
-                                                                            p.program_schedule_id ==
-                                                                            schedule.id
-                                                                    ) ||
-                                                                    schedule.status ===
-                                                                        "completed" ||
-                                                                    schedule.availableSlots ===
-                                                                        0
+                                                                    schedule.status === "completed" ||
+                                                                    schedule.availableSlots === 0
                                                                 }
                                                                 className="mt-2"
                                                                 variant={
-                                                                    myprograms.some(
-                                                                        (p) =>
-                                                                            p.program_schedule_id ==
-                                                                            schedule.id
-                                                                    )
-                                                                        ? "secondary"
-                                                                        : schedule.status ===
-                                                                        "completed" ||
-                                                                    schedule.availableSlots ===
-                                                                        0
+                                                                    schedule.status === "completed" ||
+                                                                    schedule.availableSlots === 0
                                                                         ? "outline"
                                                                         : "default"
                                                                 }
                                                                 size="sm"
-                                                                onClick={(
-                                                                    e
-                                                                ) => {
-                                                                    // Only allow joining if not already joined
-                                                                    if (!myprograms.some(
-                                                                        (p) =>
-                                                                            p.program_schedule_id ==
-                                                                            schedule.id
-                                                                    )) {
-                                                                        handleProgramJoin(
-                                                                            schedule
-                                                                        );
-                                                                    }
-                                                                }}
+                                                                onClick={() => handleProgramJoin(schedule)}
                                                             >
-                                                                {myprograms.some(
-                                                                    (p) =>
-                                                                        p.program_schedule_id ==
-                                                                        schedule.id
-                                                                )
-                                                                    ? "Joined"
-                                                                    : schedule.status ===
-                                                                      "completed"
-                                                                    ? "Completed"
-                                                                    : schedule.availableSlots ===
-                                                                      0
-                                                                    ? "No Slots Available"
-                                                                    : "Join the Program"}
+                                                                {schedule.status === "completed" ? (
+                                                                    "Completed"
+                                                                ) : schedule.availableSlots === 0 ? (
+                                                                    "No Slots Available"
+                                                                ) : (
+                                                                    "Join the Program"
+                                                                )}
                                                             </Button>
                                                         </div>
                                                     </div>
@@ -1464,24 +1423,20 @@ const SeasonalProgramDashboard = ({
                                                     </div>
                                                     <Button
                                                         size="sm"
-                                                        // onClick={() =>
-                                                        //     handleProgramJoin(
-                                                        //         program
-                                                        //     )
-                                                        // }
+                                                        onClick={() =>
+                                                            handleProgramJoin(
+                                                                program
+                                                            )
+                                                        }
                                                         disabled={
-                                                            program.availableSlots <=
-                                                                0 ||
-                                                            program.status ===
-                                                                "completed"
+                                                            program.availableSlots <= 0 ||
+                                                            program.status === "completed"
                                                         }
                                                         className="w-full justify-center px-5 py-2 text-sm shadow-md"
                                                     >
-                                                        {program.availableSlots <=
-                                                        0
+                                                        {program.availableSlots <= 0
                                                             ? "Fully Booked"
-                                                            : program.status ===
-                                                              "completed"
+                                                            : program.status === "completed"
                                                             ? "Completed"
                                                             : "Join the Program"}
                                                     </Button>
@@ -1496,8 +1451,81 @@ const SeasonalProgramDashboard = ({
                 </Tabs>
             </div>
 
+            {/* Privacy Terms Modal */}
+            <CustomModal isOpen={showPrivacyModal} onClose={() => setShowPrivacyModal(false)}>
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white rounded-lg shadow-xl">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                Terms of Privacy & Data Protection
+                            </h2>
+                        </div>
+                        <div className="px-6 py-4 max-h-96 overflow-y-auto">
+                            <div className="space-y-4 text-sm text-gray-700">
+                                <p className="font-semibold text-gray-900">
+                                    By registering for this health program, you agree to the following terms:
+                                </p>
+                                
+                                <div className="space-y-3">
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">1. Data Collection</h4>
+                                        <p>We collect personal information including your name, contact details, birthdate, and health information for program registration and health monitoring purposes.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">2. Data Usage</h4>
+                                        <p>Your information will be used to:</p>
+                                        <ul className="list-disc list-inside ml-4 space-y-1">
+                                            <li>Process your program registration</li>
+                                            <li>Send program updates and reminders</li>
+                                            <li>Monitor your health progress</li>
+                                            <li>Coordinate with healthcare providers</li>
+                                            <li>Generate health reports and statistics</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">3. Data Protection</h4>
+                                        <p>We implement appropriate security measures to protect your personal information from unauthorized access, alteration, disclosure, or destruction.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">4. Data Sharing</h4>
+                                        <p>Your information may be shared with authorized healthcare providers and program coordinators only as necessary for program delivery and health monitoring.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">5. Your Rights</h4>
+                                        <p>You have the right to access, update, or request deletion of your personal information. Contact us for any data-related concerns.</p>
+                                    </div>
+                                    
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900">6. Consent</h4>
+                                        <p>By clicking "I Agree & Register", you consent to the collection, use, and processing of your personal information as described above.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowPrivacyModal(false)}
+                                className="px-6 py-2"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handlePrivacyAccept}
+                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                I Agree & Register
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CustomModal>
+
             {/* Render the registration modal */}
-            {/* {ProgramRegistrationModal()} */}
             <ProgramRegis
                 isOpen={IsJoiningProgram}
                 onClose={(e) => setIsJoiningProgram(e)}

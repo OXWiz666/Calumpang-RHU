@@ -15,12 +15,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\AppointmentController;
 use App\Http\Controllers\Doctor\DoctorController;
 use App\Http\Controllers\MidwifeController;
 use App\Http\Controllers\PatientController;
-use App\Http\Controllers\QueueController;
-use App\Http\Controllers\TestDashboard\TestDbControllerrr;
 use App\Http\Controllers\VaccinationController;
 use App\Http\Controllers\VaccineController;
 use Illuminate\Http\Request;
@@ -46,7 +43,10 @@ Route::middleware(['Guest'])->group(function () {
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
 
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('forgot.password');
-    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::get('/login', function() {
+        return redirect('/adminlogin');
+    })->name('login');
+    Route::get('/adminlogin', [AuthController::class, 'showLogin'])->name('adminlogin');
 
     //Route::get('/login/staff',[AuthController::class,'stafflogin'])->name('login.staff');
 
@@ -90,7 +90,26 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     Route::get('/appointments',[PatientController::class,'appointments'])->name('patient.appoint');
     //Route::get('/dashboard/test', [TestDbControllerrr::class, 'index'])->name('dashboard.test');
 
+    // Appointment creation route for guests
+    Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create');
+    
+    // Clear appointment session data
+    Route::post('/clear-appointment-session', function() {
+        session()->forget(['appointment_priority_number', 'appointment_reference_number', 'appointment_id']);
+        return response()->json(['success' => true]);
+    });
 
+    // Set patient verification session
+    Route::post('/set-verification-session', function() {
+        session(['patient_verification_completed' => true]);
+        return response()->json(['success' => true]);
+    });
+
+    // Clear patient verification session
+    Route::post('/clear-verification-session', function() {
+        session()->forget('patient_verification_completed');
+        return response()->json(['success' => true]);
+    });
 
     Route::get('services/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
 
@@ -109,7 +128,6 @@ Route::middleware(['auth','Patient'])->group(function(){
 
         Route::get('/appointments/history',[PatientController::class,'appointmentshistory'])->name('patient.appoint.history');
         ## Appointment
-        Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create');
 
         Route::get('/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
 
@@ -180,20 +198,34 @@ Route::middleware(['auth','Admin'])->group(function(){
 
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
+        Route::post('/reports/generate',[ReportsController::class,'generateReport'])->name('admin.reports.generate');
+        Route::get('/reports/templates',[ReportsController::class,'getReportTemplates'])->name('admin.reports.templates');
+        Route::post('/reports/schedule',[ReportsController::class,'scheduleReport'])->name('admin.reports.schedule');
+        Route::get('/reports/scheduled',[ReportsController::class,'getScheduledReports'])->name('admin.reports.scheduled');
+        Route::post('/reports/toggle-schedule',[ReportsController::class,'toggleSchedule'])->name('admin.reports.toggle-schedule');
+        Route::delete('/reports/schedule/{id}',[ReportsController::class,'deleteSchedule'])->name('admin.reports.delete-schedule');
 
         Route::prefix('programs')->group(function(){
             Route::get('/',[HealthProgramsController::class,'index'])->name('admin.programs');
             Route::post('create',[HealthProgramsController::class,'CreateProgram'])->name('admin.programs.create');
             Route::post('archive',[HealthProgramsController::class,'archiveProgram'])->name('admin.programs.archive');
             Route::post('unarchive',[HealthProgramsController::class,'unarchiveProgram'])->name('admin.programs.unarchive');
+            Route::get('{programId}/patients',[HealthProgramsController::class,'getProgramPatients'])->name('admin.programs.patients');
         });
 
 
         Route::prefix('staff')->group(function(){
             Route::get('/overview',[StaffController::class,'index'])->name('admin.staff.overview');
+            Route::get('/admins',[StaffController::class,'admins'])->name('admin.staff.admins');
             Route::get('/doctors',[StaffController::class,'doctors'])->name('admin.staff.doctors');
-            Route::post('/archive',[StaffController::class,'archiveStaff'])->name('admin.staff.archive');
+            Route::get('/pharmacists',[StaffController::class,'pharmacists'])->name('admin.staff.pharmacists');
+        Route::post('/archive',[StaffController::class,'archiveStaff'])->name('admin.staff.archive');
             Route::post('/unarchive',[StaffController::class,'unarchiveStaff'])->name('admin.staff.unarchive');
+            
+            // Staff Update Routes
+            Route::put('/admins/{id}',[StaffController::class,'updateAdmin'])->name('admin.update');
+            Route::put('/doctors/{id}',[StaffController::class,'updateDoctor'])->name('doctor.update');
+            Route::put('/pharmacists/{id}',[StaffController::class,'updatePharmacist'])->name('pharmacist.update');
         });
         Route::post('/doctors/update-status/{doctor}',[StaffController::class,'updateStatus'])->name('doctor.update.status');
 
@@ -207,6 +239,10 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/sub-services/save-days',[ServicesController::class,'saveDays'])->name('admin.services.days.update');
             Route::post('/archive',[ServicesController::class,'archiveService'])->name('admin.services.archive');
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
+            
+            // Sub-service archive/unarchive routes
+            Route::post('/sub-services/archive',[ServicesController::class,'archiveSubService'])->name('admin.services.subservice.archive');
+            Route::post('/sub-services/unarchive',[ServicesController::class,'unarchiveSubService'])->name('admin.services.subservice.unarchive');
         });
 
 
@@ -239,6 +275,7 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //add_medical_rec(Request $request, User $patientid)
 
         Route::get('/patients/details/{id}',[PatientsController::class,'PatientDetails'])->name('patients.details.view');
+        Route::put('/patients/{id}',[PatientsController::class,'update'])->name('patients.update');
 
         //Route::resource('patients',PatientsController::class);
         //Route::get('auth/patients',[PatientsController::class,'index'])->name('admin.patients.index');
@@ -260,8 +297,10 @@ Route::middleware(['auth'])->group(function () {
     Route::match(['POST','GET'],'/logout', function (Request $request) {
         Auth::guard('web')->logout();
         $request->session()->invalidate();
-
         $request->session()->regenerateToken();
+
+        // Clear patient verification session on logout
+        $request->session()->forget('patient_verification_completed');
 
         //return redirect('/');
         // $cookie = Cookie::forget('jwt');

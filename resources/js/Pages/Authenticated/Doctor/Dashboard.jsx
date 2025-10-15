@@ -26,6 +26,7 @@ import "@/echo";
 
 export default function DoctorDashboard({ prescriptions, recentPrescriptions, stats }) {
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
     const [dashboardData, setDashboardData] = useState({
         prescriptions: prescriptions || [],
         recentPrescriptions: recentPrescriptions || [],
@@ -37,6 +38,15 @@ export default function DoctorDashboard({ prescriptions, recentPrescriptions, st
         }
     });
     const { data } = usePage().props;
+
+    // Real-time clock effect
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, []);
 
     // Real-time updates
     useEffect(() => {
@@ -110,6 +120,34 @@ export default function DoctorDashboard({ prescriptions, recentPrescriptions, st
                                 <div className="flex items-center gap-2 text-blue-100">
                                     <CheckCircle className="h-5 w-5" />
                                     <span className="text-sm font-medium">Secure & Reliable</span>
+                                </div>
+                            </div>
+                            
+                            {/* Real-time Clock */}
+                            <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white/20 rounded-lg">
+                                        <Clock className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-blue-100 font-medium">Current Date & Time</p>
+                                        <p className="text-xl font-bold text-white">
+                                            {currentTime.toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
+                                            })}
+                                        </p>
+                                        <p className="text-lg font-semibold text-blue-100">
+                                            {currentTime.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                second: '2-digit',
+                                                hour12: true
+                                            })}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>

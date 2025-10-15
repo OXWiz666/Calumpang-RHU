@@ -183,8 +183,11 @@ const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti 
         };
 
         if (selectedBatches.length > 1) {
+            console.log('Submitting bulk disposal with payload:', payload);
+            console.log('Selected batches:', selectedBatches);
             router.post(route('pharmacist.inventory.dispose.bulk'), payload, {
                 onSuccess: () => {
+                    console.log('Bulk disposal successful');
                     onClose();
                     setData({
                         item_id: "",
@@ -201,9 +204,12 @@ const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti 
                     setSelectedBatch(null);
                     setSelectedBatches([]);
                     setValidationErrors({});
+                    // Refresh the page to update inventory data
+                    window.location.reload();
                 },
                 onError: (errors) => {
-                    console.error("Disposal error:", errors);
+                    console.error("Bulk disposal error:", errors);
+                    setValidationErrors(errors);
                 }
             });
             return;
@@ -228,6 +234,8 @@ const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti 
                 setSelectedBatch(null);
                 setSelectedBatches([]);
                 setValidationErrors({});
+                // Refresh the page to update inventory data
+                window.location.reload();
             },
             onError: (errors) => {
                 console.error("Disposal error:", errors);

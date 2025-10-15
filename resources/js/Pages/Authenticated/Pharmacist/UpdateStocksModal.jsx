@@ -11,6 +11,8 @@ import { Package, Plus, Minus, Hash, Calendar, Building2, FileText } from "lucid
 
 const UpdateStocksModal = ({ open, onClose, item }) => {
     const [validationErrors, setValidationErrors] = useState({});
+    const [availableBatches, setAvailableBatches] = useState([]);
+    const [loadingBatches, setLoadingBatches] = useState(false);
 
     const { data, setData, post, processing, errors, reset } = useForm({
         item_id: item?.id || "",
@@ -31,8 +33,35 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
             setData("item_id", item.id);
             setData("batch_number", item.batchNumber || item.batch_number || "");
             setData("expiry_date", item.expiryDate && item.expiryDate !== 'N/A' ? new Date(item.expiryDate).toISOString().split('T')[0] : "");
+            
+            // Fetch available batches for this item
+            fetchAvailableBatches();
         }
     }, [item, open]);
+
+    const fetchAvailableBatches = async () => {
+        if (!item?.id) return;
+        
+        console.log('Fetching batches for item:', item.name, 'ID:', item.id);
+        setLoadingBatches(true);
+        try {
+            const url = `/pharmacist/inventory/item/${item.id}/batches?t=${Date.now()}`;
+            console.log('API URL:', url);
+            const response = await fetch(url);
+            console.log('Response status:', response.status);
+            if (response.ok) {
+                const batches = await response.json();
+                console.log('Received batches for item', item.name, ':', batches);
+                setAvailableBatches(batches);
+            } else {
+                console.error('API response not OK:', response.status, response.statusText);
+            }
+        } catch (error) {
+            console.error('Error fetching batches:', error);
+        } finally {
+            setLoadingBatches(false);
+        }
+    };
 
     const getCurrentStock = () => {
         return Number(item?.quantity ?? item?.stock?.stocks ?? 0) || 0;
@@ -277,14 +306,26 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                         <div>
                             <Label htmlFor="batch_number">Batch/Lot Number</Label>
                             <div className="relative">
-                                <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                <Input
-                                    id="batch_number"
-                                    value={data.batch_number}
-                                    onChange={(e) => setData("batch_number", e.target.value)}
-                                    placeholder="e.g., RX12001121"
-                                    className="mt-1 pl-10"
-                                />
+                                <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
+                                <Select value={data.batch_number} onValueChange={(value) => setData("batch_number", value)}>
+                                    <SelectTrigger className="mt-1 pl-10">
+                                        <SelectValue placeholder={loadingBatches ? "Loading batches..." : "Select a batch number"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableBatches.map((batch) => (
+                                            <SelectItem key={batch.batch_number} value={batch.batch_number}>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{batch.batch_number}</span>
+                                                    {batch.expiry_date && (
+                                                        <span className="text-xs text-gray-500">
+                                                            Expires: {new Date(batch.expiry_date).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                         <div>
