@@ -7,6 +7,8 @@ import importedCss from "./css/header.css";
 import NotficationDropdown from "../../patient/include/NotificationDropdown.jsx";
 import PatientVerificationModal from "./PatientVerificationModal";
 import TermsOfServiceModal from "./TermsOfServiceModal";
+import PatientTypeSelectionModal from "./PatientTypeSelectionModal";
+import MedicalRecordsRequestModal from "./MedicalRecordsRequestModal";
 import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
 
 const Header = ({
@@ -22,6 +24,9 @@ const Header = ({
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [showPatientModal, setShowPatientModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
+    const [showPatientTypeModal, setShowPatientTypeModal] = useState(false);
+    const [showMedicalRecordsModal, setShowMedicalRecordsModal] = useState(false);
+    const [cameFromPatientTypeSelection, setCameFromPatientTypeSelection] = useState(false);
     const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
 
     const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
@@ -34,14 +39,36 @@ const Header = ({
     const handleTermsAccept = () => {
         setShowTermsModal(false);
         (window as any).isTermsModalOpen = false;
-        // Directly open the Patient Verification Modal after accepting terms
-        setShowPatientModal(true);
+        // Open Patient Type Selection Modal after accepting terms
+        setShowPatientTypeModal(true);
     };
     
     // Handler for closing Terms modal
     const handleTermsClose = () => {
         setShowTermsModal(false);
         (window as any).isTermsModalOpen = false;
+    };
+
+    // Handler for Patient Type Selection Modal
+    const handlePatientTypeProceed = (patientType: string) => {
+        setShowPatientTypeModal(false);
+        // Store patient type in session or pass to verification modal
+        localStorage.setItem('selectedPatientType', patientType);
+        // Set flag to show back button
+        setCameFromPatientTypeSelection(true);
+        // Open Patient Verification Modal
+        setShowPatientModal(true);
+    };
+
+    const handlePatientTypeClose = () => {
+        setShowPatientTypeModal(false);
+    };
+
+    // Handler for back to selection from Patient Verification Modal
+    const handleBackToSelection = () => {
+        setShowPatientModal(false);
+        setCameFromPatientTypeSelection(false);
+        setShowPatientTypeModal(true);
     };
 
     // Handler for Appointments button click
@@ -269,9 +296,9 @@ const Header = ({
                                             </div>
                                         </button>
 
-                                        <Link
-                                            href="#"
-                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
+                                        <button
+                                            onClick={() => setShowMedicalRecordsModal(true)}
+                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm w-full text-left"
                                         >
                                             <svg
                                                 className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-pink-500"
@@ -289,10 +316,10 @@ const Header = ({
                                             <div className="flex flex-col text-left">
                                                 <span className="font-medium">Medical Records</span>
                                                 <span className="text-xs text-gray-500 mt-0.5">
-                                                    Access your health records securely
+                                                    Request an Medical Certificate
                                                 </span>
                                             </div>
-                                        </Link>
+                                        </button>
                                         <Link
                                             href="#"
                                             className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
@@ -508,9 +535,9 @@ const Header = ({
                                                 </p>
                                             </div>
                                         </button>
-                                        <Link
-                                            href="/patient/medical-records"
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
+                                        <button
+                                            onClick={() => setShowMedicalRecordsModal(true)}
+                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px] w-full text-left"
                                         >
                                             <svg
                                                 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
@@ -529,10 +556,11 @@ const Header = ({
                                                     Medical Records
                                                 </p>
                                                 <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                    Access your health records securely
+                                                Request an Medical Certificate
+
                                                 </p>
                                             </div>
-                                        </Link>
+                                        </button>
                                         <Link
                                             href="/services/seasonal-programs"
                                             className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
@@ -546,7 +574,8 @@ const Header = ({
                                                     fillRule="evenodd"
                                                     d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
                                                     clipRule="evenodd"
-                                                />
+
+/>
                                             </svg>
                                             <div className="text-center">
                                                 <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
@@ -648,7 +677,12 @@ const Header = ({
                 {/* Patient Verification Modal */}
                 <PatientVerificationModal 
                     isOpen={showPatientModal} 
-                    onClose={() => setShowPatientModal(false)} 
+                    onClose={() => {
+                        setShowPatientModal(false);
+                        setCameFromPatientTypeSelection(false);
+                    }}
+                    onBackToSelection={handleBackToSelection}
+                    showBackButton={cameFromPatientTypeSelection}
                 />
 
                 {/* Terms of Service Modal */}
@@ -656,6 +690,19 @@ const Header = ({
                     isOpen={showTermsModal}
                     onClose={handleTermsClose}
                     onAccept={handleTermsAccept}
+                />
+
+                {/* Patient Type Selection Modal */}
+                <PatientTypeSelectionModal
+                    isOpen={showPatientTypeModal}
+                    onClose={handlePatientTypeClose}
+                    onProceed={handlePatientTypeProceed}
+                />
+
+                {/* Medical Records Request Modal */}
+                <MedicalRecordsRequestModal
+                    isOpen={showMedicalRecordsModal}
+                    onClose={() => setShowMedicalRecordsModal(false)}
                 />
             </header>
         );

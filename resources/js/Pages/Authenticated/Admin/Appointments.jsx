@@ -666,7 +666,6 @@ export default function appointments({ appointments_ }) {
                                                                 openModal(e, aa.id);
                                                             }}
                                                             className="inline-flex items-center p-2 rounded-full hover:bg-gray-100"
-                                                            disabled={aa.status === 5}
                                                         >
                                                             <Eye className="h-4 w-4" />
                                                         </PrimaryButton>

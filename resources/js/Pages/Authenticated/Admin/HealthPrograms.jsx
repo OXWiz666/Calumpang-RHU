@@ -26,6 +26,13 @@ import {
     MoreHorizontal,
     Edit,
     ArchiveRestore,
+    ChevronDown,
+    ChevronUp,
+    Phone,
+    Mail,
+    User,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 // UI Components
 import { Button } from "@/components/tempo/components/ui/button";
@@ -181,6 +188,12 @@ const HealthPrograms = ({
     const [itemsPerPage] = useState(10);
     const [selectedPrograms, setSelectedPrograms] = useState([]);
     const [showBulkActions, setShowBulkActions] = useState(false);
+    
+    // Patient modal state
+    const [isViewPatientsModalOpen, setIsViewPatientsModalOpen] = useState(false);
+    const [programPatients, setProgramPatients] = useState([]);
+    const [patientsLoading, setPatientsLoading] = useState(false);
+    const [patientsPagination, setPatientsPagination] = useState({});
 
     // Update localPrograms when programs prop changes
     useEffect(() => {
@@ -276,6 +289,31 @@ const HealthPrograms = ({
                 ? prev.filter(id => id !== programId)
                 : [...prev, programId]
         );
+    };
+
+    // Fetch patients for a specific program
+    const fetchProgramPatients = async (programId, page = 1) => {
+        setPatientsLoading(true);
+        
+        try {
+            const response = await axios.get(`/admin/programs/${programId}/patients`, {
+                params: { page, per_page: 10 }
+            });
+            
+            setProgramPatients(response.data.participants);
+            setPatientsPagination(response.data.pagination);
+        } catch (error) {
+            console.error('Error fetching program patients:', error);
+        } finally {
+            setPatientsLoading(false);
+        }
+    };
+
+    // Handle patient pagination
+    const handlePatientPageChange = (page) => {
+        if (selectedProgram) {
+            fetchProgramPatients(selectedProgram.id, page);
+        }
     };
 
     const handleBulkArchive = async () => {
@@ -999,13 +1037,14 @@ const HealthPrograms = ({
                                             <TableHead>Slots</TableHead>
                                             <TableHead>Coordinator</TableHead>
                                             <TableHead>Status</TableHead>
+                                            <TableHead>Patients</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                                <TableCell colSpan={10} className="text-center py-12">
+                                                <TableCell colSpan={11} className="text-center py-12">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                                                         <p className="text-gray-500">Loading programs...</p>
@@ -1014,7 +1053,7 @@ const HealthPrograms = ({
                                 </TableRow>
                                         ) : paginatedPrograms.length === 0 ? (
                                 <TableRow>
-                                                <TableCell colSpan={10} className="text-center py-12">
+                                                <TableCell colSpan={11} className="text-center py-12">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <div className="p-4 bg-gray-100 rounded-full">
                                                             <Activity className="h-8 w-8 text-gray-400" />
@@ -1106,6 +1145,21 @@ const HealthPrograms = ({
                                         </TableCell>
                                         <TableCell>
                                             {getStatusBadge(program.status)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSelectedProgram(program);
+                                                    fetchProgramPatients(program.id, 1);
+                                                    setIsViewPatientsModalOpen(true);
+                                                }}
+                                                className="flex items-center gap-2 text-xs"
+                                            >
+                                                <Users className="h-3 w-3" />
+                                                View Participants
+                                            </Button>
                                         </TableCell>
                                         <TableCell>
                                                         <div className="flex items-center justify-end gap-1">
@@ -1626,6 +1680,174 @@ const HealthPrograms = ({
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+
+                {/* View Patients Modal */}
+                <Dialog open={isViewPatientsModalOpen} onOpenChange={setIsViewPatientsModalOpen}>
+                    <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Users className="h-5 w-5 text-blue-600" />
+                                Registered Participants - {selectedProgram?.name}
+                            </DialogTitle>
+                            <DialogDescription>
+                                View all participants registered for this health program
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="space-y-4">
+                            {patientsLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                    <span className="ml-3 text-gray-500">Loading participants...</span>
+                                </div>
+                            ) : programPatients.length > 0 ? (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-gray-600">
+                                            Total: {patientsPagination.total} participants
+                                        </p>
+                                        <p className="text-sm text-gray-600">
+                                            Showing {patientsPagination.from} to {patientsPagination.to} of {patientsPagination.total}
+                                        </p>
+                                    </div>
+                                    
+                                    {/* List Format for Patients */}
+                                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                        {/* Table Header */}
+                                        <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
+                                            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <div className="col-span-3">Name</div>
+                                                <div className="col-span-2">Registration ID</div>
+                                                <div className="col-span-2">Contact</div>
+                                                <div className="col-span-2">Email</div>
+                                                <div className="col-span-1">Age</div>
+                                                <div className="col-span-1">Gender</div>
+                                                <div className="col-span-1">Status</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Table Body */}
+                                        <div className="divide-y divide-gray-200">
+                                            {programPatients.map((patient) => (
+                                                <div key={patient.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                                                    <div className="grid grid-cols-12 gap-4 items-center">
+                                                        {/* Name */}
+                                                        <div className="col-span-3 flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                <User className="h-4 w-4 text-blue-600" />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {patient.full_name}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Registration ID */}
+                                                        <div className="col-span-2">
+                                                            <p className="text-sm text-gray-900 font-mono">
+                                                                {patient.id}
+                                                            </p>
+                                                        </div>
+                                                        
+                                                        {/* Contact */}
+                                                        <div className="col-span-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Phone className="h-4 w-4 text-gray-400" />
+                                                                <span className="text-sm text-gray-900">{patient.contact_number}</span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Email */}
+                                                        <div className="col-span-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <Mail className="h-4 w-4 text-gray-400" />
+                                                                <span className="text-sm text-gray-900 truncate">{patient.email}</span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Age */}
+                                                        <div className="col-span-1">
+                                                            <span className="text-sm text-gray-900">{patient.age} years</span>
+                                                        </div>
+                                                        
+                                                        {/* Gender */}
+                                                        <div className="col-span-1">
+                                                            <span className="text-sm text-gray-900">{patient.sex}</span>
+                                                        </div>
+                                                        
+                                                        {/* Status */}
+                                                        <div className="col-span-1">
+                                                            <Badge 
+                                                                variant="outline" 
+                                                                className={`text-xs ${
+                                                                    patient.status === 'Registered' 
+                                                                        ? 'bg-green-100 text-green-800 border-green-200' 
+                                                                        : 'bg-gray-100 text-gray-800 border-gray-200'
+                                                                }`}
+                                                            >
+                                                                {patient.status}
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Registration Date - Full width row */}
+                                                    <div className="mt-2 pt-2 border-t border-gray-100">
+                                                        <div className="flex items-center gap-2">
+                                                            <Calendar className="h-4 w-4 text-gray-400" />
+                                                            <span className="text-xs text-gray-500">
+                                                                Registered: {new Date(patient.registered_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Pagination for patients */}
+                                    {patientsPagination.last_page > 1 && (
+                                        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                            <div className="text-sm text-gray-500">
+                                                Page {patientsPagination.current_page} of {patientsPagination.last_page}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handlePatientPageChange(patientsPagination.current_page - 1)}
+                                                    disabled={patientsPagination.current_page === 1}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    <ChevronLeft className="h-4 w-4" />
+                                                    Previous
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handlePatientPageChange(patientsPagination.current_page + 1)}
+                                                    disabled={patientsPagination.current_page === patientsPagination.last_page}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    Next
+                                                    <ChevronRight className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Users className="h-8 w-8 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-gray-900 mb-2">No participants registered</h3>
+                                    <p className="text-gray-500">This program doesn't have any registered participants yet.</p>
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AdminLayout>
     );

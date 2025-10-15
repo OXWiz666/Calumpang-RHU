@@ -9,7 +9,17 @@ class program_participants extends Model
     protected $fillable = [
         'program_schedule_id',
         'user_id',
+        'registration_id',
         'status',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'suffix',
+        'sex',
+        'birthdate',
+        'age',
+        'contact_number',
+        'email',
         'created_at',
         'updated_at'
     ];

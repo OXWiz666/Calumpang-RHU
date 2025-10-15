@@ -210,6 +210,7 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('create',[HealthProgramsController::class,'CreateProgram'])->name('admin.programs.create');
             Route::post('archive',[HealthProgramsController::class,'archiveProgram'])->name('admin.programs.archive');
             Route::post('unarchive',[HealthProgramsController::class,'unarchiveProgram'])->name('admin.programs.unarchive');
+            Route::get('{programId}/patients',[HealthProgramsController::class,'getProgramPatients'])->name('admin.programs.patients');
         });
 
 

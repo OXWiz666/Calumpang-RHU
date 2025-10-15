@@ -49,6 +49,107 @@ import PrimaryButton from "@/components/PrimaryButton";
 export default function Appointment({ services }) {
     //const [activeTab, setActiveTab] = useState(ActiveTAB);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isExistingPatient, setIsExistingPatient] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
+    const [confirmationData, setConfirmationData] = useState(null);
+
+    // Function to dismiss verification success message
+    const dismissVerificationSuccess = () => {
+        setShowVerificationSuccess(false);
+    };
+    
+    // Debug logging
+    console.log('Appointment component received services:', services);
+    console.log('Services type:', typeof services);
+    console.log('Is array:', Array.isArray(services));
+    console.log('Services length:', services?.length);
+    
+    
+    // Check for existing patient data on component mount
+    useEffect(() => {
+        // Check for verification success parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('verified') === 'true') {
+            setShowVerificationSuccess(true);
+            // Clear the URL parameter after showing the message
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.delete('verified');
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        // Check for confirmation parameter
+        if (urlParams.get('confirmed') === 'true') {
+            setIsSubmitted(true);
+            
+            // Load appointment data from localStorage
+            const storedData = localStorage.getItem('confirmed_appointment_data');
+            if (storedData) {
+                try {
+                    const appointmentData = JSON.parse(storedData);
+                    console.log('Loading appointment data from localStorage:', appointmentData);
+                    
+                    // Store in React state for confirmation display
+                    setConfirmationData(appointmentData);
+                    
+                    // Clear the stored data after loading
+                    localStorage.removeItem('confirmed_appointment_data');
+                } catch (error) {
+                    console.error('Error parsing stored appointment data:', error);
+                }
+            }
+        }
+
+        // Ensure services is an array before proceeding
+        if (!Array.isArray(services)) {
+            console.error('Services is not an array:', services);
+            setIsLoading(false);
+            return;
+        }
+
+        const existingPatientData = localStorage.getItem('existingPatientData');
+        const patientType = localStorage.getItem('selectedPatientType');
+        
+        if (existingPatientData && patientType === 'existing') {
+            try {
+                const patient = JSON.parse(existingPatientData);
+                setIsExistingPatient(true);
+                
+                // Pre-populate form with existing patient data
+                setData(prev => ({
+                    ...(typeof prev === 'object' && prev !== null ? prev : {}),
+                    firstname: patient.firstname || '',
+                    middlename: patient.middlename || '',
+                    lastname: patient.lastname || '',
+                    email: patient.email || '',
+                    phone: patient.phone || '',
+                    gender: patient.gender || '',
+                    birth: patient.date_of_birth || '',
+                    civil_status: patient.civil_status || '',
+                    nationality: patient.nationality || '',
+                    religion: patient.religion || '',
+                    country: patient.country || '',
+                    region: patient.region || '',
+                    province: patient.province || '',
+                    city: patient.city || '',
+                    barangay: patient.barangay || '',
+                    street: patient.street || '',
+                    zip_code: patient.zip_code || '',
+                    profile_picture: patient.profile_picture || '',
+                    region_id: patient.region_id || null,
+                    province_id: patient.province_id || null,
+                    city_id: patient.city_id || null,
+                    barangay_id: patient.barangay_id || null,
+                }));
+            } catch (error) {
+                console.error('Error parsing existing patient data:', error);
+            }
+        }
+        
+        setIsLoading(false);
+    }, [services]);
+
     const { data, setData, errors, post, recentlySuccessful, processing } =
         useForm({
             firstname: "",
@@ -80,7 +181,25 @@ export default function Appointment({ services }) {
             street: "",
             zip_code: "",
             profile_picture: "",
+            // Address ID fields for yajra/laravel-address
+            region_id: null,
+            province_id: null,
+            city_id: null,
+            barangay_id: null,
         });
+
+    // Use confirmationData if available, otherwise use form data
+    const displayData = confirmationData || data;
+    
+    // Debug logging for data from useForm
+    console.log('Appointment component - data from useForm:', data);
+    console.log('confirmationData:', confirmationData);
+    console.log('displayData:', displayData);
+    console.log('data type:', typeof data);
+    console.log('data is object:', typeof data === 'object' && data !== null);
+    console.log('Priority number in data:', data.priorityNumber);
+    console.log('Priority number in displayData:', displayData.priorityNumber);
+    console.log('All data keys:', data && typeof data === 'object' ? Object.keys(data) : 'not an object');
 
     // Helper function to format time to 12-hour format with AM/PM
     const formatTime = (timeString) => {
@@ -114,11 +233,68 @@ export default function Appointment({ services }) {
         }
     };
 
-    // Helper function to download appointment details
-    const downloadAppointmentDetails = () => {
+    // Helper function to download appointment details as PDF
+    const downloadAppointmentDetails = async () => {
         if (!data) return;
 
-        const appointmentDetails = `
+        setIsDownloading(true);
+        
+        try {
+            // Import the required libraries dynamically
+            const html2canvas = (await import('html2canvas')).default;
+            const jsPDF = (await import('jspdf')).jsPDF;
+
+            // Get the appointment details element
+            const element = document.getElementById('appointment-details-pdf');
+            if (!element) {
+                console.error('Appointment details element not found');
+                setIsDownloading(false);
+                return;
+            }
+
+            // Generate canvas from the element
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                width: element.scrollWidth,
+                height: element.scrollHeight
+            });
+
+            // Create PDF
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 295; // A4 height in mm
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            let heightLeft = imgHeight;
+            
+            let position = 0;
+            
+            // Add image to PDF
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+            
+            // Add additional pages if needed
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+            
+            // Save the PDF
+            const fileName = `appointment_details_${data.priorityNumber || 'confirmation'}_${new Date().toISOString().split('T')[0]}.pdf`;
+            pdf.save(fileName);
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            
+            // Fallback to text download if PDF generation fails
+            const appointmentDetails = `
 CALUMPANG RURAL HEALTH UNIT
 APPOINTMENT CONFIRMATION
 
@@ -128,11 +304,11 @@ APPOINTMENT DETAILS
 ───────────────────────────────────────────────────────────────
 Priority Number: ${data.priorityNumber || 'N/A'}
 Appointment Date: ${data.date ? data.date.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        }) : 'Not specified'}
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }) : 'Not specified'}
 Appointment Time: ${formatTime(data.time)}
 
 PATIENT INFORMATION
@@ -145,7 +321,7 @@ Gender: ${data.gender || 'Not provided'}
 
 SERVICE INFORMATION
 ───────────────────────────────────────────────────────────────
-Service Type: ${data.servicename}
+Service Type: ${data.servicename || 'Not specified'}
 ${data.subservicename ? `Sub-Service: ${data.subservicename}` : ''}
 
 ${data.notes ? `ADDITIONAL NOTES
@@ -163,65 +339,162 @@ ${data.notes}
 
 Generated on: ${new Date().toLocaleString()}
 Calumpang Rural Health Unit
-        `.trim();
+            `.trim();
 
-        // Create and download the file
-        const blob = new Blob([appointmentDetails], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `appointment-${data.priorityNumber || 'confirmation'}-${new Date().toISOString().split('T')[0]}.txt`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+            // Create and download the text file as fallback
+            const blob = new Blob([appointmentDetails], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `appointment-${data.priorityNumber || 'confirmation'}-${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            alert('PDF generation failed. Downloaded as text file instead.');
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     async function handleSubmit(data) {
-        // In a real application, you would send this data to your backend
+        // Debug logging for handleSubmit data
+        console.log('handleSubmit received data:', data);
+        console.log('data type:', typeof data);
+        console.log('data is object:', typeof data === 'object' && data !== null);
+        
+        // Safety check for data
+        if (typeof data !== 'object' || data === null) {
+            console.error('handleSubmit received invalid data:', data);
+            alert('Invalid form data. Please try again.');
+            return;
+        }
+        
+        // Update the form data with the submitted data
         setData(data);
 
-        post(route("patient.appoint.create"), {
-            onSuccess: (page) => {
-                // Update the form data with the priority number from the backend response
-                // Check for priority number in flash data or session data
-                const priorityNumber = page.props.flash?.priority_number || 
-                                     page.props.appointment_priority_number;
+        try {
+            // Use fetch instead of Inertia post to handle JSON response
+            const response = await fetch(route("patient.appoint.create"), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Update the form data with the appointment data from the backend response
+                setData(prev => ({
+                    ...(typeof prev === 'object' && prev !== null ? prev : {}),
+                    priorityNumber: result.priority_number,
+                    servicename: result.appointment_data.service_name,
+                    subservicename: result.appointment_data.subservice_name,
+                    date: new Date(result.appointment_data.date),
+                    time: result.appointment_data.time,
+                    firstname: result.appointment_data.firstname,
+                    lastname: result.appointment_data.lastname,
+                    middlename: result.appointment_data.middlename,
+                    email: result.appointment_data.email,
+                    phone: result.appointment_data.phone,
+                    notes: result.appointment_data.notes,
+                    gender: result.appointment_data.gender,
+                    birth: result.appointment_data.date_of_birth,
+                    id: result.appointment_data.id, // Add appointment ID for verification
+                }));
                 
-                if (priorityNumber) {
-                    setData(prev => ({
-                        ...prev,
-                        priorityNumber: priorityNumber
-                    }));
-                    
-                    // Clear the session data after using it
-                    if (page.props.appointment_priority_number) {
-                        // Clear session data by making a request to clear it
-                        fetch('/clear-appointment-session', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                            }
-                        }).catch(err => console.log('Failed to clear session:', err));
-                    }
-                } else {
-                    // Fallback: generate a temporary priority number if backend doesn't provide one
-                    setData(prev => ({
-                        ...prev,
-                        priorityNumber: "TBD" // To Be Determined
-                    }));
-                }
                 setIsSubmitted(true);
-            },
-            onFinish: () => {
                 window.scrollTo({ top: 0, behavior: "smooth" });
-            },
-        });
+            } else {
+                // Handle error case
+                console.error('Appointment creation failed:', result.message);
+                alert('Failed to create appointment. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error creating appointment:', error);
+            alert('An error occurred while creating the appointment. Please try again.');
+        }
+    }
+
+    // Show loading state if services is not ready
+    if (isLoading || !Array.isArray(services) || services.length === 0) {
+        return (
+            <AppointmentLayout>
+                <div className="flex items-center justify-center min-h-screen">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading appointment form...</p>
+                        {!Array.isArray(services) && (
+                            <p className="text-red-600 mt-2">Error: Services data is invalid</p>
+                        )}
+                    </div>
+                </div>
+            </AppointmentLayout>
+        );
     }
 
     return (
         <AppointmentLayout>
+            {/* Existing Patient Information Banner */}
+            {isExistingPatient && (
+                <div className="mb-6">
+                    <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-green-900">Welcome Back!</h3>
+                                    <p className="text-sm text-green-700">
+                                        Your information has been automatically filled from your previous appointment. You can modify any details if needed.
+                                    </p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Verification Success Message */}
+            {showVerificationSuccess && (
+                <div className="mb-6">
+                    <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                        <CardContent className="p-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-green-900">Appointment Verified Successfully!</h3>
+                                        <p className="text-sm text-green-700">
+                                            Your appointment has been confirmed and verified. You will receive a confirmation email shortly.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={dismissVerificationSuccess}
+                                    className="text-green-600 hover:text-green-800 transition-colors"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
             {isSubmitted ? (
                 <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-8">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -231,7 +504,7 @@ Calumpang Rural Health Unit
                                 <CheckCircle2 className="h-10 w-10 text-white" />
                             </div>
                             <h1 className="text-3xl font-bold text-gray-900 mb-3">
-                                Appointment Confirmed!
+                                Appointment Scheduled!
                             </h1>
                             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                                 Your appointment has been successfully scheduled. We'll send you a confirmation text message shortly.
@@ -241,7 +514,7 @@ Calumpang Rural Health Unit
                         {data && (
                             <div className="space-y-6">
                                 {/* Main Appointment Card */}
-                                <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+                                <Card id="appointment-details-pdf" className="shadow-xl border-0 bg-white/80 backdrop-blur-sm print:bg-white print:shadow-none print:border print:border-gray-200">
                                     <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-t-lg">
                                         <div className="flex items-center justify-between">
                                             <div>
@@ -257,14 +530,15 @@ Calumpang Rural Health Unit
                                                 <div className="text-center">
                                                     <p className="text-xs text-blue-100 font-medium">Priority Number</p>
                                                     <p className="text-2xl font-bold text-white">
-                                                        {data.priorityNumber || "N/A"}
+                                                        {displayData.priorityNumber || "N/A"}
                                                     </p>
                                                 </div>
                                             </div>
                                         </div>
                                     </CardHeader>
                                     
-                                    <CardContent className="p-8">
+                                    
+                                    <CardContent className="p-8 print:p-6">
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                             {/* Patient Information */}
                                             <div className="space-y-6">
@@ -287,7 +561,7 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-gray-500">Full Name</p>
                                                             <p className="text-lg font-semibold text-gray-900">
-                                                                {data.firstname} {data.middlename ? data.middlename + ' ' : ''}{data.lastname}
+                                                                {displayData.firstname} {displayData.middlename ? displayData.middlename + ' ' : ''}{displayData.lastname}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -301,7 +575,7 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-gray-500">Email Address</p>
                                                             <p className="text-lg font-semibold text-gray-900">
-                                                                {data.email || "Not provided"}
+                                                                {displayData.email || "Not provided"}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -315,7 +589,7 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-gray-500">Phone Number</p>
                                                             <p className="text-lg font-semibold text-gray-900">
-                                                                {data.phone || "Not provided"}
+                                                                {displayData.phone || "Not provided"}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -329,7 +603,7 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-gray-500">Birth Date</p>
                                                             <p className="text-lg font-semibold text-gray-900">
-                                                                {data.birth || "Not provided"}
+                                                                {displayData.birth || "Not provided"}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -343,7 +617,7 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-gray-500">Gender</p>
                                                             <p className="text-lg font-semibold text-gray-900">
-                                                                {data.gender || "Not provided"}
+                                                                {displayData.gender || "Not provided"}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -367,12 +641,12 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-green-700">Service Type</p>
                                                             <p className="text-lg font-semibold text-green-900">
-                                                                {data.servicename}
+                                                                {displayData.servicename || "Not specified"}
                                                             </p>
                                                         </div>
                                                     </div>
 
-                                                    {data.subservicename && (
+                                                    {displayData.subservicename && (
                                                         <div className="flex items-center gap-4 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                                                             <div className="w-8 h-8 bg-emerald-200 rounded-full flex items-center justify-center">
                                                                 <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -382,7 +656,7 @@ Calumpang Rural Health Unit
                                                             <div>
                                                                 <p className="text-sm font-medium text-emerald-700">Sub-Service</p>
                                                                 <p className="text-lg font-semibold text-emerald-900">
-                                                                    {data.subservicename}
+                                                                    {displayData.subservicename}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -395,12 +669,19 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-blue-700">Appointment Date</p>
                                                             <p className="text-lg font-semibold text-blue-900">
-                                                                {data.date ? data.date.toLocaleDateString('en-US', {
-                                                                    weekday: 'long',
-                                                                    year: 'numeric',
-                                                                    month: 'long',
-                                                                    day: 'numeric'
-                                                                }) : "Not specified"}
+                                                                {displayData.date ? (() => {
+                                                                    try {
+                                                                        const date = new Date(displayData.date);
+                                                                        return isNaN(date.getTime()) ? "Invalid date" : date.toLocaleDateString('en-US', {
+                                                                            weekday: 'long',
+                                                                            year: 'numeric',
+                                                                            month: 'long',
+                                                                            day: 'numeric'
+                                                                        });
+                                                                    } catch (error) {
+                                                                        return "Invalid date";
+                                                                    }
+                                                                })() : "Not specified"}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -414,12 +695,12 @@ Calumpang Rural Health Unit
                                                         <div>
                                                             <p className="text-sm font-medium text-purple-700">Appointment Time</p>
                                                             <p className="text-lg font-semibold text-purple-900">
-                                                                {formatTime(data.time)}
+                                                                {formatTime(displayData.time)}
                                                             </p>
                                                         </div>
                                                     </div>
 
-                                                    {data.notes && (
+                                                    {displayData.notes && (
                                                         <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                                                             <div className="flex items-start gap-3">
                                                                 <div className="w-8 h-8 bg-amber-200 rounded-full flex items-center justify-center mt-1">
@@ -428,7 +709,7 @@ Calumpang Rural Health Unit
                                                                 <div>
                                                                     <p className="text-sm font-medium text-amber-700 mb-2">Additional Notes</p>
                                                                     <p className="text-amber-900 leading-relaxed">
-                                                                        {data.notes}
+                                                                        {displayData.notes}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -480,10 +761,23 @@ Calumpang Rural Health Unit
                                     <Button 
                                         variant="outline"
                                         onClick={downloadAppointmentDetails}
-                                        className="border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                                        disabled={isDownloading}
+                                        className="border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <Download className="w-5 h-5 mr-2" />
-                                        Download Details
+                                        {isDownloading ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Generating PDF...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="w-5 h-5 mr-2" />
+                                                Download Details
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </div>
@@ -611,6 +905,7 @@ Calumpang Rural Health Unit
                                 errors={errors}
                                 processing={processing}
                                 onSubmit={handleSubmit}
+                                setIsSubmitted={setIsSubmitted}
                             />
                         </div>
                     </div>

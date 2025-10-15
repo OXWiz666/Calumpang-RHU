@@ -146,20 +146,20 @@ class PatientController extends Controller
     }
 
     public function appointments(){
-        // Check if user has completed patient verification
-        // This prevents bypassing the Patient Verification modal by direct URL access
-        if (!session('patient_verification_completed')) {
-            // Redirect to home page with a message to complete verification first
-            return redirect()->route('home')->with('error', 'Please complete patient verification first by clicking "Book Appointment" from the home page.');
-        }
-
         // Only get active services (status = 1, not archived)
         $serv = servicetypes::with(['servicedays'])
             ->where('status', 1) // Only show active services, not archived ones
             ->get();
 
+        // Debug logging
+        \Log::info('Services data:', [
+            'count' => $serv->count(),
+            'first_service' => $serv->first(),
+            'is_collection' => $serv instanceof \Illuminate\Database\Eloquent\Collection
+        ]);
+
         return Inertia::render('Authenticated/Patient/Appointments/Appointment',[
-            'services' => $serv,
+            'services' => $serv->toArray(),
             'ActiveTAB' => 'appointment'
         ]);
     }
@@ -167,6 +167,96 @@ class PatientController extends Controller
     public function GetSubServices(Request $request,$id){
         $subservices = subservices::with(['times'])->where('service_id',$id)->get();
         return response()->json($subservices);
+    }
+
+    public function lookupPatientByReference($referenceNumber){
+        try {
+            // Find the appointment by reference number
+            $appointment = appointments::with(['user', 'service', 'subservice'])
+                ->where('reference_number', $referenceNumber)
+                ->first();
+
+            if (!$appointment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reference number not found. Please check your reference number and try again.'
+                ], 404);
+            }
+
+            // Get patient data
+            $patientData = [
+                'firstname' => $appointment->firstname,
+                'middlename' => $appointment->middlename,
+                'lastname' => $appointment->lastname,
+                'email' => $appointment->email,
+                'phone' => $appointment->phone,
+                'gender' => $appointment->gender,
+                'date_of_birth' => $appointment->date_of_birth,
+                'civil_status' => $appointment->civil_status,
+                'nationality' => $appointment->nationality,
+                'religion' => $appointment->religion,
+                'country' => $appointment->country,
+                'region' => $appointment->region,
+                'province' => $appointment->province,
+                'city' => $appointment->city,
+                'barangay' => $appointment->barangay,
+                'street' => $appointment->street,
+                'zip_code' => $appointment->zip_code,
+                'profile_picture' => $appointment->profile_picture,
+                'region_id' => $appointment->region_id,
+                'province_id' => $appointment->province_id,
+                'city_id' => $appointment->city_id,
+                'barangay_id' => $appointment->barangay_id,
+                'reference_number' => $appointment->reference_number,
+                'last_appointment_date' => $appointment->date,
+                'last_service' => $appointment->service ? $appointment->service->servicename : null,
+                'last_subservice' => $appointment->subservice ? $appointment->subservice->subservicename : null,
+                'last_time' => $appointment->time,
+            ];
+
+            return response()->json([
+                'success' => true,
+                'patient' => $patientData,
+                'message' => 'Patient information found successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while looking up your information. Please try again.'
+            ], 500);
+        }
+    }
+
+    public function getPatientAppointments($referenceNumber){
+        try {
+            // Find all appointments for this patient by reference number
+            $appointments = appointments::with(['service', 'subservice', 'user', 'doctor'])
+                ->where('reference_number', $referenceNumber)
+                ->orWhere(function($query) use ($referenceNumber) {
+                    // Also find appointments by the same patient (using first appointment's patient data)
+                    $firstAppointment = appointments::where('reference_number', $referenceNumber)->first();
+                    if ($firstAppointment) {
+                        $query->where('firstname', $firstAppointment->firstname)
+                              ->where('lastname', $firstAppointment->lastname)
+                              ->where('email', $firstAppointment->email);
+                    }
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'appointments' => $appointments,
+                'message' => 'Appointment history retrieved successfully.'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving appointment history. Please try again.'
+            ], 500);
+        }
     }
 
     public function appointmentshistory(){
@@ -218,7 +308,9 @@ class PatientController extends Controller
             'subservice_id' => $request->subservice ?? null,
             'notes' => $request->notes,
             'priority_number' => $priorityNumber,
-            'status' => 6,
+            'status' => 6, // Pending verification
+            'is_verified' => false, // Initially unverified
+            'verified_at' => null,
             // Patient profile fields for Patient Records
             'date_of_birth' => $request->date_of_birth ?? null,
             'gender' => $request->gender ?? null,
@@ -226,10 +318,11 @@ class PatientController extends Controller
             'nationality' => $request->nationality ?? null,
             'religion' => $request->religion ?? null,
             'country' => $request->country ?? null,
-            'region' => $request->region ?? null,
-            'province' => $request->province ?? null,
-            'city' => $request->city ?? null,
-            'barangay' => $request->barangay ?? null,
+            // Address fields using yajra/laravel-address
+            'region_id' => $request->region_id ?? null,
+            'province_id' => $request->province_id ?? null,
+            'city_id' => $request->city_id ?? null,
+            'barangay_id' => $request->barangay_id ?? null,
             'street' => $request->street ?? null,
             'zip_code' => $request->zip_code ?? null,
             'profile_picture' => $request->profile_picture ?? null,
@@ -238,24 +331,8 @@ class PatientController extends Controller
 
         $appointment = appointments::create($appointmentData);
 
-        // Only send notification if user is authenticated
-        if ($user) {
-            $user->notify(new SystemNotification(
-                'Appointment Scheduled',
-                'Your appointment for '.$service->name.' has been scheduled for '.$request->date.' at '.$request->time.'.',
-                'appointment'
-            ));
-
-            // Trigger notification event
-            //event(new SendNotification($user->id));
-
-            NotifSender::SendNotif(true,[$user->id],'Appointment scheduled successfully','Appointment Schedule');
-
-            ActivityLogger::log('User scheduled an appointment', $user, ['appointment_id' => $appointment->id]);
-        }
-
-        // Notify admins and doctors about new appointment
-        NotifSender::SendNotif(false,[1,7],"$userName ($userRole) Scheduled an appointment",'New Appointment Scheduled');
+        // Don't send notifications yet - wait for verification
+        // Notifications will be sent after verification is complete
 
         // Send confirmation email and SMS
         $this->sendAppointmentConfirmation($appointment);
@@ -270,6 +347,34 @@ class PatientController extends Controller
         // Clear patient verification session after successful appointment creation
         // This ensures users need to verify again for the next appointment
         session()->forget('patient_verification_completed');
+
+        // Check if this is an AJAX request (from the frontend form)
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Appointment scheduled successfully! Your patient record has been automatically created.',
+                'priority_number' => $priorityNumber,
+                'reference_number' => $appointment->reference_number ?? null,
+                'appointment_id' => $appointment->id,
+                'appointment_data' => [
+                    'id' => $appointment->id,
+                    'priority_number' => $priorityNumber,
+                    'reference_number' => $appointment->reference_number ?? null,
+                    'date' => $appointment->date,
+                    'time' => $appointment->time,
+                    'service_name' => $service->servicename,
+                    'subservice_name' => $appointment->subservice ? $appointment->subservice->subservicename : null,
+                    'firstname' => $appointment->firstname,
+                    'lastname' => $appointment->lastname,
+                    'middlename' => $appointment->middlename,
+                    'email' => $appointment->email,
+                    'phone' => $appointment->phone,
+                    'notes' => $appointment->notes,
+                    'gender' => $appointment->gender,
+                    'date_of_birth' => $appointment->date_of_birth,
+                ]
+            ]);
+        }
 
         return redirect()->back()->with([
             'success' => 'Appointment scheduled successfully! Your patient record has been automatically created.',
@@ -433,4 +538,110 @@ class PatientController extends Controller
             'availability' => $availability
         ]);
     }
+
+    public function sendVerificationCode(Request $request){
+        try {
+            $request->validate([
+                'appointment_id' => 'required|integer',
+                'method' => 'required|in:email,sms',
+                'contact' => 'required|string'
+            ]);
+
+            // Generate 6-digit verification code
+            $verificationCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            
+            // Store verification code in cache with 5-minute expiry
+            $cacheKey = "verification_code_{$request->appointment_id}";
+            \Cache::put($cacheKey, $verificationCode, 300); // 5 minutes
+
+            if ($request->method === 'email') {
+                // Send email verification
+                \Mail::raw("Your verification code is: {$verificationCode}\n\nThis code will expire in 5 minutes.", function ($message) use ($request) {
+                    $message->to($request->contact)
+                            ->subject('Appointment Verification Code - Calumpang RHU');
+                });
+            } else {
+                // Send SMS verification (you'll need to implement SMS service)
+                // For now, we'll just log it - you can integrate with SMS providers like Twilio
+                \Log::info("SMS Verification Code for {$request->contact}: {$verificationCode}");
+                
+                // In production, replace this with actual SMS sending:
+                // $this->sendSMS($request->contact, "Your verification code is: {$verificationCode}");
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Verification code sent successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send verification code. Please try again.'
+            ], 500);
+        }
+    }
+
+    public function verifyAppointment(Request $request){
+        try {
+            $request->validate([
+                'appointment_id' => 'required|integer',
+                'verification_code' => 'required|string|size:6'
+            ]);
+
+            $cacheKey = "verification_code_{$request->appointment_id}";
+            $storedCode = \Cache::get($cacheKey);
+
+            if (!$storedCode || $storedCode !== $request->verification_code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid or expired verification code'
+                ], 400);
+            }
+
+            // Clear the verification code from cache
+            \Cache::forget($cacheKey);
+
+            // Mark appointment as verified in database
+            $appointment = \App\Models\appointments::find($request->appointment_id);
+            if ($appointment) {
+                $appointment->update([
+                    'is_verified' => true,
+                    'verified_at' => now(),
+                    'status' => 1 // Change status to confirmed after verification
+                ]);
+
+                // Now send notifications after successful verification
+                $user = \App\Models\User::find($appointment->user_id);
+                if ($user) {
+                    $user->notify(new \App\Notifications\SystemNotification(
+                        'Appointment Confirmed',
+                        'Your appointment has been verified and confirmed for ' . $appointment->date . ' at ' . $appointment->time . '.',
+                        'appointment'
+                    ));
+
+                    \App\Services\NotifSender::SendNotif(true, [$user->id], 'Appointment verified and confirmed successfully', 'Appointment Confirmed');
+
+                    \App\Services\ActivityLogger::log('User verified appointment', $user, ['appointment_id' => $appointment->id]);
+                }
+
+                // Notify admins and doctors about verified appointment
+                $userName = $appointment->firstname . ' ' . $appointment->lastname;
+                $userRole = $appointment->user_id ? 'Registered User' : 'Guest';
+                \App\Services\NotifSender::SendNotif(false, [1, 7], "$userName ($userRole) verified their appointment", 'Appointment Verified');
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Appointment verified successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to verify appointment. Please try again.'
+            ], 500);
+        }
+    }
+
 }
