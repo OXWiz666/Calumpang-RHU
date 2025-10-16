@@ -10,4 +10,7 @@ export default defineConfig({
         }),
         react(),
     ],
+    build: {
+        target: 'esnext', // ✅ Allow top-level await and modern syntax
+    },
 });
