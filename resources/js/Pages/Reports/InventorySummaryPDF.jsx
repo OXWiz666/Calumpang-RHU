@@ -1,5 +1,5 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Table, TableHeader, TableBody, TableRow, TableCell } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
 const styles = StyleSheet.create({
     page: {
@@ -161,28 +161,27 @@ const InventorySummaryPDF = ({ title, subtitle, meta, data, columns, analytics }
                     </View>
                 </View>
                 
-                <Table style={styles.table}>
-                    <TableHeader>
-                        <TableRow style={styles.tableRow}>
-                            {Object.entries(columns).map(([key, label]) => (
-                                <TableCell key={key} style={styles.tableHeader}>
-                                    {label}
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {data.map((item, index) => (
-                            <TableRow key={index} style={[styles.tableRow, index % 2 === 0 ? styles.tableRowEven : {}]}>
-                                {Object.entries(columns).map(([key, label]) => (
-                                    <TableCell key={key} style={styles.tableCell}>
-                                        {renderCellValue(key, item[key])}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
+                <View style={styles.table}>
+                    {/* Table Header */}
+                    <View style={styles.tableRow}>
+                        {Object.entries(columns).map(([key, label]) => (
+                            <View key={key} style={styles.tableHeader}>
+                                <Text>{label}</Text>
+                            </View>
                         ))}
-                    </TableBody>
-                </Table>
+                    </View>
+                    
+                    {/* Table Body */}
+                    {data.map((item, index) => (
+                        <View key={index} style={[styles.tableRow, index % 2 === 0 ? styles.tableRowEven : {}]}>
+                            {Object.entries(columns).map(([key, label]) => (
+                                <View key={key} style={styles.tableCell}>
+                                    <Text>{renderCellValue(key, item[key])}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    ))}
+                </View>
                 
                 <View style={styles.footer}>
                     <Text><Text style={{fontWeight: 'bold'}}>OFFICIAL DOCUMENT</Text> - Generated on {new Date().toLocaleString()}</Text>

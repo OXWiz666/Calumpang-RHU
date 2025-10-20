@@ -21,7 +21,6 @@ import {
     Building2,
     Users,
     FileSpreadsheet,
-    Eye,
     Settings,
     CheckCircle,
     Star,
@@ -281,16 +280,6 @@ export default function PharmacistReports({
         }
     };
 
-    // Helper function to print report from history
-    const printReportFromHistory = (report) => {
-        if (report.data) {
-            setGeneratedReport(report.data);
-            // Trigger print after a short delay to ensure report is set
-            setTimeout(() => {
-                printReport();
-            }, 100);
-        }
-    };
 
     // Handle single batch disposal
     const handleDisposeBatch = (batch) => {
@@ -1151,198 +1140,7 @@ export default function PharmacistReports({
         }
     };
 
-    // Print report
-    const printReport = () => {
-        if (!generatedReport) return;
-        
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        
-        const reportContent = document.getElementById('report-content');
-        if (!reportContent) return;
-        
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>${generatedReport.title}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        .header { text-align: center; margin-bottom: 30px; }
-                        .summary { margin-bottom: 30px; }
-                        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
-                        .summary-item { text-align: center; padding: 15px; background: #f5f5f5; border-radius: 8px; }
-                        .summary-value { font-size: 24px; font-weight: bold; color: #333; }
-                        .summary-label { font-size: 12px; color: #666; text-transform: uppercase; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f5f5f5; font-weight: bold; }
-                        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-                        .status-in_stock { background: #d4edda; color: #155724; }
-                        .status-low_stock { background: #fff3cd; color: #856404; }
-                        .status-out_of_stock { background: #f8d7da; color: #721c24; }
-                        .status-expired { background: #f8d7da; color: #721c24; }
-                        .status-expiring_soon { background: #ffeaa7; color: #856404; }
-                        @media print { body { margin: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>${generatedReport.title}</h1>
-                        <p>Generated on ${new Date(generatedReport.generatedAt).toLocaleString()}</p>
-                    </div>
-                    
-                    ${Object.keys(generatedReport.summary).length > 0 ? `
-                        <div class="summary">
-                            <h2>Summary</h2>
-                            <div class="summary-grid">
-                                ${Object.entries(generatedReport.summary).map(([key, value]) => `
-                                    <div class="summary-item">
-                                        <div class="summary-value">${value}</div>
-                                        <div class="summary-label">${key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}</div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-                    
-                    <h2>Items (${generatedReport.items.length})</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                ${selectedReport === 'dispensing_report' ? `
-                                    <th>Item Name</th>
-                                    <th>Dispense Mode</th>
-                                    <th>Quantity</th>
-                                    <th>Batch Number</th>
-                                    <th>Prescription #</th>
-                                    <th>Dispensed By</th>
-                                    <th>Date</th>
-                                ` : `
-                                    <th>Item Name</th>
-                                    <th>Category</th>
-                                    <th>Quantity</th>
-                                    <th>Batch Number</th>
-                                    <th>Expiry Date</th>
-                                    <th>Status</th>
-                                `}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${generatedReport.items.map(item => {
-                                if (selectedReport === 'dispensing_report') {
-                                    return `
-                                        <tr>
-                                            <td>${item.name}<br><small>${item.manufacturer}</small></td>
-                                            <td>${item.dispenseMode}<br><small>${item.patientName}</small></td>
-                                            <td>${item.quantity} ${item.unit}</td>
-                                            <td>${item.batchNumber}</td>
-                                            <td>${item.prescriptionNumber}</td>
-                                            <td>${item.staffName}<br><small>${item.reason}</small></td>
-                                            <td>${formatDate(item.dispensedAt)}<br><small>${formatTime(item.dispensedAt)}</small></td>
-                                        </tr>
-                                    `;
-                                } else {
-                                    const status = getItemStatus(item);
-                                    const statusText = {
-                                        'in_stock': 'In Stock',
-                                        'low_stock': 'Low Stock Items',
-                                        'out_of_stock': 'Out of Stock Items',
-                                        'expired': 'Expired Items',
-                                        'expiring_soon': 'Expiring Soon Items'
-                                    };
-                                    return `
-                                        <tr>
-                                            <td>${item.name}<br><small>${item.manufacturer}</small></td>
-                                            <td>${item.category}</td>
-                                            <td>${item.quantity} ${item.unit}</td>
-                                            <td>${item.batchNumber}</td>
-                                            <td>${item.expiryDate !== 'N/A' ? new Date(item.expiryDate).toLocaleDateString() : 'N/A'}</td>
-                                            <td><span class="status-badge status-${status}">${statusText[status]}</span></td>
-                                        </tr>
-                                    `;
-                                }
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </body>
-            </html>
-        `);
-        
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-    };
 
-    // View report in React page
-    const viewReport = () => {
-        if (!selectedReport) return;
-        
-        // Build query parameters for enhanced filtering
-        const params = new URLSearchParams();
-        params.append('format', 'web');
-        
-        if (selectedCategory !== 'all') {
-            params.append('category_id', selectedCategory);
-        }
-        if (selectedStatus !== 'all') {
-            params.append('status', selectedStatus);
-        }
-        if (selectedPriority !== 'all') {
-            params.append('priority', selectedPriority);
-        }
-        if (sortBy !== 'name') {
-            params.append('sort_by', sortBy);
-        }
-        if (sortOrder !== 'asc') {
-            params.append('sort_order', sortOrder);
-        }
-        if (reportLimit !== 100) {
-            params.append('limit', reportLimit);
-        }
-        
-        // Add date range
-        const endDate = new Date();
-        const startDate = new Date();
-        switch (dateRange) {
-            case '7d':
-                startDate.setDate(endDate.getDate() - 7);
-                break;
-            case '30d':
-                startDate.setDate(endDate.getDate() - 30);
-                break;
-            case '90d':
-                startDate.setDate(endDate.getDate() - 90);
-                break;
-            case '1y':
-                startDate.setFullYear(endDate.getFullYear() - 1);
-                break;
-        }
-        
-        params.append('start_date', startDate.toISOString().split('T')[0]);
-        params.append('end_date', endDate.toISOString().split('T')[0]);
-        
-        // Determine the correct endpoint based on report type
-        let endpoint = '/pharmacist/inventory-reports/summary';
-        switch (selectedReport) {
-            case 'inventory_summary':
-                endpoint = '/pharmacist/inventory-reports/summary';
-                break;
-            case 'expiry_report':
-                endpoint = '/pharmacist/inventory-reports/expiry';
-                break;
-            case 'dispensing_report':
-                endpoint = '/pharmacist/inventory-reports/dispensing';
-                break;
-            case 'low_stock_alert':
-                endpoint = '/pharmacist/inventory-reports/low-stock-alert';
-                break;
-            default:
-                endpoint = '/pharmacist/inventory-reports/summary';
-        }
-        
-        // Open the report in a new tab
-        window.open(`${endpoint}?${params.toString()}`, '_blank');
-    };
 
     return (
         <AdminLayout header="Reports">
@@ -1892,7 +1690,7 @@ export default function PharmacistReports({
                                             RURAL HEALTH UNIT OF CALUMPANG
                                         </h2>
                                         <p className="text-gray-300 text-lg">
-                                            Calumpang, Bulacan
+                                            Calumpang, General Santos City.
                                         </p>
                                     </div>
                                     <div className="border-t border-gray-500 pt-4">
@@ -1946,25 +1744,7 @@ export default function PharmacistReports({
                                                 <Download className="h-4 w-4" />
                                                 Excel
                                             </Button>
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
-                                                onClick={viewReport}
-                                            >
-                                                <Eye className="h-4 w-4" />
-                                                View Report
-                                            </Button>
                                         </div>
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
-                                            onClick={printReport}
-                                        >
-                                            <Printer className="h-4 w-4" />
-                                            Print
-                                        </Button>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -2247,15 +2027,6 @@ export default function PharmacistReports({
                                                 >
                                                     <Download className="h-3 w-3" />
                                                     Download
-                                                </Button>
-                                                <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="flex items-center gap-1"
-                                                    onClick={() => printReportFromHistory(report)}
-                                                >
-                                                    <Printer className="h-3 w-3" />
-                                                    Print
                                                 </Button>
                                             </div>
                                         </div>
