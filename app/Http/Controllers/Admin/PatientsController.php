@@ -52,15 +52,20 @@ class PatientsController extends Controller
                     'street' => $firstAppointment->street,
                     'zip_code' => $firstAppointment->zip_code,
                     'profile_picture' => $firstAppointment->profile_picture,
-                    'registration_date' => $firstAppointment->created_at,
+                    'registration_date' => $appointments->min('created_at'),
                     'appointment_count' => $appointmentCount,
                     'last_appointment' => $appointments->max('created_at'),
+                    'last_visit_date' => $appointments->max('created_at'),
                     'patient_type' => 'Patient',
                     'status' => 'active'
                 ];
             })
             ->values();
 
+        // Debug: Log unique gender values
+        $uniqueGenders = $appointmentPatients->pluck('gender')->unique()->filter()->values();
+        \Log::info('Unique gender values in patients data:', $uniqueGenders->toArray());
+        
         return Inertia::render('Authenticated/Admin/Patients/page', [
             'patients_' => $appointmentPatients,
             'doctors' => doctor_details::with(['user'])->get(),
@@ -117,8 +122,9 @@ class PatientsController extends Controller
                         'street' => $appointment->street,
                         'zip_code' => $appointment->zip_code,
                         'profile_picture' => $appointment->profile_picture,
-                        'registration_date' => $appointment->created_at,
+                        'registration_date' => $allAppointments->min('created_at'),
                         'appointment_count' => $allAppointments->count(),
+                        'last_visit_date' => $allAppointments->max('created_at'),
                         'status' => 'active',
                         'prescriptions' => collect([]), // No prescriptions for appointment patients
                         'medical_histories' => collect([]), // No medical histories for appointment patients
@@ -140,6 +146,17 @@ class PatientsController extends Controller
                 'prescriptions.doctor',
                 'prescriptions.medicines.medicine'
             ])->findOrFail($id);
+            
+            // Get appointment data for regular users
+            $userAppointments = \App\Models\appointments::where('user_id', $patient->id)->get();
+            
+            if ($userAppointments->isNotEmpty()) {
+                $patient->last_visit_date = $userAppointments->max('created_at');
+                $patient->registration_date = $userAppointments->min('created_at');
+            } else {
+                $patient->last_visit_date = null;
+                $patient->registration_date = $patient->created_at; // Fallback to user creation date
+            }
         }
 
         // Format prescriptions data for frontend (only for registered users)
@@ -189,7 +206,8 @@ class PatientsController extends Controller
                     'generic_name' => $item->generic_name ?? $item->name,
                     'unit' => $item->unit ?? 'pcs',
                     'available_quantity' => $totalQuantity,
-                    'category' => $item->icategory ? $item->icategory->name : 'General'
+                    'category' => $item->icategory ? $item->icategory->name : 'General',
+                    'batch_number' => $item->batch_number ?? 'N/A'
                 ];
             })
             ->filter(function($medicine) {

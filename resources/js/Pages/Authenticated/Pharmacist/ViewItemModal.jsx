@@ -71,9 +71,9 @@ const ViewItemModal = ({ open, onClose, item }) => {
             case 'low_stock':
                 return 'Low Stock';
             case 'out_of_stock':
-                return 'Out of Stock';
+                return 'Out of Stock Items';
             case 'expiring_soon':
-                return 'Expiring Soon';
+                return 'Expiring Soon Items';
             default:
                 return 'Unknown';
         }
@@ -100,7 +100,7 @@ const ViewItemModal = ({ open, onClose, item }) => {
                                     {item.name}
                                 </h3>
                                 <p className="text-sm text-gray-500">
-                                    {item.category}
+                                    {item.category?.name || 'Uncategorized'}
                                 </p>
                             </div>
                         </div>
@@ -133,15 +133,6 @@ const ViewItemModal = ({ open, onClose, item }) => {
                                         <p className="text-sm text-gray-500">Manufacturer</p>
                                         <p className="font-medium text-gray-900">
                                             {item.manufacturer || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <Package className="h-4 w-4 text-gray-400" />
-                                    <div>
-                                        <p className="text-sm text-gray-500">Total Quantity</p>
-                                        <p className="font-medium text-gray-900">
-                                            {item.totalQuantity || 0} {item.unit}
                                         </p>
                                     </div>
                                 </div>
@@ -193,39 +184,6 @@ const ViewItemModal = ({ open, onClose, item }) => {
                         </CardContent>
                     </Card>
 
-                    {/* Stock Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base font-medium text-gray-900">
-                                Stock Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-500">Total Stock</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {item.totalQuantity || 0}
-                                    </p>
-                                    <p className="text-xs text-gray-400">{item.unit}</p>
-                                </div>
-                                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-500">Minimum Level</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {item.minimumStock || 10}
-                                    </p>
-                                    <p className="text-xs text-gray-400">{item.unit}</p>
-                                </div>
-                                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                                    <p className="text-sm text-gray-500">Maximum Level</p>
-                                    <p className="text-2xl font-bold text-gray-900">
-                                        {item.maximumStock || 100}
-                                    </p>
-                                    <p className="text-xs text-gray-400">{item.unit}</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
 
                     {/* Batch Details */}
                     {item.batches && item.batches.length > 0 && (() => {
@@ -236,14 +194,22 @@ const ViewItemModal = ({ open, onClose, item }) => {
                         return (
                             <Card>
                                 <CardHeader>
-                                    <CardTitle className="text-base font-medium text-gray-900">
-                                        Batch Details
-                                        {expiredBatches.length > 0 && (
-                                            <span className="ml-2 text-sm text-red-600 font-normal">
-                                                ({expiredBatches.length} expired batch{expiredBatches.length !== 1 ? 'es' : ''} hidden)
-                                            </span>
-                                        )}
-                                    </CardTitle>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-base font-medium text-gray-900">
+                                            Batch Details
+                                            {expiredBatches.length > 0 && (
+                                                <span className="ml-2 text-sm text-red-600 font-normal">
+                                                    ({expiredBatches.length} expired batch{expiredBatches.length !== 1 ? 'es' : ''} hidden)
+                                                </span>
+                                            )}
+                                        </CardTitle>
+                                        <div className="text-right">
+                                            <p className="text-sm text-gray-500">Total Quantity</p>
+                                            <p className="text-lg font-semibold text-blue-600">
+                                                {activeBatches.reduce((total, batch) => total + (batch.quantity || 0), 0)} {item.unit || 'units'}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-3">
@@ -282,13 +248,7 @@ const ViewItemModal = ({ open, onClose, item }) => {
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                    <div>
-                                                        <p className="text-sm text-gray-500">Quantity</p>
-                                                        <p className="font-medium text-gray-900">
-                                                            {batch.quantity || 0} {item.unit}
-                                                        </p>
-                                                    </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                                     <div>
                                                         <p className="text-sm text-gray-500">Expiry Date</p>
                                                         <p className={`font-medium ${
@@ -313,6 +273,12 @@ const ViewItemModal = ({ open, onClose, item }) => {
                                                         <p className="text-sm text-gray-500">Storage Location</p>
                                                         <p className="font-medium text-gray-900">
                                                             {batch.storageLocation || 'N/A'}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm text-gray-500">Quantity</p>
+                                                        <p className="font-medium text-gray-900">
+                                                            {batch.quantity || 0} {item.unit || 'units'}
                                                         </p>
                                                     </div>
                                                     <div>

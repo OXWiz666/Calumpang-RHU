@@ -13,7 +13,8 @@ import {
     Calendar, 
     User, 
     Pill,
-    ArrowLeft
+    ArrowLeft,
+    AlertTriangle
 } from 'lucide-react';
 
 export default function CreatePrescription({ patients, medicines }) {
@@ -22,14 +23,8 @@ export default function CreatePrescription({ patients, medicines }) {
 
     // Set available medicines from props
     useEffect(() => {
-        console.log('CreatePrescription - Medicines prop received:', medicines);
-        console.log('CreatePrescription - Medicines type:', typeof medicines);
-        console.log('CreatePrescription - Medicines length:', medicines ? medicines.length : 'undefined');
         if (medicines && Array.isArray(medicines)) {
             setAvailableMedicines(medicines);
-            console.log('CreatePrescription - Available medicines set:', medicines);
-        } else {
-            console.log('CreatePrescription - No medicines prop received or not an array');
         }
     }, [medicines]);
 
@@ -64,8 +59,26 @@ export default function CreatePrescription({ patients, medicines }) {
         ));
     };
 
+    // Helper function to check if quantity exceeds available stock
+    const isQuantityExceeded = (medicineId, quantity) => {
+        if (!medicineId || !quantity) return false;
+        const medicine = availableMedicines.find(med => med.id == medicineId);
+        if (!medicine) return false;
+        return parseInt(quantity) > parseInt(medicine.available_quantity);
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
+        
+        // Check for quantity validation errors
+        const hasQuantityErrors = selectedMedicines.some(med => 
+            med.medicine_id && med.quantity && isQuantityExceeded(med.medicine_id, med.quantity)
+        );
+        
+        if (hasQuantityErrors) {
+            alert('Please fix quantity errors before submitting the prescription.');
+            return;
+        }
         
         // Prepare medicines data
         const medicinesData = selectedMedicines
@@ -79,12 +92,27 @@ export default function CreatePrescription({ patients, medicines }) {
                 instructions: med.instructions
             }));
 
+        console.log('Selected medicines:', selectedMedicines);
+        console.log('Filtered medicines data:', medicinesData);
+        console.log('Form data before setData:', data);
+
         setData('medicines', medicinesData);
         
-        post(route('doctor.prescriptions.store'), {
+        console.log('Route URL:', route('doctor.prescriptions.store'));
+        console.log('Form data after setData:', data);
+        
+        // Use hardcoded URL to fix the 404 issue
+        post('/doctor/prescriptions', {
             onSuccess: () => {
+                console.log('Prescription created successfully!');
                 // Reset form
                 setSelectedMedicines([]);
+            },
+            onError: (errors) => {
+                console.error('Prescription creation failed:', errors);
+            },
+            onFinish: () => {
+                console.log('Form submission finished');
             }
         });
     };
@@ -226,7 +254,7 @@ export default function CreatePrescription({ patients, medicines }) {
                                                                 {availableMedicines && availableMedicines.length > 0 ? (
                                                                     availableMedicines.map((med) => (
                                                                         <SelectItem key={med.id} value={String(med.id)}>
-                                                                            {med.name} ({med.generic_name}) - Stock: {med.available_quantity} {med.unit}
+                                                                            {med.name} ({med.generic_name}) - Batch: {med.batch_number} - Stock: {med.available_quantity} {med.unit}
                                                                         </SelectItem>
                                                                     ))
                                                                 ) : (
@@ -246,11 +274,21 @@ export default function CreatePrescription({ patients, medicines }) {
                                                             value={medicine.quantity}
                                                             onChange={(e) => updateMedicine(medicine.id, 'quantity', e.target.value)}
                                                             placeholder="Enter quantity"
-                                                            className="mt-1"
+                                                            className={`mt-1 ${
+                                                                isQuantityExceeded(medicine.medicine_id, medicine.quantity) 
+                                                                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                                                                    : ''
+                                                            }`}
                                                         />
                                                         {selectedMed && (
                                                             <p className="text-xs text-gray-500 mt-1">
                                                                 Available: {selectedMed.available_quantity} {selectedMed.unit}
+                                                            </p>
+                                                        )}
+                                                        {isQuantityExceeded(medicine.medicine_id, medicine.quantity) && (
+                                                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                                                <AlertTriangle className="h-3 w-3" />
+                                                                Quantity exceeds available stock! Available: {selectedMed?.available_quantity || 0} {selectedMed?.unit || 'units'}
                                                             </p>
                                                         )}
                                                     </div>

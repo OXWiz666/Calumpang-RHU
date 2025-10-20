@@ -29,12 +29,22 @@ import {
 import { motion } from "framer-motion";
 
 export default function EditAdminModal({ admin, isOpen, onClose, onSuccess }) {
+    // Convert integer status to string for form
+    const getStatusString = (statusInt) => {
+        const statusMap = {
+            1: 'active',
+            2: 'inactive', 
+            3: 'suspended'
+        };
+        return statusMap[statusInt] || 'active';
+    };
+
     const [formData, setFormData] = useState({
         firstname: admin?.firstname || "",
         lastname: admin?.lastname || "",
         email: admin?.email || "",
         contactno: admin?.contactno || "",
-        status: admin?.status || "active",
+        status: getStatusString(admin?.status) || "active",
         role_id: admin?.role_id || 1, // Admin role
         password: "",
         password_confirmation: "",
@@ -50,8 +60,12 @@ export default function EditAdminModal({ admin, isOpen, onClose, onSuccess }) {
         e.preventDefault();
         setIsSubmitting(true);
 
-        router.put(`/auth/staff/admins/${admin.id}`, formData, {
-            onSuccess: () => {
+        router.put(`/admin/staff/admins/${admin.id}`, formData, {
+            onSuccess: (page) => {
+                // Show success toast
+                if (page.props.flash?.success) {
+                    // Toast will be handled by the parent component
+                }
                 onSuccess && onSuccess(formData);
                 onClose();
                 setIsSubmitting(false);

@@ -167,7 +167,7 @@ class VerificationController extends Controller
     public function testSMS($phone)
     {
         $code = $this->generateVerificationCode();
-        $success = $this->sendSMSCode($phone, "Test SMS: Your SEHI verification code is: {$code}. Valid for 10 minutes.");
+        $success = $this->sendSMSCode($phone, "Test SMS: Your Rural Health Unit Calumpang verification code is: {$code}. Valid for 10 minutes.");
         
         return response()->json([
             'success' => $success,
@@ -190,7 +190,7 @@ class VerificationController extends Controller
      */
     private function sendEmailCode($email, $code)
     {
-        $subject = 'Your Verification Code - SEHI Appointment System';
+        $subject = 'Your Verification Code - Rural Health Unit Calumpang Appointment System';
         $message = "
         <html>
         <head>
@@ -207,7 +207,7 @@ class VerificationController extends Controller
             <div class='container'>
                 <div class='header'>
                     <h1>🔐 Verification Code</h1>
-                    <p>SEHI Appointment System</p>
+                    <p>Rural Health Unit Calumpang Appointment System</p>
                 </div>
                 <div class='content'>
                     <h2>Hello!</h2>
@@ -223,7 +223,7 @@ class VerificationController extends Controller
                     </ul>
                 </div>
                 <div class='footer'>
-                    <p>This is an automated message from SEHI Appointment System</p>
+                    <p>This is an automated message from Rural Health Unit Calumpang Appointment System</p>
                 </div>
             </div>
         </body>
@@ -255,7 +255,7 @@ class VerificationController extends Controller
      */
     private function sendSMSCode($phone, $code)
     {
-        $message = "Your SEHI verification code is: {$code}. Valid for 10 minutes.";
+        $message = "Your Rural Health Unit Calumpang verification code is: {$code}. Valid for 10 minutes.";
         
         // Try different SMS methods in order of preference
         $success = false;
@@ -275,10 +275,11 @@ class VerificationController extends Controller
             $success = $this->sendViaGenericAPI($phone, $message);
         }
         
-        // Method 4: Try Email-to-SMS gateway (free option)
-        if (!$success) {
-            $success = $this->sendViaEmailToSMS($phone, $message);
-        }
+        // Method 4: Email-to-SMS disabled to prevent "Address not found" errors
+        // This method was causing emails to be sent to phone numbers
+        // if (!$success) {
+        //     $success = $this->sendViaEmailToSMS($phone, $message);
+        // }
         
         // Method 5: Try free SMS API (TextBelt or similar)
         if (!$success) {
@@ -429,7 +430,7 @@ class VerificationController extends Controller
                     try {
                         Mail::raw($message, function ($mail) use ($email) {
                             $mail->to($email)
-                                 ->subject('SEHI Verification Code');
+                                 ->subject('Rural Health Unit Calumpang SMS Verification Code');
                         });
                         
                         \Log::info("SMS sent via Email-to-SMS ({$carrier}) to {$phone} via {$email}");
@@ -448,7 +449,7 @@ class VerificationController extends Controller
             try {
                 Mail::raw($message, function ($mail) use ($email) {
                     $mail->to($email)
-                         ->subject('SEHI Verification Code');
+                         ->subject('Rural Health Unit Calumpang SMS Verification Code');
                 });
                 
                 \Log::info("SMS sent via Email-to-SMS to {$phone} via {$email}");

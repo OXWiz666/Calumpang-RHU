@@ -98,8 +98,14 @@ export default function Admins({ admins = [] }) {
 
     // Handle flash messages from the server
     useEffect(() => {
-        if (flash && flash.message) {
-            showToast(flash.title, flash.message, flash.icon);
+        if (flash) {
+            if (flash.success) {
+                showToast("Success!", flash.success, "success");
+            } else if (flash.error) {
+                showToast("Error", flash.error, "error");
+            } else if (flash.message) {
+                showToast(flash.title || "Notification", flash.message, flash.icon || "info");
+            }
         }
     }, [flash]);
 

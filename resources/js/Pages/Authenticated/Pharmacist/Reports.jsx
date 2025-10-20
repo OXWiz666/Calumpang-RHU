@@ -17,10 +17,21 @@ import {
     XCircle,
     AlertCircle,
     Trash2,
+    Shield,
+    Building2,
+    Users,
+    FileSpreadsheet,
+    Eye,
+    Settings,
+    CheckCircle,
+    Star,
+    Award,
+    Globe,
+    Activity,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
+// PDF generation now uses backend API
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/tempo/components/ui/card";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Badge } from "@/components/tempo/components/ui/badge";
@@ -35,6 +46,7 @@ import {
 import BatchDisposalModal from "./BatchDisposalModal";
 
 export default function PharmacistReports({ 
+    analytics = {},
     expiredBatches = [], 
     expiringSoonBatches = [], 
     expiredBatchesCount = 0, 
@@ -54,6 +66,77 @@ export default function PharmacistReports({
     const [disposalModalOpen, setDisposalModalOpen] = useState(false);
     const [selectedBatchForDisposal, setSelectedBatchForDisposal] = useState(null);
     const [bulkDisposalMode, setBulkDisposalMode] = useState(false);
+    
+    // Pagination for Recent Reports
+    const [currentPage, setCurrentPage] = useState(1);
+    const [reportsPerPage] = useState(5);
+    
+    // Enhanced report features
+    const [selectedCategory, setSelectedCategory] = useState("all");
+    const [selectedStatus, setSelectedStatus] = useState("all");
+    const [selectedPriority, setSelectedPriority] = useState("all");
+    
+    // Custom Report Configuration
+    const [customReportConfig, setCustomReportConfig] = useState({
+        selectedReportTypes: [],
+        includeInventorySummary: false,
+        includeDispensingActivity: false,
+        includeExpiryReport: false,
+        includeDisposalReport: false,
+        includeExpiredBatches: false,
+        customTitle: "",
+        customDescription: ""
+    });
+    const [showCustomConfig, setShowCustomConfig] = useState(false);
+    
+    // Pagination calculations
+    const indexOfLastReport = currentPage * reportsPerPage;
+    const indexOfFirstReport = indexOfLastReport - reportsPerPage;
+    const currentReports = recentReports.slice(indexOfFirstReport, indexOfLastReport);
+    const totalPages = Math.ceil(recentReports.length / reportsPerPage);
+    
+    // Pagination handlers
+    const handlePageChange = (pageNumber) => {
+        setCurrentPage(pageNumber);
+    };
+    
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
+    };
+    
+    const handleNextPage = () => {
+        if (currentPage < totalPages) {
+            setCurrentPage(currentPage + 1);
+        }
+    };
+    const [sortBy, setSortBy] = useState("name");
+    const [sortOrder, setSortOrder] = useState("asc");
+    const [reportLimit, setReportLimit] = useState(100);
+    const [dashboardAnalytics, setDashboardAnalytics] = useState({
+        analytics: analytics || {},
+        inventoryItems: inventoryItems || [],
+        expiredBatches: expiredBatches || [],
+        expiringSoonBatches: expiringSoonBatches || [],
+        expiredBatchesCount: expiredBatchesCount || 0,
+        expiringSoonBatchesCount: expiringSoonBatchesCount || 0,
+        dispensingData: dispensingData || [],
+        dispensingSummary: dispensingSummary || {},
+        topDispensedItems: topDispensedItems || []
+    });
+    const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [showReportsSettings, setShowReportsSettings] = useState(false);
+    const [reportSettings, setReportSettings] = useState({
+        defaultFormat: 'pdf',
+        autoRefresh: false,
+        emailNotifications: false,
+        defaultDateRange: '30d',
+        defaultSortBy: 'name',
+        defaultSortOrder: 'asc',
+        maxResults: 100
+    });
 
     // Load recent reports from localStorage on component mount
     React.useEffect(() => {
@@ -64,6 +147,84 @@ export default function PharmacistReports({
                 setRecentReports(parsedReports);
             } catch (error) {
                 console.error('Error loading report history:', error);
+            }
+        }
+    }, []);
+
+    // Load dashboard analytics
+    const loadDashboardAnalytics = async () => {
+        setIsLoadingAnalytics(true);
+        try {
+            const response = await fetch('/pharmacist/inventory-reports/dashboard-analytics', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            setDashboardAnalytics(data);
+        } catch (error) {
+            console.error('Error loading dashboard analytics:', error);
+        } finally {
+            setIsLoadingAnalytics(false);
+        }
+    };
+
+    // Load analytics on component mount only if not already loaded
+    React.useEffect(() => {
+        // Only load via AJAX if we don't have data from props
+        if (!dashboardAnalytics.analytics || Object.keys(dashboardAnalytics.analytics).length === 0) {
+        loadDashboardAnalytics();
+        }
+    }, []);
+
+    // Print All Reports function
+    const printAllReports = async () => {
+        try {
+            const reportTypes = ['inventory_summary', 'expiry_report', 'dispensing_report', 'low_stock_alert'];
+            const promises = reportTypes.map(async (reportType) => {
+                const reportUrl = `/pharmacist/inventory-reports/${reportType}?format=pdf`;
+                return window.open(reportUrl, '_blank');
+            });
+            
+            await Promise.all(promises);
+            showToast("Success", "All reports are being generated and opened in new tabs", "success");
+        } catch (error) {
+            console.error('Error printing all reports:', error);
+            showToast("Error", "Failed to print all reports. Please try again.", "error");
+        }
+    };
+
+
+    // Reports Settings function
+    const openReportsSettings = () => {
+        setShowReportsSettings(true);
+    };
+
+    // Save Reports Settings
+    const saveReportsSettings = () => {
+        localStorage.setItem('pharmacist_report_settings', JSON.stringify(reportSettings));
+        showToast("Success", "Report settings saved successfully", "success");
+        setShowReportsSettings(false);
+    };
+
+    // Load Reports Settings
+    React.useEffect(() => {
+        const savedSettings = localStorage.getItem('pharmacist_report_settings');
+        if (savedSettings) {
+            try {
+                setReportSettings(JSON.parse(savedSettings));
+            } catch (error) {
+                console.error('Error loading report settings:', error);
             }
         }
     }, []);
@@ -81,8 +242,8 @@ export default function PharmacistReports({
         const typeMap = {
             'inventory_summary': 'Inventory Summary',
             'dispensing_report': 'Dispensing Report',
-            'low_stock_alert': 'Low Stock Alert',
-            'expiry_report': 'Expiry Report',
+            'low_stock_alert': 'Disposal Report',
+            'expiry_report': 'Stock Movement Reports',
             'expired_batches': 'Expired Batches Report',
             'custom_report': 'Custom Report'
         };
@@ -152,56 +313,79 @@ export default function PharmacistReports({
         setBulkDisposalMode(false);
     };
 
-    // Report types configuration
+    // Professional Government Report types configuration
     const reportTypes = [
         {
             id: "inventory_summary",
-            title: "Inventory Summary",
-            description: "Complete overview of current inventory status",
+            title: "Inventory Summary Report",
+            description: "Official comprehensive overview of pharmaceutical inventory status",
             icon: Package,
             color: "text-blue-600",
             bgColor: "bg-blue-50",
+            borderColor: "border-blue-200",
+            hoverColor: "hover:border-blue-400",
+            official: true,
+            category: "Inventory Management"
         },
         {
             id: "dispensing_report",
-            title: "Dispensing Report",
-            description: "Detailed report of all dispensed medications",
+            title: "Dispensing Activity Report",
+            description: "Detailed official record of all dispensed medications and prescriptions",
             icon: TrendingUp,
             color: "text-green-600",
             bgColor: "bg-green-50",
+            borderColor: "border-green-200",
+            hoverColor: "hover:border-green-400",
+            official: true,
+            category: "Patient Care"
         },
         {
             id: "low_stock_alert",
-            title: "Low Stock Alert",
-            description: "Items that need immediate restocking",
+            title: "Disposal Report",
+            description: "Comprehensive report of items requiring disposal or disposal tracking",
             icon: AlertTriangle,
             color: "text-amber-600",
             bgColor: "bg-amber-50",
+            borderColor: "border-amber-200",
+            hoverColor: "hover:border-amber-400",
+            official: true,
+            category: "Critical Alerts"
         },
         {
             id: "expiry_report",
-            title: "Expiry Report",
-            description: "Medications approaching expiration date",
-            icon: Clock,
-            color: "text-red-600",
-            bgColor: "bg-red-50",
+            title: "Stock Movement Reports",
+            description: "Comprehensive tracking of all stock movements and inventory transactions",
+            icon: TrendingUp,
+            color: "text-blue-600",
+            bgColor: "bg-blue-50",
+            borderColor: "border-blue-200",
+            hoverColor: "hover:border-blue-400",
+            official: true,
+            category: "Inventory Management"
         },
         {
             id: "expired_batches",
             title: "Expired Batches Report",
-            description: "Summary of all expired medication batches",
+            description: "Official summary of all expired medication batches for disposal",
             icon: XCircle,
             color: "text-red-600",
             bgColor: "bg-red-50",
+            borderColor: "border-red-200",
+            hoverColor: "hover:border-red-400",
+            official: true,
+            category: "Quality Control"
         },
-
         {
             id: "custom_report",
-            title: "Custom Report",
-            description: "Create a custom report with specific criteria",
+            title: "Custom Official Report",
+            description: "Create comprehensive reports by selecting specific report types and criteria",
             icon: FileText,
-            color: "text-gray-600",
-            bgColor: "bg-gray-50",
+            color: "text-indigo-600",
+            bgColor: "bg-indigo-50",
+            borderColor: "border-indigo-200",
+            hoverColor: "hover:border-indigo-400",
+            official: true,
+            category: "Custom Reports"
         },
     ];
 
@@ -226,18 +410,125 @@ export default function PharmacistReports({
         return items.map(item => ({
             id: item.id,
             name: item.name,
-            category: item.category?.name || 'Uncategorized',
+            category: item.category || 'Uncategorized',
             manufacturer: item.manufacturer || 'N/A',
-            quantity: item.stock?.stocks || 0,
-            unit: item.unit_type || 'pieces',
+            quantity: item.quantity || 0,
+            unit: item.unit || 'pieces',
             batchNumber: item.batch_number || 'N/A',
             expiryDate: item.expiry_date || 'N/A',
             storageLocation: item.storage_location || 'N/A',
-            minimumStock: item.minimum_stock || 10,
-            maximumStock: item.maximum_stock || 100,
-            status: item.status || 1,
+            status: item.status || 'Active',
+            priority: item.priority || 'Low',
+            daysUntilExpiry: item.days_until_expiry,
             createdAt: item.created_at,
             updatedAt: item.updated_at
+        }));
+    };
+
+    // Helper function to process disposal data
+    const processDisposalData = (items) => {
+        if (!items || items.length === 0) return [];
+        
+        return items.map(item => ({
+            id: item.id || Math.random(),
+            name: item['Item Name'] || 'Unknown Item',
+            category: item['Category'] || 'Uncategorized',
+            batchNumber: item['Batch Number'] || 'N/A',
+            quantityDisposed: item['Quantity Disposed'] || 0,
+            disposalDate: item['Disposal Date'] || 'N/A',
+            reason: item['Reason'] || 'N/A',
+            disposedBy: item['Disposed By'] || 'Unknown',
+            manufacturer: item['Manufacturer'] || 'N/A',
+            expiryDate: item['Expiry Date'] || 'N/A',
+            notes: item['Notes'] || 'N/A'
+        }));
+    };
+
+    // Helper function to safely format dates
+    const formatDate = (dateString) => {
+        try {
+            if (!dateString || dateString === 'N/A') return 'N/A';
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+        } catch (error) {
+            return 'N/A';
+        }
+    };
+
+    const formatTime = (dateString) => {
+        try {
+            if (!dateString || dateString === 'N/A') return 'N/A';
+            const date = new Date(dateString);
+            return isNaN(date.getTime()) ? 'N/A' : date.toLocaleTimeString();
+        } catch (error) {
+            return 'N/A';
+        }
+    };
+
+    // Helper function to process dispensing data
+    const processDispensingData = (items) => {
+        if (!items || items.length === 0) return [];
+        
+        return items.map(item => ({
+            id: item.id || Math.random(),
+            name: item['Item Name'] || 'Unknown Item',
+            manufacturer: item['Manufacturer'] || 'N/A',
+            patientName: item['Patient Name'] || 'N/A',
+            prescriptionNumber: item['Prescription Number'] || '-',
+            quantity: item['Total Dispensed'] || 0,
+            unit: item['Unit Type'] || 'pieces',
+            batchNumber: item['Batch Number'] || 'N/A',
+            staffName: item['Most Recent Staff'] || 'N/A',
+            reason: item['Reason'] || 'Dispensed',
+            date: item['Last Dispensed'] || 'N/A',
+            // Keep original fields for other reports
+            genericName: item['Generic Name'] || item['Item Name'] || 'Unknown Item',
+            category: item['Category'] || 'Uncategorized',
+            totalDispensed: item['Total Dispensed'] || 0,
+            dispenseCount: item['Dispense Count'] || 0,
+            averagePerDispense: item['Average per Dispense'] || 0,
+            firstDispensed: item['First Dispensed'] || 'N/A',
+            lastDispensed: item['Last Dispensed'] || 'N/A',
+            expiryDate: item['Expiry Date'] || 'N/A'
+        }));
+    };
+
+    // Helper function to process stock movement data
+    const processStockMovementData = (items) => {
+        if (!items || items.length === 0) return [];
+        
+        return items.map(item => ({
+            id: item['Movement ID'] || Math.random(),
+            name: item['Item Name'] || 'Unknown Item',
+            category: item['Category'] || 'Uncategorized',
+            movementType: item['Movement Type'] || 'Unknown',
+            quantity: item['Quantity'] || 0,
+            batchNumber: item['Batch Number'] || 'N/A',
+            movementDate: item['Movement Date'] || 'N/A',
+            staffMember: item['Staff Member'] || 'Unknown',
+            reason: item['Reason'] || 'N/A',
+            manufacturer: item['Manufacturer'] || 'N/A',
+            expiryDate: item['Expiry Date'] || 'N/A',
+            notes: item['Notes'] || 'N/A'
+        }));
+    };
+
+    // Helper function to process expired batches data
+    const processExpiredBatchesData = (items) => {
+        if (!items || items.length === 0) return [];
+        
+        return items.map(item => ({
+            id: item['Item Name'] || Math.random(),
+            name: item['Item Name'] || 'Unknown Item',
+            category: item['Category'] || 'Uncategorized',
+            batchNumber: item['Batch Number'] || 'N/A',
+            currentStock: item['Current Stock'] || 0,
+            unitType: item['Unit Type'] || 'pieces',
+            expiryDate: item['Expiry Date'] || 'N/A',
+            daysExpired: item['Days Expired'] || 0,
+            status: item['Status'] || 'Expired',
+            manufacturer: item['Manufacturer'] || 'N/A',
+            storageLocation: item['Storage Location'] || 'N/A'
         }));
     };
 
@@ -297,7 +588,7 @@ export default function PharmacistReports({
             
             case 'low_stock_alert':
                 return {
-                    title: 'Low Stock Alert Report',
+                    title: 'Disposal Report',
                     generatedAt: new Date().toISOString(),
                     summary: {
                         lowStockItems: processedItems.filter(item => getItemStatus(item) === 'low_stock').length,
@@ -329,6 +620,7 @@ export default function PharmacistReports({
                         batchNumber: dispense.batch_number || 'N/A',
                         expiryDate: dispense.inventory?.expiry_date || 'N/A',
                         storageLocation: dispense.inventory?.storage_location || 'N/A',
+                        dispenseMode: dispense.dispense_mode || 'Manual Dispense',
                         patientName: dispense.patient_name || 'N/A',
                         prescriptionNumber: dispense.prescription_number || 'N/A',
                         dispensedBy: dispense.dispensed_by || 'N/A',
@@ -341,7 +633,7 @@ export default function PharmacistReports({
             
             case 'expiry_report':
                 return {
-                    title: 'Expiry Report',
+                    title: 'Stock Movement Reports',
                     generatedAt: new Date().toISOString(),
                     summary: {
                         expiringSoon: processedItems.filter(item => getItemStatus(item) === 'expiring_soon').length,
@@ -377,147 +669,482 @@ export default function PharmacistReports({
         
         setIsGenerating(true);
         
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            // Build query parameters for enhanced filtering
+            const params = new URLSearchParams();
+            params.append('format', 'json');
+            
+            if (selectedCategory !== 'all') {
+                params.append('category_id', selectedCategory);
+            }
+            if (selectedStatus !== 'all') {
+                params.append('status', selectedStatus);
+            }
+            if (selectedPriority !== 'all') {
+                params.append('priority', selectedPriority);
+            }
+            if (sortBy !== 'name') {
+                params.append('sort_by', sortBy);
+            }
+            if (sortOrder !== 'asc') {
+                params.append('sort_order', sortOrder);
+            }
+            if (reportLimit !== 100) {
+                params.append('limit', reportLimit);
+            }
+            
+            // Add date range
+            const endDate = new Date();
+            const startDate = new Date();
+            switch (dateRange) {
+                case '7d':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setDate(endDate.getDate() - 30);
+                    break;
+                case '90d':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1y':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+            }
+            
+            params.append('start_date', startDate.toISOString().split('T')[0]);
+            params.append('end_date', endDate.toISOString().split('T')[0]);
+            
+            // Determine the correct endpoint based on report type
+            let endpoint = '/pharmacist/inventory-reports/summary';
+            switch (selectedReport) {
+                case 'inventory_summary':
+                    endpoint = '/pharmacist/inventory-reports/summary';
+                    break;
+                case 'expiry_report':
+                    endpoint = '/pharmacist/inventory-reports/expiry';
+                    break;
+                case 'dispensing_report':
+                    endpoint = '/pharmacist/inventory-reports/dispensing';
+                    break;
+                case 'low_stock_alert':
+                    endpoint = '/pharmacist/inventory-reports/low-stock-alert';
+                    break;
+                case 'expired_batches':
+                    endpoint = '/pharmacist/inventory-reports/expired-batches';
+                    break;
+                default:
+                    endpoint = '/pharmacist/inventory-reports/summary';
+            }
+            
+            const response = await fetch(`${endpoint}?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+            
+            // Process data based on report type
+            let processedItems = [];
+            if (selectedReport === 'low_stock_alert') {
+                processedItems = processDisposalData(data.items || data.data || data);
+            } else if (selectedReport === 'dispensing_report') {
+                processedItems = processDispensingData(data.items || data.data || data);
+            } else if (selectedReport === 'expiry_report') {
+                processedItems = processStockMovementData(data.items || data.data || data);
+            } else if (selectedReport === 'expired_batches') {
+                processedItems = processExpiredBatchesData(data.items || data.data || data);
+            } else {
+                processedItems = processInventoryData(data.items || data.data || data);
+            }
+
+            // Transform the data for display
+            const reportData = {
+                title: getReportTypeName(selectedReport),
+                subtitle: `Generated on ${new Date().toLocaleString()}`,
+                items: processedItems,
+                summary: data.analytics || {},
+                generatedAt: new Date().toISOString(),
+                filters: {
+                    category: selectedCategory,
+                    status: selectedStatus,
+                    priority: selectedPriority,
+                    sortBy: sortBy,
+                    sortOrder: sortOrder,
+                    limit: reportLimit
+                }
+            };
+            
+            setGeneratedReport(reportData);
+            
+            // Save report to history
+            saveReportToHistory(reportData, selectedReport);
+            
+        } catch (error) {
+            console.error('Error generating report:', error);
+            // Show error message instead of fallback data
+            alert('Error generating report: ' + error.message);
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // Generate Custom Report
+    const generateCustomReport = async () => {
+        if (!customReportConfig.includeInventorySummary && 
+            !customReportConfig.includeDispensingActivity && 
+            !customReportConfig.includeExpiryReport && 
+            !customReportConfig.includeDisposalReport && 
+            !customReportConfig.includeExpiredBatches) {
+            return;
+        }
         
-        const reportData = generateReportData(selectedReport);
-        setGeneratedReport(reportData);
+        setIsGenerating(true);
         
-        // Save report to history
-        saveReportToHistory(reportData, selectedReport);
-        
-        setIsGenerating(false);
+        try {
+            // Build query parameters for custom report
+            const params = new URLSearchParams();
+            params.append('format', 'json');
+            params.append('custom_report', 'true');
+            
+            // Add selected report types
+            if (customReportConfig.includeInventorySummary) {
+                params.append('include_types[]', 'inventory_summary');
+            }
+            if (customReportConfig.includeDispensingActivity) {
+                params.append('include_types[]', 'dispensing_report');
+            }
+            if (customReportConfig.includeExpiryReport) {
+                params.append('include_types[]', 'expiry_report');
+            }
+            if (customReportConfig.includeDisposalReport) {
+                params.append('include_types[]', 'low_stock_alert');
+            }
+            if (customReportConfig.includeExpiredBatches) {
+                params.append('include_types[]', 'expired_batches');
+            }
+            
+            // Add custom report details
+            if (customReportConfig.customTitle) {
+                params.append('custom_title', customReportConfig.customTitle);
+            }
+            if (customReportConfig.customDescription) {
+                params.append('custom_description', customReportConfig.customDescription);
+            }
+            
+            // Add filters
+            if (selectedCategory !== 'all') {
+                params.append('category_id', selectedCategory);
+            }
+            if (selectedStatus !== 'all') {
+                params.append('status', selectedStatus);
+            }
+            if (selectedPriority !== 'all') {
+                params.append('priority', selectedPriority);
+            }
+            params.append('sort_by', sortBy);
+            params.append('sort_order', sortOrder);
+            params.append('limit', reportLimit);
+            
+            const response = await fetch(`/pharmacist/inventory-reports/custom?${params.toString()}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            // Transform the data for display
+            const reportData = {
+                title: customReportConfig.customTitle || 'Custom Official Report',
+                subtitle: `Generated on ${new Date().toLocaleString()}`,
+                description: customReportConfig.customDescription || 'Comprehensive custom report with selected data sections',
+                items: data.reportData || data,
+                summary: data.analytics || {},
+                customConfig: customReportConfig,
+                filters: {
+                    category: selectedCategory,
+                    status: selectedStatus,
+                    priority: selectedPriority,
+                    sortBy: sortBy,
+                    sortOrder: sortOrder,
+                    limit: reportLimit
+                },
+                generatedAt: new Date().toISOString()
+            };
+            
+            setGeneratedReport(reportData);
+            saveReportToHistory(reportData, 'custom_report');
+            
+        } catch (error) {
+            console.error('Error generating custom report:', error);
+            // Show error message instead of fallback data
+            alert('Error generating custom report: ' + error.message);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     // Download as PDF
     const downloadAsPDF = async () => {
-        if (!generatedReport) return;
+        console.log('PDF download requested');
+        console.log('Selected report type:', selectedReport);
+        console.log('Generated report available:', !!generatedReport);
         
-        const element = document.getElementById('report-content');
-        if (!element) return;
+        // If no report is selected, default to inventory summary
+        const reportType = selectedReport || 'inventory_summary';
         
         try {
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff'
-            });
+            // Use backend API for PDF generation
+            let reportUrl;
             
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            
-            const imgWidth = 210;
-            const pageHeight = 295;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
-            
-            let position = 0;
-            
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-            
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+            // Map report types to backend endpoints
+            switch (reportType) {
+                case 'inventory_summary':
+                    reportUrl = '/pharmacist/inventory-reports/summary?format=pdf';
+                    break;
+                case 'expiry_report':
+                    reportUrl = '/pharmacist/inventory-reports/expiry?format=pdf';
+                    break;
+                case 'dispensing_report':
+                    reportUrl = '/pharmacist/inventory-reports/dispensing?format=pdf';
+                    break;
+                case 'low_stock_alert':
+                    reportUrl = '/pharmacist/inventory-reports/low-stock-alert?format=pdf';
+                    break;
+                case 'expired_batches':
+                    reportUrl = '/pharmacist/inventory-reports/expired-batches?format=pdf';
+                    break;
+                case 'custom_report':
+                    // Build custom report URL with selected types
+                    const customParams = new URLSearchParams();
+                    customParams.append('format', 'pdf');
+                    customParams.append('custom_report', 'true');
+                    
+                    if (customReportConfig.includeInventorySummary) {
+                        customParams.append('include_types[]', 'inventory_summary');
+                    }
+                    if (customReportConfig.includeDispensingActivity) {
+                        customParams.append('include_types[]', 'dispensing_report');
+                    }
+                    if (customReportConfig.includeExpiryReport) {
+                        customParams.append('include_types[]', 'expiry_report');
+                    }
+                    if (customReportConfig.includeDisposalReport) {
+                        customParams.append('include_types[]', 'low_stock_alert');
+                    }
+                    if (customReportConfig.includeExpiredBatches) {
+                        customParams.append('include_types[]', 'expired_batches');
+                    }
+                    
+                    if (customReportConfig.customTitle) {
+                        customParams.append('custom_title', customReportConfig.customTitle);
+                    }
+                    if (customReportConfig.customDescription) {
+                        customParams.append('custom_description', customReportConfig.customDescription);
+                    }
+                    customParams.append('include_charts', customReportConfig.includeCharts ? '1' : '0');
+                    customParams.append('include_analytics', customReportConfig.includeAnalytics ? '1' : '0');
+                    
+                    reportUrl = `/pharmacist/inventory-reports/custom?${customParams.toString()}`;
+                    break;
+                default:
+                    reportUrl = '/pharmacist/inventory-reports/summary?format=pdf';
             }
             
-            pdf.save(`${generatedReport.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+            // Add query parameters if needed
+            const params = new URLSearchParams();
+            if (selectedCategory && selectedCategory !== 'all') {
+                params.append('category_id', selectedCategory);
+            }
+            if (selectedStatus && selectedStatus !== 'all') {
+                params.append('status', selectedStatus);
+            }
+            if (selectedPriority && selectedPriority !== 'all') {
+                params.append('priority', selectedPriority);
+            }
+            if (sortBy && sortBy !== 'name') {
+                params.append('sort_by', sortBy);
+            }
+            if (sortOrder && sortOrder !== 'asc') {
+                params.append('sort_order', sortOrder);
+            }
+            if (reportLimit && reportLimit !== 100) {
+                params.append('limit', reportLimit);
+            }
+            
+            // Add date range
+            const endDate = new Date();
+            const startDate = new Date();
+            switch (dateRange) {
+                case '7d':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setDate(endDate.getDate() - 30);
+                    break;
+                case '90d':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1y':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+            }
+            
+            params.append('start_date', startDate.toISOString().split('T')[0]);
+            params.append('end_date', endDate.toISOString().split('T')[0]);
+            
+            const fullUrl = `${reportUrl}${params.toString() ? '&' + params.toString() : ''}`;
+            
+            console.log('Generated PDF URL:', fullUrl);
+            
+            // Automatically download PDF
+            console.log('Downloading PDF from:', fullUrl);
+            
+            // Create a temporary link element to trigger download
+            const link = document.createElement('a');
+            link.href = fullUrl;
+            link.download = `${getReportTypeName(reportType).replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Error generating PDF. Please try again.');
+            alert(`Error generating PDF: ${error.message}. Please try again.`);
         }
     };
 
     // Download as Excel
-    const downloadAsExcel = () => {
-        if (!generatedReport) return;
+    const downloadAsExcel = async () => {
+        if (!selectedReport) return;
         
         try {
-            // Prepare data for Excel based on report type
-            let excelData;
+            // Use backend API for Excel generation
+            let reportUrl;
             
-            if (selectedReport === 'dispensing_report') {
-                excelData = generatedReport.items.map(item => ({
-                    'Item Name': item.name,
-                    'Manufacturer': item.manufacturer,
-                    'Patient Name': item.patientName,
-                    'Prescription Number': item.prescriptionNumber,
-                    'Quantity': item.quantity,
-                    'Unit': item.unit,
-                    'Batch Number': item.batchNumber,
-                    'Dispensed By': item.staffName,
-                    'Reason': item.reason,
-                    'Notes': item.notes,
-                    'Dispensed Date': new Date(item.dispensedAt).toLocaleDateString(),
-                    'Dispensed Time': new Date(item.dispensedAt).toLocaleTimeString()
-                }));
-            } else {
-                excelData = generatedReport.items.map(item => ({
-                    'Item Name': item.name,
-                    'Category': item.category,
-                    'Manufacturer': item.manufacturer,
-                    'Quantity': item.quantity,
-                    'Unit': item.unit,
-                    'Batch Number': item.batchNumber,
-                    'Expiry Date': item.expiryDate !== 'N/A' ? new Date(item.expiryDate).toLocaleDateString() : 'N/A',
-                    'Storage Location': item.storageLocation,
-                    'Status': getItemStatus(item).replace('_', ' ').toUpperCase(),
-                    'Minimum Stock': item.minimumStock,
-                    'Maximum Stock': item.maximumStock
-                }));
+            // Map report types to backend endpoints
+            switch (selectedReport) {
+                case 'inventory_summary':
+                    reportUrl = '/pharmacist/inventory-reports/summary?format=excel';
+                    break;
+                case 'expiry_report':
+                    reportUrl = '/pharmacist/inventory-reports/expiry?format=excel';
+                    break;
+                case 'dispensing_report':
+                    reportUrl = '/pharmacist/inventory-reports/dispensing?format=excel';
+                    break;
+                case 'low_stock_alert':
+                    reportUrl = '/pharmacist/inventory-reports/low-stock-alert?format=excel';
+                    break;
+                case 'expired_batches':
+                    reportUrl = '/pharmacist/inventory-reports/expired-batches?format=excel';
+                    break;
+                case 'custom_report':
+                    // Build custom report URL with selected types
+                    const customExcelParams = new URLSearchParams();
+                    customExcelParams.append('format', 'excel');
+                    customExcelParams.append('custom_report', 'true');
+                    
+                    if (customReportConfig.includeInventorySummary) {
+                        customExcelParams.append('include_types[]', 'inventory_summary');
+                    }
+                    if (customReportConfig.includeDispensingActivity) {
+                        customExcelParams.append('include_types[]', 'dispensing_report');
+                    }
+                    if (customReportConfig.includeExpiryReport) {
+                        customExcelParams.append('include_types[]', 'expiry_report');
+                    }
+                    if (customReportConfig.includeDisposalReport) {
+                        customExcelParams.append('include_types[]', 'low_stock_alert');
+                    }
+                    if (customReportConfig.includeExpiredBatches) {
+                        customExcelParams.append('include_types[]', 'expired_batches');
+                    }
+                    
+                    if (customReportConfig.customTitle) {
+                        customExcelParams.append('custom_title', customReportConfig.customTitle);
+                    }
+                    if (customReportConfig.customDescription) {
+                        customExcelParams.append('custom_description', customReportConfig.customDescription);
+                    }
+                    customExcelParams.append('include_charts', customReportConfig.includeCharts ? '1' : '0');
+                    customExcelParams.append('include_analytics', customReportConfig.includeAnalytics ? '1' : '0');
+                    
+                    reportUrl = `/pharmacist/inventory-reports/custom?${customExcelParams.toString()}`;
+                    break;
+                default:
+                    reportUrl = '/pharmacist/inventory-reports/summary?format=excel';
             }
             
-            // Create workbook and worksheet
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            
-            // Set column widths based on report type
-            const colWidths = selectedReport === 'dispensing_report' ? [
-                { wch: 25 }, // Item Name
-                { wch: 20 }, // Manufacturer
-                { wch: 20 }, // Patient Name
-                { wch: 15 }, // Prescription Number
-                { wch: 10 }, // Quantity
-                { wch: 10 }, // Unit
-                { wch: 15 }, // Batch Number
-                { wch: 20 }, // Dispensed By
-                { wch: 20 }, // Reason
-                { wch: 30 }, // Notes
-                { wch: 12 }, // Dispensed Date
-                { wch: 12 }  // Dispensed Time
-            ] : [
-                { wch: 25 }, // Item Name
-                { wch: 15 }, // Category
-                { wch: 20 }, // Manufacturer
-                { wch: 10 }, // Quantity
-                { wch: 10 }, // Unit
-                { wch: 15 }, // Batch Number
-                { wch: 12 }, // Expiry Date
-                { wch: 15 }, // Storage Location
-                { wch: 12 }, // Status
-                { wch: 12 }, // Minimum Stock
-                { wch: 12 }  // Maximum Stock
-            ];
-            ws['!cols'] = colWidths;
-            
-            // Add worksheet to workbook
-            XLSX.utils.book_append_sheet(wb, ws, 'Report Data');
-            
-            // Add summary sheet
-            if (Object.keys(generatedReport.summary).length > 0) {
-                const summaryData = Object.entries(generatedReport.summary).map(([key, value]) => ({
-                    'Metric': key.replace(/([A-Z])/g, ' $1').trim(),
-                    'Value': value
-                }));
-                const summaryWs = XLSX.utils.json_to_sheet(summaryData);
-                XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+            // Add query parameters if needed
+            const params = new URLSearchParams();
+            if (selectedCategory && selectedCategory !== 'all') {
+                params.append('category_id', selectedCategory);
+            }
+            if (selectedStatus && selectedStatus !== 'all') {
+                params.append('status', selectedStatus);
+            }
+            if (selectedPriority && selectedPriority !== 'all') {
+                params.append('priority', selectedPriority);
+            }
+            if (sortBy && sortBy !== 'name') {
+                params.append('sort_by', sortBy);
+            }
+            if (sortOrder && sortOrder !== 'asc') {
+                params.append('sort_order', sortOrder);
+            }
+            if (reportLimit && reportLimit !== 100) {
+                params.append('limit', reportLimit);
             }
             
-            // Save file
-            XLSX.writeFile(wb, `${generatedReport.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+            // Add date range
+            const endDate = new Date();
+            const startDate = new Date();
+            switch (dateRange) {
+                case '7d':
+                    startDate.setDate(endDate.getDate() - 7);
+                    break;
+                case '30d':
+                    startDate.setDate(endDate.getDate() - 30);
+                    break;
+                case '90d':
+                    startDate.setDate(endDate.getDate() - 90);
+                    break;
+                case '1y':
+                    startDate.setFullYear(endDate.getFullYear() - 1);
+                    break;
+            }
+            
+            params.append('start_date', startDate.toISOString().split('T')[0]);
+            params.append('end_date', endDate.toISOString().split('T')[0]);
+            
+            const fullUrl = `${reportUrl}${params.toString() ? '&' + params.toString() : ''}`;
+            
+            console.log('Generated Excel URL:', fullUrl);
+            
+            // Automatically download Excel
+            console.log('Downloading Excel from:', fullUrl);
+            
+            // Create a temporary link element to trigger download
+            const link = document.createElement('a');
+            link.href = fullUrl;
+            link.download = `${getReportTypeName(selectedReport).replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         } catch (error) {
             console.error('Error generating Excel:', error);
             alert('Error generating Excel file. Please try again.');
@@ -571,7 +1198,7 @@ export default function PharmacistReports({
                                 ${Object.entries(generatedReport.summary).map(([key, value]) => `
                                     <div class="summary-item">
                                         <div class="summary-value">${value}</div>
-                                        <div class="summary-label">${key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                                        <div class="summary-label">${key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}</div>
                                     </div>
                                 `).join('')}
                             </div>
@@ -584,7 +1211,7 @@ export default function PharmacistReports({
                             <tr>
                                 ${selectedReport === 'dispensing_report' ? `
                                     <th>Item Name</th>
-                                    <th>Patient</th>
+                                    <th>Dispense Mode</th>
                                     <th>Quantity</th>
                                     <th>Batch Number</th>
                                     <th>Prescription #</th>
@@ -606,22 +1233,22 @@ export default function PharmacistReports({
                                     return `
                                         <tr>
                                             <td>${item.name}<br><small>${item.manufacturer}</small></td>
-                                            <td>${item.patientName}<br><small>${item.prescriptionNumber}</small></td>
+                                            <td>${item.dispenseMode}<br><small>${item.patientName}</small></td>
                                             <td>${item.quantity} ${item.unit}</td>
                                             <td>${item.batchNumber}</td>
                                             <td>${item.prescriptionNumber}</td>
                                             <td>${item.staffName}<br><small>${item.reason}</small></td>
-                                            <td>${new Date(item.dispensedAt).toLocaleDateString()}<br><small>${new Date(item.dispensedAt).toLocaleTimeString()}</small></td>
+                                            <td>${formatDate(item.dispensedAt)}<br><small>${formatTime(item.dispensedAt)}</small></td>
                                         </tr>
                                     `;
                                 } else {
                                     const status = getItemStatus(item);
                                     const statusText = {
                                         'in_stock': 'In Stock',
-                                        'low_stock': 'Low Stock',
-                                        'out_of_stock': 'Out of Stock',
-                                        'expired': 'Expired',
-                                        'expiring_soon': 'Expiring Soon'
+                                        'low_stock': 'Low Stock Items',
+                                        'out_of_stock': 'Out of Stock Items',
+                                        'expired': 'Expired Items',
+                                        'expiring_soon': 'Expiring Soon Items'
                                     };
                                     return `
                                         <tr>
@@ -646,6 +1273,77 @@ export default function PharmacistReports({
         printWindow.print();
     };
 
+    // View report in React page
+    const viewReport = () => {
+        if (!selectedReport) return;
+        
+        // Build query parameters for enhanced filtering
+        const params = new URLSearchParams();
+        params.append('format', 'web');
+        
+        if (selectedCategory !== 'all') {
+            params.append('category_id', selectedCategory);
+        }
+        if (selectedStatus !== 'all') {
+            params.append('status', selectedStatus);
+        }
+        if (selectedPriority !== 'all') {
+            params.append('priority', selectedPriority);
+        }
+        if (sortBy !== 'name') {
+            params.append('sort_by', sortBy);
+        }
+        if (sortOrder !== 'asc') {
+            params.append('sort_order', sortOrder);
+        }
+        if (reportLimit !== 100) {
+            params.append('limit', reportLimit);
+        }
+        
+        // Add date range
+        const endDate = new Date();
+        const startDate = new Date();
+        switch (dateRange) {
+            case '7d':
+                startDate.setDate(endDate.getDate() - 7);
+                break;
+            case '30d':
+                startDate.setDate(endDate.getDate() - 30);
+                break;
+            case '90d':
+                startDate.setDate(endDate.getDate() - 90);
+                break;
+            case '1y':
+                startDate.setFullYear(endDate.getFullYear() - 1);
+                break;
+        }
+        
+        params.append('start_date', startDate.toISOString().split('T')[0]);
+        params.append('end_date', endDate.toISOString().split('T')[0]);
+        
+        // Determine the correct endpoint based on report type
+        let endpoint = '/pharmacist/inventory-reports/summary';
+        switch (selectedReport) {
+            case 'inventory_summary':
+                endpoint = '/pharmacist/inventory-reports/summary';
+                break;
+            case 'expiry_report':
+                endpoint = '/pharmacist/inventory-reports/expiry';
+                break;
+            case 'dispensing_report':
+                endpoint = '/pharmacist/inventory-reports/dispensing';
+                break;
+            case 'low_stock_alert':
+                endpoint = '/pharmacist/inventory-reports/low-stock-alert';
+                break;
+            default:
+                endpoint = '/pharmacist/inventory-reports/summary';
+        }
+        
+        // Open the report in a new tab
+        window.open(`${endpoint}?${params.toString()}`, '_blank');
+    };
+
     return (
         <AdminLayout header="Reports">
             <motion.div
@@ -654,63 +1352,144 @@ export default function PharmacistReports({
                 transition={{ duration: 0.5 }}
                 className="space-y-6"
             >
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Professional Government Header */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 rounded-xl p-8 text-white"
+                >
+                    {/* Background Pattern */}
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute top-0 left-0 w-full h-full" style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                        }}></div>
+                    </div>
+                    
+                    <div className="relative z-10">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                                        <Building2 className="h-8 w-8 text-white" />
+                                    </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">
-                            Reports & Analytics
+                                        <h1 className="text-3xl font-bold text-white">
+                                            RURAL HEALTH UNIT CALUMPANG
                         </h1>
-                        <p className="text-gray-600">
-                            Generate and manage inventory reports
+                                        <p className="text-blue-100 text-lg font-medium">
+                                            Pharmacy Department - Reports & Analytics
                         </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <Button variant="outline" className="flex items-center gap-2">
-                            <Printer className="h-4 w-4" />
-                            Print All
+                                </div>
+                                <p className="text-blue-100 text-lg max-w-2xl">
+                                    Professional inventory management and pharmaceutical reporting system for government healthcare services
+                                </p>
+                                <div className="flex items-center gap-6 mt-4">
+                                    <div className="flex items-center gap-2">
+                                        <Shield className="h-5 w-5 text-blue-200" />
+                                        <span className="text-blue-100 font-medium">Official Government System</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Award className="h-5 w-5 text-blue-200" />
+                                        <span className="text-blue-100 font-medium">Certified Healthcare Reports</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <Button 
+                                    variant="outline" 
+                                    className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
+                                    onClick={printAllReports}
+                                >
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print All Reports
                         </Button>
-                        <Button variant="outline" className="flex items-center gap-2">
-                            <Mail className="h-4 w-4" />
-                            Email Reports
-                        </Button>
+                                <Button 
+                                    className="bg-white text-blue-900 hover:bg-blue-50 font-semibold"
+                                    onClick={openReportsSettings}
+                                >
+                                    <Settings className="h-4 w-4 mr-2" />
+                                    Report Settings
+                                </Button>
                     </div>
                 </div>
+                    </div>
+                </motion.div>
 
-                {/* Report Generation Section */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Generate New Report
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                {/* Professional Report Generation Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="mb-8"
+                >
+                    <Card className="border-2 border-blue-200 shadow-lg">
+                        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200 p-6">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-600 rounded-lg">
+                                        <FileText className="h-7 w-7 text-white" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-2xl font-bold text-blue-900">
+                                            Generate Official Report
+                                        </CardTitle>
+                                        <p className="text-blue-700 text-base">
+                                            Create professional government healthcare reports
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Official Document
+                                    </Badge>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {reportTypes.map((report) => (
                                 <motion.div
                                     key={report.id}
-                                    whileHover={{ scale: 1.02 }}
+                                    whileHover={{ scale: 1.02, y: -2 }}
                                     whileTap={{ scale: 0.98 }}
+                                    transition={{ duration: 0.2 }}
                                 >
                                     <button
                                         onClick={() => setSelectedReport(report.id)}
-                                        className={`w-full p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                                        className={`w-full p-6 rounded-xl border-2 transition-all duration-300 text-left group ${
                                             selectedReport === report.id
-                                                ? "border-blue-500 bg-blue-50"
-                                                : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                                                ? `border-blue-500 bg-blue-50 shadow-lg ${report.hoverColor}`
+                                                : `${report.borderColor} hover:shadow-md ${report.hoverColor}`
                                         }`}
                                     >
-                                        <div className="flex items-start gap-3">
-                                            <div className={`p-2 rounded-lg ${report.bgColor}`}>
-                                                <report.icon className={`h-5 w-5 ${report.color}`} />
+                                        <div className="flex items-start gap-4">
+                                            <div className={`p-3 rounded-lg ${report.bgColor} group-hover:scale-110 transition-transform duration-200`}>
+                                                <report.icon className={`h-6 w-6 ${report.color}`} />
                                             </div>
                                             <div className="flex-1">
-                                                <h3 className="font-medium text-gray-900 mb-1">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <h3 className="font-bold text-gray-900 text-lg">
                                                     {report.title}
                                                 </h3>
-                                                <p className="text-sm text-gray-600">
+                                                    {report.official && (
+                                                        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+                                                            <Shield className="h-3 w-3 mr-1" />
+                                                            Official
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-600 mb-3 leading-relaxed">
                                                     {report.description}
                                                 </p>
+                                                <div className="flex items-center justify-start">
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {report.category}
+                                                    </Badge>
+                                                </div>
                                             </div>
                                         </div>
                                     </button>
@@ -722,15 +1501,26 @@ export default function PharmacistReports({
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="mt-6 p-4 bg-gray-50 rounded-lg"
+                                className="mt-12 p-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200"
                             >
-                                <div className="flex flex-col sm:flex-row gap-4 items-end">
-                                    <div className="flex-1">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Date Range
+                                <div className="flex items-center gap-4 mb-8">
+                                    <div className="p-3 bg-blue-600 rounded-lg">
+                                        <Settings className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h3 className="text-xl font-bold text-blue-900">Report Configuration</h3>
+                                        <p className="text-blue-700 text-base">Configure your official government report parameters</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                    <div className="space-y-3">
+                                        <label className="block text-sm font-bold text-blue-900 mb-3">
+                                            <Calendar className="h-4 w-4 inline mr-2" />
+                                            Report Period
                                         </label>
                                         <Select value={dateRange} onValueChange={setDateRange}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="border-blue-300 focus:border-blue-500 h-12">
                                                 <SelectValue placeholder="Select date range" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -742,42 +1532,347 @@ export default function PharmacistReports({
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex-1">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Search Items
+                                    
+                                    <div className="space-y-3">
+                                        <label className="block text-sm font-bold text-blue-900 mb-3">
+                                            <Search className="h-4 w-4 inline mr-2" />
+                                            Search Filter
                                         </label>
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                            <Search className="absolute left-3 top-3 h-4 w-4 text-blue-400" />
                                             <Input
                                                 placeholder="Search items..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="pl-10"
+                                                className="pl-10 border-blue-300 focus:border-blue-500 h-12"
                                             />
                                         </div>
                                     </div>
+                                    
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-bold text-blue-900 mb-2">
+                                            <FileText className="h-4 w-4 inline mr-2" />
+                                            Generate Report
+                                        </label>
                                     <Button 
                                         onClick={generateReport} 
                                         disabled={isGenerating}
-                                        className="flex items-center gap-2"
+                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3"
                                     >
                                         {isGenerating ? (
                                             <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                Generating...
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                    Generating Official Report...
                                             </>
                                         ) : (
                                             <>
-                                        <FileText className="h-4 w-4" />
-                                        Generate Report
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    Generate Official Report
                                             </>
                                         )}
                                     </Button>
+                                    </div>
+                                </div>
+
+                                {/* Advanced Filters */}
+                                <div className="mt-6">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                        className="mb-4 border-blue-300 text-blue-700 hover:bg-blue-50"
+                                    >
+                                        <Filter className="h-4 w-4 mr-2" />
+                                        {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+                                    </Button>
+
+                                    {showAdvancedFilters && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200"
+                                        >
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Category
+                                                </label>
+                                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                                    <SelectTrigger className="border-blue-300">
+                                                        <SelectValue placeholder="All Categories" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All Categories</SelectItem>
+                                                        <SelectItem value="medicine">Medicine</SelectItem>
+                                                        <SelectItem value="vaccine">Vaccine</SelectItem>
+                                                        <SelectItem value="supplies">Medical Supplies</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Status
+                                                </label>
+                                                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                                                    <SelectTrigger className="border-blue-300">
+                                                        <SelectValue placeholder="All Statuses" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All Statuses</SelectItem>
+                                                        <SelectItem value="active">Active</SelectItem>
+                                                        <SelectItem value="low_stock">Low Stock Items</SelectItem>
+                                                        <SelectItem value="out_of_stock">Out of Stock Items</SelectItem>
+                                                        <SelectItem value="expired">Expired Items</SelectItem>
+                                                        <SelectItem value="expiring_soon">Expiring Soon Items</SelectItem>
+                                                        <SelectItem value="critical_expiry">Critical Expiry</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Priority
+                                                </label>
+                                                <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+                                                    <SelectTrigger className="border-blue-300">
+                                                        <SelectValue placeholder="All Priorities" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All Priorities</SelectItem>
+                                                        <SelectItem value="high">High Priority</SelectItem>
+                                                        <SelectItem value="medium">Medium Priority</SelectItem>
+                                                        <SelectItem value="low">Low Priority</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Sort By
+                                                </label>
+                                                <Select value={sortBy} onValueChange={setSortBy}>
+                                                    <SelectTrigger className="border-blue-300">
+                                                        <SelectValue placeholder="Sort by" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="name">Name</SelectItem>
+                                                        <SelectItem value="category">Category</SelectItem>
+                                                        <SelectItem value="stock">Stock Level</SelectItem>
+                                                        <SelectItem value="expiry">Expiry Date</SelectItem>
+                                                        <SelectItem value="status">Status</SelectItem>
+                                                        <SelectItem value="priority">Priority</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Sort Order
+                                                </label>
+                                                <Select value={sortOrder} onValueChange={setSortOrder}>
+                                                    <SelectTrigger className="border-blue-300">
+                                                        <SelectValue placeholder="Sort order" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="asc">Ascending</SelectItem>
+                                                        <SelectItem value="desc">Descending</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="block text-sm font-bold text-blue-900">
+                                                    Limit Results
+                                                </label>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="100"
+                                                    value={reportLimit}
+                                                    onChange={(e) => setReportLimit(parseInt(e.target.value) || 100)}
+                                                    className="border-blue-300"
+                                                    min="1"
+                                                    max="1000"
+                                                />
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </div>
+                                
+                                <div className="mt-4 p-4 bg-blue-100 rounded-lg border border-blue-200">
+                                    <div className="flex items-center gap-2 text-blue-800">
+                                        <Shield className="h-4 w-4" />
+                                        <span className="text-sm font-medium">
+                                            This will generate an official government document with proper authentication and formatting.
+                                        </span>
+                                    </div>
                                 </div>
                             </motion.div>
                         )}
                     </CardContent>
                 </Card>
+                </motion.div>
+
+                {/* Custom Report Configuration */}
+                {selectedReport === 'custom_report' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="mt-6"
+                    >
+                        <Card className="border-indigo-200 bg-indigo-50">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-3 text-indigo-900">
+                                    <FileText className="h-6 w-6" />
+                                    Custom Report Configuration
+                                </CardTitle>
+                                <p className="text-indigo-700 text-sm">
+                                    Select which report types to include in your custom report
+                                </p>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                {/* Report Type Selection */}
+                                <div className="space-y-4">
+                                    <h4 className="text-lg font-semibold text-indigo-900">Select Report Types</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="checkbox"
+                                                id="inventory-summary"
+                                                checked={customReportConfig.includeInventorySummary}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    includeInventorySummary: e.target.checked
+                                                }))}
+                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="inventory-summary" className="text-sm font-medium text-indigo-900">
+                                                Inventory Summary Report
+                                            </label>
+                                        </div>
+                                        
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="checkbox"
+                                                id="dispensing-activity"
+                                                checked={customReportConfig.includeDispensingActivity}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    includeDispensingActivity: e.target.checked
+                                                }))}
+                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="dispensing-activity" className="text-sm font-medium text-indigo-900">
+                                                Dispensing Activity Report
+                                            </label>
+                                        </div>
+                                        
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="checkbox"
+                                                id="expiry-report"
+                                                checked={customReportConfig.includeExpiryReport}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    includeExpiryReport: e.target.checked
+                                                }))}
+                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="expiry-report" className="text-sm font-medium text-indigo-900">
+                                                Stock Movement Reports
+                                            </label>
+                                        </div>
+                                        
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="checkbox"
+                                                id="disposal-report"
+                                                checked={customReportConfig.includeDisposalReport}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    includeDisposalReport: e.target.checked
+                                                }))}
+                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="disposal-report" className="text-sm font-medium text-indigo-900">
+                                                Disposal Report
+                                            </label>
+                                        </div>
+                                        
+                                        <div className="flex items-center space-x-3">
+                                            <input
+                                                type="checkbox"
+                                                id="expired-batches"
+                                                checked={customReportConfig.includeExpiredBatches}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    includeExpiredBatches: e.target.checked
+                                                }))}
+                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <label htmlFor="expired-batches" className="text-sm font-medium text-indigo-900">
+                                                Expired Batches Report
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Custom Report Details */}
+                                <div className="space-y-4">
+                                    <h4 className="text-lg font-semibold text-indigo-900">Report Details</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-indigo-900">
+                                                Custom Report Title
+                                            </label>
+                                            <Input
+                                                value={customReportConfig.customTitle}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    customTitle: e.target.value
+                                                }))}
+                                                placeholder="Enter custom report title"
+                                                className="border-indigo-300 focus:border-indigo-500"
+                                            />
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            <label className="block text-sm font-medium text-indigo-900">
+                                                Report Description
+                                            </label>
+                                            <Input
+                                                value={customReportConfig.customDescription}
+                                                onChange={(e) => setCustomReportConfig(prev => ({
+                                                    ...prev,
+                                                    customDescription: e.target.value
+                                                }))}
+                                                placeholder="Enter report description"
+                                                className="border-indigo-300 focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+
+                                {/* Generate Custom Report Button */}
+                                <div className="pt-4 border-t border-indigo-200">
+                                    <Button
+                                        onClick={generateCustomReport}
+                                        disabled={!customReportConfig.includeInventorySummary && 
+                                                !customReportConfig.includeDispensingActivity && 
+                                                !customReportConfig.includeExpiryReport && 
+                                                !customReportConfig.includeDisposalReport && 
+                                                !customReportConfig.includeExpiredBatches}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3"
+                                    >
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Generate Custom Report
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
 
                 {/* Generated Report Display */}
                 {generatedReport && (
@@ -786,17 +1881,48 @@ export default function PharmacistReports({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
                     >
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5" />
-                                        {generatedReport.title}
-                                    </CardTitle>
+                        <Card className="border-2 border-gray-300 shadow-lg">
+                            <CardHeader className="bg-gradient-to-r from-gray-800 to-gray-700 text-white border-b-4 border-gray-600">
+                                <div className="text-center">
+                                    <div className="mb-4">
+                                        <h1 className="text-3xl font-bold text-white mb-2">
+                                            REPUBLIC OF THE PHILIPPINES
+                                        </h1>
+                                        <h2 className="text-2xl font-semibold text-gray-200 mb-1">
+                                            RURAL HEALTH UNIT OF CALUMPANG
+                                        </h2>
+                                        <p className="text-gray-300 text-lg">
+                                            Calumpang, Bulacan
+                                        </p>
+                                    </div>
+                                    <div className="border-t border-gray-500 pt-4">
+                                        <h3 className="text-2xl font-bold text-white mb-2">
+                                            {generatedReport.title}
+                                        </h3>
+                                        <div className="flex justify-center items-center space-x-6 text-sm text-gray-200">
+                                            <p className="flex items-center">
+                                                <Building2 className="h-4 w-4 mr-1" />
+                                                RHU Calumpang Management System
+                                            </p>
+                                            <p className="flex items-center">
+                                                <Calendar className="h-4 w-4 mr-1" />
+                                                Generated: {new Date(generatedReport.generatedAt).toLocaleDateString('en-US', {
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-center mt-4">
                                     <div className="flex items-center gap-2">
                                         <Button 
                                             variant="outline" 
                                             size="sm"
+                                            className="bg-white text-gray-800 hover:bg-gray-50 border-white"
                                             onClick={() => setGeneratedReport(null)}
                                         >
                                             Close
@@ -805,7 +1931,7 @@ export default function PharmacistReports({
                                             <Button 
                                                 variant="outline" 
                                                 size="sm" 
-                                                className="flex items-center gap-1"
+                                                className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
                                                 onClick={downloadAsPDF}
                                             >
                                                 <Download className="h-4 w-4" />
@@ -814,17 +1940,26 @@ export default function PharmacistReports({
                                             <Button 
                                                 variant="outline" 
                                                 size="sm" 
-                                                className="flex items-center gap-1"
+                                                className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
                                                 onClick={downloadAsExcel}
                                             >
                                                 <Download className="h-4 w-4" />
                                                 Excel
                                             </Button>
+                                            <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
+                                                onClick={viewReport}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                                View Report
+                                            </Button>
                                         </div>
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
-                                            className="flex items-center gap-1"
+                                            className="flex items-center gap-1 bg-white text-blue-900 hover:bg-blue-50 border-white"
                                             onClick={printReport}
                                         >
                                             <Printer className="h-4 w-4" />
@@ -832,57 +1967,93 @@ export default function PharmacistReports({
                                         </Button>
                                     </div>
                                 </div>
-                                <p className="text-sm text-gray-500">
-                                    Generated on {new Date(generatedReport.generatedAt).toLocaleString()}
-                                </p>
                             </CardHeader>
                             <CardContent id="report-content">
                                 {/* Report Summary */}
                                 {Object.keys(generatedReport.summary).length > 0 && (
-                                    <div className="mb-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary</h3>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                            {Object.entries(generatedReport.summary).map(([key, value]) => (
-                                                <div key={key} className="text-center p-4 bg-gray-50 rounded-lg">
-                                                    <p className="text-2xl font-bold text-gray-900">{value}</p>
-                                                    <p className="text-sm text-gray-600 capitalize">
-                                                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                                    <div className="mb-8">
+                                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                                            <h3 className="text-xl font-bold text-blue-900 mb-2 flex items-center">
+                                                <BarChart3 className="h-5 w-5 mr-2" />
+                                                Executive Summary
+                                            </h3>
+                                            <p className="text-blue-700 text-sm">
+                                                Comprehensive inventory analysis and status overview
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                                            {Object.entries(generatedReport.summary).map(([key, value]) => {
+                                                const statusColors = {
+                                                    'total_items': 'bg-blue-100 border-blue-300 text-blue-800',
+                                                    'in_stock': 'bg-green-100 border-green-300 text-green-800',
+                                                    'low_stock_items': 'bg-yellow-100 border-yellow-300 text-yellow-800',
+                                                    'out_of_stock': 'bg-red-100 border-red-300 text-red-800',
+                                                    'expired_items': 'bg-red-100 border-red-300 text-red-800',
+                                                    'expiring_soon': 'bg-orange-100 border-orange-300 text-orange-800',
+                                                    'critical_alerts': 'bg-purple-100 border-purple-300 text-purple-800'
+                                                };
+                                                
+                                                const statusIcons = {
+                                                    'total_items': <Package className="h-5 w-5" />,
+                                                    'in_stock': <CheckCircle className="h-5 w-5" />,
+                                                    'low_stock_items': <AlertTriangle className="h-5 w-5" />,
+                                                    'out_of_stock': <XCircle className="h-5 w-5" />,
+                                                    'expired_items': <AlertCircle className="h-5 w-5" />,
+                                                    'expiring_soon': <Clock className="h-5 w-5" />,
+                                                    'critical_alerts': <AlertTriangle className="h-5 w-5" />
+                                                };
+                                                
+                                                return (
+                                                    <div key={key} className={`text-center p-4 rounded-lg border-2 ${statusColors[key] || 'bg-gray-100 border-gray-300 text-gray-800'}`}>
+                                                        <div className="flex justify-center mb-2">
+                                                            {statusIcons[key] || <Package className="h-5 w-5" />}
+                                                        </div>
+                                                        <p className="text-3xl font-bold mb-1">{value}</p>
+                                                        <p className="text-sm font-medium capitalize">
+                                                        {key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()}
                                                     </p>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}
 
                                 {/* Report Items Table */}
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">
-                                        Items ({generatedReport.items.length})
+                                    <div className="bg-gray-50 border-l-4 border-gray-500 p-4">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center">
+                                            <FileText className="h-5 w-5 mr-2" />
+                                            Detailed Inventory Report
                                     </h3>
+                                        <p className="text-gray-600 text-sm">
+                                            Complete listing of all inventory items ({generatedReport.items.length} items)
+                                        </p>
+                                    </div>
                                     
                                     {generatedReport.items.length > 0 ? (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full border-collapse">
+                                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                                            <table className="w-full border-collapse bg-white">
                                                 <thead>
-                                                    <tr className="border-b bg-gray-50">
+                                                    <tr className="bg-gradient-to-r from-gray-800 to-gray-700 text-white">
                                                         {selectedReport === 'dispensing_report' ? (
                                                             <>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Item Name</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Patient</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Quantity</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Batch Number</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Prescription #</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Dispensed By</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Item Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Dispense Mode</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Prescription #</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Dispensed By</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Date</th>
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Item Name</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Category</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Quantity</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Batch Number</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Expiry Date</th>
-                                                                <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Item Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Category</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Expiry Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Status</th>
                                                             </>
                                                         )}
                                                     </tr>
@@ -891,88 +2062,110 @@ export default function PharmacistReports({
                                                     {generatedReport.items.map((item, index) => {
                                                         if (selectedReport === 'dispensing_report') {
                                                             return (
-                                                                <tr key={item.id} className="border-b hover:bg-gray-50">
-                                                                    <td className="py-3 px-4">
+                                                                <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                                    <td className="py-4 px-6">
                                                                         <div>
-                                                                            <p className="font-medium text-gray-900">{item.name}</p>
-                                                                            <p className="text-sm text-gray-500">{item.manufacturer}</p>
+                                                                            <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
+                                                                            <p className="text-xs text-gray-500 mt-1">{item.manufacturer}</p>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-3 px-4">
+                                                                    <td className="py-4 px-6">
                                                                         <div>
-                                                                            <p className="font-medium text-gray-900">{item.patientName}</p>
-                                                                            <p className="text-sm text-gray-500">{item.prescriptionNumber}</p>
+                                                                            <p className="font-medium text-gray-900 text-sm">{item.dispenseMode}</p>
+                                                                            <p className="text-xs text-gray-500 mt-1">{item.patientName}</p>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-3 px-4">
-                                                                        <span className="font-medium">{item.quantity}</span>
-                                                                        <span className="text-sm text-gray-500 ml-1">{item.unit}</span>
-                                                                    </td>
-                                                                    <td className="py-3 px-4 font-mono text-sm">{item.batchNumber}</td>
-                                                                    <td className="py-3 px-4 font-mono text-sm">{item.prescriptionNumber}</td>
-                                                                    <td className="py-3 px-4">
-                                                                        <div>
-                                                                            <p className="font-medium text-gray-900">{item.staffName}</p>
-                                                                            <p className="text-sm text-gray-500">{item.reason}</p>
+                                                                    <td className="py-4 px-6">
+                                                                        <div className="flex items-center">
+                                                                            <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
+                                                                            <span className="text-xs text-gray-500 ml-2 bg-gray-100 px-2 py-1 rounded">{item.unit}</span>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-3 px-4">
-                                                                        <span className="text-sm text-gray-600">
-                                                                            {new Date(item.dispensedAt).toLocaleDateString()}
-                                                                        </span>
-                                                                        <br />
-                                                                        <span className="text-xs text-gray-400">
-                                                                            {new Date(item.dispensedAt).toLocaleTimeString()}
-                                                                        </span>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-blue-100 px-2 py-1 rounded text-blue-800">{item.prescriptionNumber}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <div>
+                                                                            <p className="font-medium text-gray-900 text-sm">{item.staffName}</p>
+                                                                            <p className="text-xs text-gray-500 mt-1">{item.reason}</p>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <div className="text-sm">
+                                                                            <p className="font-medium text-gray-900">
+                                                                                {formatDate(item.dispensedAt)}
+                                                                            </p>
+                                                                            <p className="text-xs text-gray-500">
+                                                                                {formatTime(item.dispensedAt)}
+                                                                            </p>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             );
                                                         } else {
                                                             const status = getItemStatus(item);
                                                             const statusColors = {
-                                                                'in_stock': 'bg-green-100 text-green-800',
-                                                                'low_stock': 'bg-yellow-100 text-yellow-800',
-                                                                'out_of_stock': 'bg-red-100 text-red-800',
-                                                                'expired': 'bg-red-100 text-red-800',
-                                                                'expiring_soon': 'bg-orange-100 text-orange-800'
+                                                                'in_stock': 'bg-green-100 text-green-800 border-green-200',
+                                                                'low_stock': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                                'out_of_stock': 'bg-red-100 text-red-800 border-red-200',
+                                                                'expired': 'bg-red-100 text-red-800 border-red-200',
+                                                                'expiring_soon': 'bg-orange-100 text-orange-800 border-orange-200'
                                                             };
                                                             const statusText = {
                                                                 'in_stock': 'In Stock',
-                                                                'low_stock': 'Low Stock',
-                                                                'out_of_stock': 'Out of Stock',
-                                                                'expired': 'Expired',
-                                                                'expiring_soon': 'Expiring Soon'
+                                                                'low_stock': 'Low Stock Items',
+                                                                'out_of_stock': 'Out of Stock Items',
+                                                                'expired': 'Expired Items',
+                                                                'expiring_soon': 'Expiring Soon Items'
                                                             };
                                                             
                                                             return (
-                                                                <tr key={item.id} className="border-b hover:bg-gray-50">
-                                                                    <td className="py-3 px-4">
+                                                                <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                                    <td className="py-4 px-6">
                                                                         <div>
-                                                                            <p className="font-medium text-gray-900">{item.name}</p>
-                                                                            <p className="text-sm text-gray-500">{item.manufacturer}</p>
+                                                                            <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
+                                                                            <p className="text-xs text-gray-500 mt-1">{item.manufacturer}</p>
                                                                         </div>
                                                                     </td>
-                                                                    <td className="py-3 px-4 text-gray-600">{item.category}</td>
-                                                                    <td className="py-3 px-4">
-                                                                        <span className="font-medium">{item.quantity}</span>
-                                                                        <span className="text-sm text-gray-500 ml-1">{item.unit}</span>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            {item.category}
+                                                                        </span>
                                                                     </td>
-                                                                    <td className="py-3 px-4 font-mono text-sm">{item.batchNumber}</td>
-                                                                    <td className="py-3 px-4">
+                                                                    <td className="py-4 px-6">
+                                                                        <div className="flex items-center">
+                                                                            <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
+                                                                            <span className="text-xs text-gray-500 ml-2 bg-gray-100 px-2 py-1 rounded">{item.unit}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
                                                                         {item.expiryDate !== 'N/A' ? (
-                                                                            <span className={`${
+                                                                            <div className="text-sm">
+                                                                                <span className={`font-medium ${
                                                                                 isExpired(item.expiryDate) ? 'text-red-600' :
                                                                                 isExpiringSoon(item.expiryDate) ? 'text-orange-600' :
                                                                                 'text-gray-600'
                                                                             }`}>
                                                                                 {new Date(item.expiryDate).toLocaleDateString()}
                                                                             </span>
+                                                                                <p className="text-xs text-gray-500 mt-1">
+                                                                                    {isExpired(item.expiryDate) ? 'Expired' :
+                                                                                     isExpiringSoon(item.expiryDate) ? 'Expiring Soon Items' :
+                                                                                     'Valid'}
+                                                                                </p>
+                                                                            </div>
                                                                         ) : (
-                                                                            <span className="text-gray-400">N/A</span>
+                                                                            <span className="text-gray-400 text-sm">N/A</span>
                                                                         )}
                                                                     </td>
-                                                                    <td className="py-3 px-4">
-                                                                        <Badge className={statusColors[status]}>
+                                                                    <td className="py-4 px-6">
+                                                                        <Badge className={`${statusColors[status]} border`}>
                                                                             {statusText[status]}
                                                                         </Badge>
                                                                     </td>
@@ -984,9 +2177,15 @@ export default function PharmacistReports({
                                             </table>
                                         </div>
                                     ) : (
-                                        <div className="text-center py-8 text-gray-500">
-                                            <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                                            <p>No items found for this report.</p>
+                                        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                            <Package className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                                            <h3 className="text-lg font-semibold text-gray-600 mb-2">No Inventory Data Available</h3>
+                                            <p className="text-gray-500 mb-4">There are currently no inventory items to display in this report.</p>
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
+                                                <p className="text-sm text-blue-800">
+                                                    <strong>Note:</strong> This report will automatically populate once inventory items are added to the system.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1011,8 +2210,8 @@ export default function PharmacistReports({
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {recentReports.length > 0 ? (
-                                recentReports.map((report, index) => (
+                            {currentReports.length > 0 ? (
+                                currentReports.map((report, index) => (
                                     <motion.div
                                         key={report.id}
                                         initial={{ opacity: 0, x: -20 }}
@@ -1067,6 +2266,54 @@ export default function PharmacistReports({
                                     <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                                     <p>No reports generated yet</p>
                                     <p className="text-sm">Generate your first report to see it here</p>
+                                </div>
+                            )}
+                            
+                            {/* Pagination Controls */}
+                            {recentReports.length > reportsPerPage && (
+                                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                                        <span>
+                                            Showing {indexOfFirstReport + 1} to {Math.min(indexOfLastReport, recentReports.length)} of {recentReports.length} reports
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handlePreviousPage}
+                                            disabled={currentPage === 1}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <ChevronLeft className="h-3 w-3" />
+                                            Previous
+                                        </Button>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                                                <Button
+                                                    key={pageNumber}
+                                                    variant={currentPage === pageNumber ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => handlePageChange(pageNumber)}
+                                                    className="w-8 h-8 p-0"
+                                                >
+                                                    {pageNumber}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                        
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleNextPage}
+                                            disabled={currentPage === totalPages}
+                                            className="flex items-center gap-1"
+                                        >
+                                            Next
+                                            <ChevronRight className="h-3 w-3" />
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1254,7 +2501,7 @@ export default function PharmacistReports({
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-amber-800">
                                         <AlertCircle className="h-5 w-5" />
-                                        Expiring Soon Alert
+                                        Expiring Soon Items Alert
                                         <Badge className="bg-amber-100 text-amber-800 border-amber-200">
                                             {expiringSoonBatchesCount} batches
                                         </Badge>
@@ -1263,7 +2510,7 @@ export default function PharmacistReports({
                                 <CardContent>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                         <div className="text-center p-4 bg-white rounded-lg border border-amber-200">
-                                            <p className="text-sm text-amber-600">Expiring Soon</p>
+                                            <p className="text-sm text-amber-600">Expiring Soon Items</p>
                                             <p className="text-2xl font-bold text-amber-800">{expiringSoonBatchesCount}</p>
                                         </div>
                                         <div className="text-center p-4 bg-white rounded-lg border border-amber-200">
@@ -1290,6 +2537,173 @@ export default function PharmacistReports({
                 multi={bulkDisposalMode}
                 itemsForMulti={bulkDisposalMode ? expiredBatches : []}
             />
+
+            {/* Reports Settings Modal */}
+            {showReportsSettings && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto"
+                    >
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">Reports Settings</h2>
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowReportsSettings(false)}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Default Format */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Default Export Format
+                                </label>
+                                <Select 
+                                    value={reportSettings.defaultFormat} 
+                                    onValueChange={(value) => setReportSettings({...reportSettings, defaultFormat: value})}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="pdf">PDF</SelectItem>
+                                        <SelectItem value="excel">Excel</SelectItem>
+                                        <SelectItem value="csv">CSV</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Default Date Range */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Default Date Range
+                                </label>
+                                <Select 
+                                    value={reportSettings.defaultDateRange} 
+                                    onValueChange={(value) => setReportSettings({...reportSettings, defaultDateRange: value})}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="7d">Last 7 days</SelectItem>
+                                        <SelectItem value="30d">Last 30 days</SelectItem>
+                                        <SelectItem value="90d">Last 90 days</SelectItem>
+                                        <SelectItem value="1y">Last year</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Default Sorting */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Default Sort By
+                                    </label>
+                                    <Select 
+                                        value={reportSettings.defaultSortBy} 
+                                        onValueChange={(value) => setReportSettings({...reportSettings, defaultSortBy: value})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="name">Name</SelectItem>
+                                            <SelectItem value="category">Category</SelectItem>
+                                            <SelectItem value="stock">Stock Level</SelectItem>
+                                            <SelectItem value="expiry">Expiry Date</SelectItem>
+                                            <SelectItem value="status">Status</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Sort Order
+                                    </label>
+                                    <Select 
+                                        value={reportSettings.defaultSortOrder} 
+                                        onValueChange={(value) => setReportSettings({...reportSettings, defaultSortOrder: value})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="asc">Ascending</SelectItem>
+                                            <SelectItem value="desc">Descending</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Max Results */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Maximum Results per Report
+                                </label>
+                                <Input
+                                    type="number"
+                                    value={reportSettings.maxResults}
+                                    onChange={(e) => setReportSettings({...reportSettings, maxResults: parseInt(e.target.value) || 100})}
+                                    min="1"
+                                    max="1000"
+                                />
+                            </div>
+
+                            {/* Notifications */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium text-gray-900">Notifications</h3>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700">Auto Refresh Reports</label>
+                                            <p className="text-xs text-gray-500">Automatically refresh dashboard analytics</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={reportSettings.autoRefresh}
+                                            onChange={(e) => setReportSettings({...reportSettings, autoRefresh: e.target.checked})}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <label className="text-sm font-medium text-gray-700">Email Notifications</label>
+                                            <p className="text-xs text-gray-500">Receive email alerts for critical reports</p>
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            checked={reportSettings.emailNotifications}
+                                            onChange={(e) => setReportSettings({...reportSettings, emailNotifications: e.target.checked})}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowReportsSettings(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={saveReportsSettings}
+                                className="bg-blue-600 hover:bg-blue-700"
+                            >
+                                Save Settings
+                            </Button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

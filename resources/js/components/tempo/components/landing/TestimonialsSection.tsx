@@ -113,7 +113,7 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
 
     return (
         <section className="w-full py-20 bg-white">
-            <style jsx>{`
+            <style jsx="true">{`
                 .swiper {
                     padding: 20px 60px 80px 60px !important;
                     position: relative;

@@ -137,15 +137,174 @@ const mockAppointments = [
     },
 ];
 
-export default function appointments({ appointments_ }) {
+export default function appointments({ appointments_, activeServices }) {
     
     const [appointments, setAppointments] = useState(appointments_.data || []);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [purposeFilter, setPurposeFilter] = useState("all");
+    const [dateTimeFilter, setDateTimeFilter] = useState("all");
     const [sortConfig, setSortConfig] = useState({
         key: "date",
         direction: "ascending",
     });
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Filtering and sorting logic
+    const getFilteredAndSortedAppointments = () => {
+        // Debug: Log appointment data structure
+        if (appointments.length > 0) {
+            console.log('Sample appointment data:', appointments[0]);
+            console.log('Appointment status type:', typeof appointments[0]?.status);
+            console.log('Appointment status value:', appointments[0]?.status);
+            
+            // Debug: Log all unique status values
+            const uniqueStatuses = [...new Set(appointments.map(a => a.status).filter(Boolean))];
+            console.log('All unique status values in appointments:', uniqueStatuses);
+        }
+        
+        // Debug: Log active services
+        if (activeServices && activeServices.length > 0) {
+            console.log('Active services available:', activeServices);
+        }
+        
+        // Debug: Test status filtering
+        console.log('Simple test - appointments with status 1:', appointments.filter(a => a.status === 1).length);
+        console.log('Simple test - appointments with status "1":', appointments.filter(a => a.status === '1').length);
+        console.log('Simple test - appointments with status "scheduled":', appointments.filter(a => a.status === 'scheduled').length);
+        
+        let filtered = appointments.filter(appointment => {
+            const matchesSearch = !searchTerm || 
+                appointment.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                appointment.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                appointment.reference_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                appointment.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                appointment.phone?.includes(searchTerm);
+
+            const matchesStatus = statusFilter === "all" || (() => {
+                if (!appointment.status) return false;
+                
+                // Handle numeric status values
+                const statusMapping = {
+                    'scheduled': 1,
+                    'confirmed': 5,
+                    'completed': 2,
+                    'cancelled': 3,
+                    'declined': 4,
+                    'archived': 6
+                };
+                
+                const appointmentStatus = appointment.status;
+                const filterStatus = statusFilter.toLowerCase().trim();
+                
+                // Check if it's a numeric status
+                if (typeof appointmentStatus === 'number' || !isNaN(appointmentStatus)) {
+                    const statusNum = parseInt(appointmentStatus);
+                    const expectedStatus = statusMapping[filterStatus];
+                    const matches = expectedStatus === statusNum;
+                    
+                    if (statusFilter !== "all") {
+                        console.log(`Status filter: ${filterStatus} (${expectedStatus}), Appointment status: ${statusNum}, Matches: ${matches}`);
+                    }
+                    
+                    return matches;
+                }
+                
+                // Fallback to string comparison
+                const appointmentStatusStr = String(appointment.status).toLowerCase().trim();
+                const filterStatusStr = statusFilter.toLowerCase().trim();
+                return appointmentStatusStr === filterStatusStr;
+            })();
+            
+            const matchesPurpose = purposeFilter === "all" || (() => {
+                if (!appointment.service?.servicename) return false;
+                const appointmentPurpose = String(appointment.service.servicename).toLowerCase().trim();
+                const filterPurpose = purposeFilter.toLowerCase().trim();
+                
+                // Debug logging for purpose filtering
+                if (purposeFilter !== "all") {
+                    console.log(`Purpose filter: ${filterPurpose}, Appointment purpose: ${appointmentPurpose}, Matches: ${appointmentPurpose === filterPurpose}`);
+                }
+                
+                return appointmentPurpose === filterPurpose;
+            })();
+
+            const matchesDateTime = dateTimeFilter === "all" || (() => {
+                if (!appointment.date) return false;
+                const appointmentDate = new Date(appointment.date);
+                const now = new Date();
+                
+                // Handle time-based filters
+                if (dateTimeFilter === "morning" || dateTimeFilter === "afternoon" || dateTimeFilter === "evening") {
+                    const appointmentTime = new Date(appointment.date + ' ' + (appointment.time || '00:00:00'));
+                    const hour = appointmentTime.getHours();
+                    
+                    switch (dateTimeFilter) {
+                        case "morning": return hour >= 6 && hour < 12;
+                        case "afternoon": return hour >= 12 && hour < 18;
+                        case "evening": return hour >= 18 && hour < 24;
+                        default: return true;
+                    }
+                }
+                
+                // Handle date-based filters
+                switch (dateTimeFilter) {
+                    case "today": return appointmentDate.toDateString() === now.toDateString();
+                    case "week": return (now - appointmentDate) <= 7 * 24 * 60 * 60 * 1000;
+                    case "month": return (now - appointmentDate) <= 30 * 24 * 60 * 60 * 1000;
+                    case "year": return appointmentDate.getFullYear() === now.getFullYear();
+                    case "upcoming": return appointmentDate > now;
+                    case "past": return appointmentDate < now;
+                    default: return true;
+                }
+            })();
+
+            return matchesSearch && matchesStatus && matchesPurpose && matchesDateTime;
+        });
+
+        // Apply sorting
+        filtered.sort((a, b) => {
+            let aValue = a[sortConfig.key];
+            let bValue = b[sortConfig.key];
+
+            // Handle nested properties
+            if (sortConfig.key.includes('.')) {
+                const keys = sortConfig.key.split('.');
+                aValue = keys.reduce((obj, key) => obj?.[key], a);
+                bValue = keys.reduce((obj, key) => obj?.[key], b);
+            }
+
+            // Handle date sorting
+            if (sortConfig.key === 'date' || sortConfig.key === 'created_at') {
+                aValue = new Date(aValue);
+                bValue = new Date(bValue);
+            }
+
+            if (aValue < bValue) {
+                return sortConfig.direction === "ascending" ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === "ascending" ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return filtered;
+    };
+
+    const handleSort = (key) => {
+        setSortConfig(prevConfig => ({
+            key,
+            direction: prevConfig.key === key && prevConfig.direction === "ascending" ? "descending" : "ascending"
+        }));
+    };
+
+    const clearFilters = () => {
+        setSearchTerm("");
+        setStatusFilter("all");
+        setPurposeFilter("all");
+        setDateTimeFilter("all");
+    };
 
     // Helper function to safely format dates
     const formatDate = (dateString) => {
@@ -481,45 +640,110 @@ export default function appointments({ appointments_ }) {
                 className="space-y-6"
             >
                 {/* Header Section */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-lg shadow-sm">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800">
-                            All Appointments
-                        </h2>
-                        <p className="text-sm text-gray-500 mt-1">
-                            Manage and track all appointment records
-                        </p>
-                    </div>
-                    <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search Input */}
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
-                            <Input
-                                type="text"
-                                placeholder="Search appointments..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 w-full md:w-[250px] bg-gray-50 border-gray-200 focus:border-primary"
-                            />
+                <div className="space-y-4 bg-white p-6 rounded-lg shadow-sm">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">
+                                All Appointments
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Manage and track all appointment records
+                            </p>
                         </div>
-                        {/* Status Filter */}
-                        <Select
-                            value={statusFilter}
-                            onValueChange={setStatusFilter}
-                        >
-                            <SelectTrigger className="w-[180px] bg-gray-50 border-gray-200">
-                                <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">
-                                    All Statuses
-                                </SelectItem>
-                                <SelectItem value={1}>Scheduled</SelectItem>
-                                <SelectItem value={2}>Completed</SelectItem>
-                                <SelectItem value={3}>Cancelled</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="flex flex-col md:flex-row gap-4">
+                            {/* Search Input */}
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400"/>
+                                <Input
+                                    type="text"
+                                    placeholder="Search by name, reference, email, or phone..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 w-full md:w-[300px] bg-gray-50 border-gray-200 focus:border-primary"
+                                />
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="flex items-center gap-2"
+                            >
+                                <Filter className="h-4 w-4" />
+                                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                            </Button>
+                            {(searchTerm || statusFilter !== "all" || purposeFilter !== "all" || dateTimeFilter !== "all") && (
+                                <Button
+                                    variant="outline"
+                                    onClick={clearFilters}
+                                    className="text-red-600 hover:text-red-700"
+                                >
+                                    Clear Filters
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Advanced Filters */}
+                    {showFilters && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg border">
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Statuses" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                                        <SelectItem value="completed">Completed</SelectItem>
+                                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                                        <SelectItem value="declined">Declined</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 mb-2 block">Purpose</label>
+                                <Select value={purposeFilter} onValueChange={setPurposeFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Purposes" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Purposes</SelectItem>
+                                        {activeServices && activeServices.map((service) => (
+                                            <SelectItem key={service.id} value={service.servicename.toLowerCase()}>
+                                                {service.servicename}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 mb-2 block">Date & Time</label>
+                                <Select value={dateTimeFilter} onValueChange={setDateTimeFilter}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Dates" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Dates</SelectItem>
+                                        <SelectItem value="today">Today</SelectItem>
+                                        <SelectItem value="week">This Week</SelectItem>
+                                        <SelectItem value="month">This Month</SelectItem>
+                                        <SelectItem value="year">This Year</SelectItem>
+                                        <SelectItem value="upcoming">Upcoming</SelectItem>
+                                        <SelectItem value="past">Past</SelectItem>
+                                        <SelectItem value="morning">Morning (6AM-12PM)</SelectItem>
+                                        <SelectItem value="afternoon">Afternoon (12PM-6PM)</SelectItem>
+                                        <SelectItem value="evening">Evening (6PM-12AM)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="text-sm text-muted-foreground">
+                        Showing {getFilteredAndSortedAppointments().length} of {appointments.length} appointments
                     </div>
                 </div>
 
@@ -527,9 +751,9 @@ export default function appointments({ appointments_ }) {
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                         <SortableTable
-                            data={appointments}
+                            data={getFilteredAndSortedAppointments()}
                             defaultSort={{
-                                key: "user.firstname",
+                                key: "firstname",
                                 direction: "asc",
                             }}
                         >

@@ -29,8 +29,10 @@ class PharmacistController extends Controller
         })->count();
         
         // Get items expiring in the next 30 days
-        $expiringSoon = istock_movements::where('expiry_date', '<=', now()->addDays(30))
-            ->where('expiry_date', '>=', now())
+        $expiringSoon = inventory::whereNotNull('expiry_date')
+            ->where('expiry_date', '!=', 'N/A')
+            ->where('expiry_date', '>', now())
+            ->where('expiry_date', '<=', now()->addDays(30))
             ->count();
         
         // Get monthly dispensed items (last 30 days)
@@ -130,7 +132,7 @@ class PharmacistController extends Controller
             ->get();
             
         foreach ($expiringItems->take(2) as $movement) {
-            $daysLeft = now()->diffInDays($movement->expiry_date);
+            $daysLeft = round(now()->diffInDays($movement->expiry_date));
             $alerts[] = [
                 'id' => 'expiry_' . $movement->id,
                 'type' => 'info',
@@ -208,6 +210,13 @@ class PharmacistController extends Controller
      */
     public function inventory()
     {
+        // Calculate expiring soon count (items expiring within 30 days)
+        $expiringSoonCount = inventory::whereNotNull('expiry_date')
+            ->where('expiry_date', '!=', 'N/A')
+            ->where('expiry_date', '>', now())
+            ->where('expiry_date', '<=', now()->addDays(30))
+            ->count();
+        
         return Inertia::render('Authenticated/Pharmacist/Inventory', [
             'categories' => icategory::where('status', 1)->get(),
             'allCategories' => icategory::get(), // Include archived categories for management
@@ -218,6 +227,7 @@ class PharmacistController extends Controller
                 ->get(),
             'items' => inventory::with(['category', 'stock', 'stocks_movement'])->get(), // Get all items
             'inventoryItems' => inventory::with(['category', 'stock', 'stocks_movement'])->get(), // Get all items
+            'expiringSoonCount' => $expiringSoonCount, // Add this count for display
         ]);
     }
 
@@ -525,7 +535,7 @@ class PharmacistController extends Controller
     /**
      * Update an inventory item
      */
-    public function update_item(Request $request, inventory $inventory)
+public function update_item(Request $request, inventory $inventory)
     {
         $request->validate([
             'itemname' => "required",
@@ -533,35 +543,114 @@ class PharmacistController extends Controller
             'manufacturer' => "nullable|string",
             'description' => "nullable|string",
             'unit_type' => "nullable|string",
-            'minimum_stock' => "nullable|integer|min:0",
-            'maximum_stock' => "nullable|integer|min:0",
             'storage_location' => "nullable|string",
             'batch_number' => "nullable|string",
             'expiry_date' => "nullable|date",
+            'is_new_batch' => "nullable|boolean",
         ]);
 
         try {
             DB::beginTransaction();
 
-            $inventory->update([
-                'name' => $request->itemname,
-                'manufacturer' => $request->manufacturer,
-                'description' => $request->description,
-                'unit_type' => $request->unit_type,
-                'minimum_stock' => $request->minimum_stock,
-                'maximum_stock' => $request->maximum_stock,
-                'storage_location' => $request->storage_location,
+            // Debug: Log the request data
+            \Log::info('Update item request:', [
+                'is_new_batch' => $request->is_new_batch,
                 'batch_number' => $request->batch_number,
-                'expiry_date' => $request->expiry_date,
-                'category_id' => $request->categoryid,
+                'itemname' => $request->itemname,
+                'all_data' => $request->all()
             ]);
 
-            $inventory->stocks_movement()->update([
-                'inventory_name' => $request->itemname,
-            ]);
+            // Check if this is adding a new batch
+            if ($request->is_new_batch && $request->batch_number && $request->batch_number !== 'new_batch') {
+                // Check if batch already exists for this item
+                $existingBatch = inventory::where('name', $request->itemname)
+                    ->where('batch_number', $request->batch_number)
+                    ->where('id', '!=', $inventory->id)
+                    ->first();
 
-            DB::commit();
-            event(new InventoryUpdated('item.update', ['id' => $inventory->id]));
+                if ($existingBatch) {
+                    return back()->with([
+                        'flash' => [
+                            'title' => 'Error!',
+                            'message' => "Batch number '{$request->batch_number}' already exists for this item!",
+                            'icon' => "error"
+                        ]
+                    ]);
+                }
+
+                // Create a new inventory record for the new batch
+                $newInventory = inventory::create([
+                    'name' => $request->itemname,
+                    'manufacturer' => $request->manufacturer,
+                    'description' => $request->description,
+                    'unit_type' => $request->unit_type,
+                    'storage_location' => $request->storage_location,
+                    'batch_number' => $request->batch_number,
+                    'expiry_date' => $request->expiry_date,
+                    'category_id' => $request->categoryid,
+                    'status' => 1,
+                ]);
+
+                // Create stock record for the new batch
+                $stock = istocks::create([
+                    'inventory_id' => $newInventory->id,
+                    'stocks' => 0, // Start with 0 stock
+                    'stockname' => $request->unit_type ?? 'units',
+                ]);
+
+                $newInventory->update(['stock_id' => $stock->id]);
+
+                // Create stock movement record for the new batch
+                istock_movements::create([
+                    'inventory_id' => $newInventory->id,
+                    'staff_id' => Auth::user()->id,
+                    'quantity' => 0, // No initial stock
+                    'expiry_date' => $request->expiry_date,
+                    'inventory_name' => $request->itemname,
+                    'stock_id' => $stock->id,
+                    'batch_number' => $request->batch_number,
+                    'type' => 'Incoming',
+                    'reason' => 'New batch added',
+                ]);
+
+                DB::commit();
+                event(new InventoryUpdated('item.add', ['id' => $newInventory->id]));
+
+                return back()->with([
+                    'flash' => [
+                        'title' => 'Success!',
+                        'message' => "New batch '{$request->batch_number}' added successfully!",
+                        'icon' => "success"
+                    ]
+                ]);
+            } else {
+                // Update existing inventory item
+                $inventory->update([
+                    'name' => $request->itemname,
+                    'manufacturer' => $request->manufacturer,
+                    'description' => $request->description,
+                    'unit_type' => $request->unit_type,
+                    'storage_location' => $request->storage_location,
+                    'batch_number' => $request->batch_number,
+                    'expiry_date' => $request->expiry_date,
+                    'category_id' => $request->categoryid,
+                ]);
+
+                $inventory->stocks_movement()->update([
+                    'inventory_name' => $request->itemname,
+                ]);
+
+                DB::commit();
+                event(new InventoryUpdated('item.update', ['id' => $inventory->id]));
+
+                return back()->with([
+                    'flash' => [
+                        'title' => 'Success!',
+                        'message' => "Item updated successfully!",
+                        'icon' => "success"
+                    ]
+                ]);
+            }
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with([
@@ -572,14 +661,100 @@ class PharmacistController extends Controller
                 ]
             ]);
         }
+    }
 
-        return back()->with([
-            'flash' => [
-                'title' => 'Success!',
-                'message' => "Item updated successfully!",
-                'icon' => "success"
-            ]
+    /**
+     * Add a new batch to an existing inventory item
+     */
+    public function add_batch(Request $request)
+    {
+        $request->validate([
+            'itemname' => "required",
+            'categoryid' => "required|exists:icategory,id",
+            'manufacturer' => "nullable|string",
+            'description' => "nullable|string",
+            'unit_type' => "nullable|string",
+            'storage_location' => "nullable|string",
+            'batch_number' => "required|string",
+            'expiry_date' => "required|date",
+            'original_item_id' => "required|exists:inventory,id",
         ]);
+
+        \Log::info('Add batch request data:', $request->all());
+
+        try {
+            DB::beginTransaction();
+
+            // Check if batch already exists for this item
+            $existingBatch = inventory::where('name', $request->itemname)
+                ->where('batch_number', $request->batch_number)
+                ->first();
+
+            if ($existingBatch) {
+                return back()->with([
+                    'flash' => [
+                        'title' => 'Error!',
+                        'message' => "Batch number '{$request->batch_number}' already exists for this item!",
+                        'icon' => "error"
+                    ]
+                ]);
+            }
+
+            // Create a new inventory record for the new batch
+            $newInventory = inventory::create([
+                'name' => $request->itemname,
+                'manufacturer' => $request->manufacturer,
+                'description' => $request->description,
+                'unit_type' => $request->unit_type,
+                'storage_location' => $request->storage_location,
+                'batch_number' => $request->batch_number,
+                'expiry_date' => $request->expiry_date,
+                'category_id' => $request->categoryid,
+                'status' => 1,
+            ]);
+
+            // Create stock record for the new batch
+            $stock = istocks::create([
+                'inventory_id' => $newInventory->id,
+                'stocks' => 0, // Start with 0 stock
+                'stockname' => $request->unit_type ?? 'units',
+            ]);
+
+            $newInventory->update(['stock_id' => $stock->id]);
+
+            // Create stock movement record for the new batch
+            istock_movements::create([
+                'inventory_id' => $newInventory->id,
+                'staff_id' => Auth::user()->id,
+                'quantity' => 0, // No initial stock
+                'expiry_date' => $request->expiry_date,
+                'inventory_name' => $request->itemname,
+                'stock_id' => $stock->id,
+                'batch_number' => $request->batch_number,
+                'type' => 'Incoming',
+                'reason' => 'New batch added',
+            ]);
+
+            DB::commit();
+            event(new InventoryUpdated('item.add', ['id' => $newInventory->id]));
+
+            return response()->json([
+                'success' => true,
+                'message' => "New batch '{$request->batch_number}' added successfully!",
+                'data' => $newInventory
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Add batch error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => "Error: " . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -966,7 +1141,8 @@ class PharmacistController extends Controller
         try {
             DB::beginTransaction();
 
-            $inventory = inventory::findOrFail($request->item_id);
+            // Use lockForUpdate to prevent race conditions
+            $inventory = inventory::lockForUpdate()->findOrFail($request->item_id);
             $stock = $inventory->stock;
 
             if (!$stock) {
@@ -982,10 +1158,13 @@ class PharmacistController extends Controller
                 }
             }
 
+            // Lock the stock record for update
+            $stock = istocks::lockForUpdate()->findOrFail($stock->id);
             $currentStocks = (int) $stock->stocks;
             $quantity = (int) $request->quantity;
 
             if ($request->adjustment_type === 'reduce' && $quantity > $currentStocks) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Insufficient stock. Available: ' . $currentStocks]);
             }
 
@@ -1075,18 +1254,29 @@ class PharmacistController extends Controller
     /**
      * Get pending prescriptions for automatic dispensing
      */
-    public function get_pending_prescriptions()
+    public function get_pending_prescriptions(Request $request)
     {
         try {
-            $prescriptions = \App\Models\Prescription::with(['patient', 'doctor', 'medicines'])
-                ->where('status', 'pending')
-                ->orderBy('prescription_date', 'desc')
+            $medicineId = $request->get('medicine_id');
+            
+            $query = \App\Models\Prescription::with(['doctor', 'medicines'])
+                ->where('status', 'pending');
+            
+            // Filter by specific medicine if medicine_id is provided
+            if ($medicineId) {
+                $query->whereHas('medicines', function($q) use ($medicineId) {
+                    $q->where('medicine_id', $medicineId);
+                });
+            }
+            
+            $prescriptions = $query->orderBy('prescription_date', 'desc')
                 ->get()
                 ->map(function($prescription) {
+                    $patientInfo = $prescription->getPatientInfo();
                     return [
                         'id' => $prescription->id,
                         'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
-                        'patient_name' => $prescription->patient ? $prescription->patient->firstname . ' ' . $prescription->patient->lastname : 'Unknown Patient',
+                        'patient_name' => $patientInfo['first_name'] . ' ' . $patientInfo['last_name'],
                         'patient_id' => $prescription->patient_id,
                         'doctor_name' => $prescription->doctor ? $prescription->doctor->firstname . ' ' . $prescription->doctor->lastname : 'Unknown Doctor',
                         'doctor_id' => $prescription->doctor_id,
@@ -1154,7 +1344,7 @@ class PharmacistController extends Controller
 
             DB::beginTransaction();
 
-            $prescription = \App\Models\Prescription::with(['patient', 'doctor', 'medicines.medicine'])->findOrFail($request->prescription_id);
+            $prescription = \App\Models\Prescription::with(['doctor', 'medicines.medicine'])->findOrFail($request->prescription_id);
             
             if ($prescription->status !== 'pending') {
                 if ($request->expectsJson()) {
@@ -1209,7 +1399,7 @@ class PharmacistController extends Controller
                     'reason' => 'Prescription Dispensing',
                     'batch_number' => $request->batch_number ?? $stock->batch_number ?? 'AUTO-' . date('Ymd'),
                     'inventory_name' => $inventory->name,
-                    'patient_name' => $prescription->patient->firstname . ' ' . $prescription->patient->lastname,
+                    'patient_name' => $prescription->getPatientInfo()['first_name'] . ' ' . $prescription->getPatientInfo()['last_name'],
                     'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
                     'dispensed_by' => $request->dispensed_by,
                     'notes' => "Auto-dispensed from prescription. Dosage: {$prescriptionMedicine->dosage}, Frequency: {$prescriptionMedicine->frequency}, Duration: {$prescriptionMedicine->duration}. Instructions: {$prescriptionMedicine->instructions}"
@@ -1262,7 +1452,7 @@ class PharmacistController extends Controller
                         'reason' => 'Prescription Dispensing',
                         'batch_number' => $stock->batch_number ?? 'AUTO-' . date('Ymd'),
                         'inventory_name' => $inventory->name,
-                        'patient_name' => $prescription->patient->firstname . ' ' . $prescription->patient->lastname,
+                        'patient_name' => $prescription->getPatientInfo()['first_name'] . ' ' . $prescription->getPatientInfo()['last_name'],
                         'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
                         'dispensed_by' => $request->dispensed_by,
                         'notes' => "Auto-dispensed from prescription. Dosage: {$prescriptionMedicine->dosage}, Frequency: {$prescriptionMedicine->frequency}, Duration: {$prescriptionMedicine->duration}. Instructions: {$prescriptionMedicine->instructions}"
@@ -1300,7 +1490,8 @@ class PharmacistController extends Controller
 
             $message = "Prescription dispensed successfully! ";
             if (!empty($dispensedItems)) {
-                $message .= "Dispensed " . count($dispensedItems) . " medicines to {$prescription->patient->firstname} {$prescription->patient->lastname}.";
+                $patientInfo = $prescription->getPatientInfo();
+                $message .= "Dispensed " . count($dispensedItems) . " medicines to {$patientInfo['first_name']} {$patientInfo['last_name']}.";
             }
             if (!empty($errors)) {
                 $message .= " Errors: " . implode(', ', $errors);
@@ -1619,7 +1810,7 @@ class PharmacistController extends Controller
     {
         try {
             // Get prescription details
-            $patient = $prescription->patient;
+            $patientInfo = $prescription->getPatientInfo();
             $doctor = $prescription->doctor;
             $pharmacist = Auth::user();
             
@@ -1631,7 +1822,7 @@ class PharmacistController extends Controller
             // Notify the doctor who prescribed the medicine
             if ($doctor) {
                 $doctorMessage = "Prescription RX-" . str_pad($prescription->id, 6, '0', STR_PAD_LEFT) . 
-                    " has been dispensed to patient {$patient->firstname} {$patient->lastname}.\n\n" .
+                    " has been dispensed to patient {$patientInfo['first_name']} {$patientInfo['last_name']}.\n\n" .
                     "Dispensed medicines:\n{$medicineList}\n\n" .
                     "Dispensed by: {$pharmacist->firstname} {$pharmacist->lastname} (Pharmacist)";
                 
@@ -1644,25 +1835,25 @@ class PharmacistController extends Controller
                 );
             }
 
-            // Notify the patient
-            if ($patient) {
-                $patientMessage = "Your prescription RX-" . str_pad($prescription->id, 6, '0', STR_PAD_LEFT) . 
-                    " has been dispensed successfully!\n\n" .
-                    "Dispensed medicines:\n{$medicineList}\n\n" .
-                    "Please follow the dosage instructions provided by your doctor.";
-                
-                NotifSender::SendNotif(
-                    true, // is_id = true (send to specific user ID)
-                    [$patient->id], // recipient IDs
-                    $patientMessage,
-                    'Prescription Ready for Pickup',
-                    'prescription_ready'
-                );
-            }
+            // Notify the patient (commented out - no direct patient relationship)
+            // if ($patient) {
+            //     $patientMessage = "Your prescription RX-" . str_pad($prescription->id, 6, '0', STR_PAD_LEFT) . 
+            //         " has been dispensed successfully!\n\n" .
+            //         "Dispensed medicines:\n{$medicineList}\n\n" .
+            //         "Please follow the dosage instructions provided by your doctor.";
+            //     
+            //     NotifSender::SendNotif(
+            //         true, // is_id = true (send to specific user ID)
+            //         [$patient->id], // recipient IDs
+            //         $patientMessage,
+            //         'Prescription Ready for Pickup',
+            //         'prescription_ready'
+            //     );
+            // }
 
             // Notify admin/staff about the dispense activity
             $adminMessage = "Prescription RX-" . str_pad($prescription->id, 6, '0', STR_PAD_LEFT) . 
-                " dispensed to {$patient->firstname} {$patient->lastname} by {$pharmacist->firstname} {$pharmacist->lastname}.\n\n" .
+                " dispensed to {$patientInfo['first_name']} {$patientInfo['last_name']} by {$pharmacist->firstname} {$pharmacist->lastname}.\n\n" .
                 "Dispensed medicines:\n{$medicineList}";
             
             NotifSender::SendNotif(
@@ -1684,7 +1875,7 @@ class PharmacistController extends Controller
      */
     private function generateDispenseSummary($prescription, $dispensedItems, $errors)
     {
-        $patient = $prescription->patient;
+        $patientInfo = $prescription->getPatientInfo();
         $doctor = $prescription->doctor;
         $pharmacist = Auth::user();
         
@@ -1699,9 +1890,9 @@ class PharmacistController extends Controller
                 'created_at' => $prescription->created_at->toDateTimeString(),
             ],
             'patient' => [
-                'id' => $patient->id,
-                'name' => $patient->firstname . ' ' . $patient->lastname,
-                'email' => $patient->email,
+                'id' => $prescription->patient_id,
+                'name' => $patientInfo['first_name'] . ' ' . $patientInfo['last_name'],
+                'email' => 'N/A', // No email available from patient info
             ],
             'doctor' => [
                 'id' => $doctor->id,

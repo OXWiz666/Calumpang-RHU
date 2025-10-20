@@ -116,10 +116,19 @@ export default function Patients({ patients_ }) {
     const [patients, setPatients] = useState(patients_);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [genderFilter, setGenderFilter] = useState("male"); // Temporarily hardcoded to test
+    
+    // Debug: Log gender filter changes
+    useEffect(() => {
+        console.log('Gender filter changed to:', genderFilter);
+    }, [genderFilter]);
+    const [ageRangeFilter, setAgeRangeFilter] = useState("all");
+    const [dateRangeFilter, setDateRangeFilter] = useState("all");
     const [sortConfig, setSortConfig] = useState({
-        key: "name",
+        key: "firstname",
         direction: "ascending",
     });
+    const [showFilters, setShowFilters] = useState(false);
 
     // State for medical record modal
     const [medicalRecordModal, setMedicalRecordModal] = useState({
@@ -133,6 +142,263 @@ export default function Patients({ patients_ }) {
         patient: null,
         notes: ""
     });
+
+    // Filtering and sorting logic
+    const getFilteredAndSortedPatients = () => {
+        // Debug: Log unique values in the data
+        if (patients.length > 0) {
+            const uniqueGenders = [...new Set(patients.map(p => p.gender).filter(Boolean))];
+            const uniqueStatuses = [...new Set(patients.map(p => p.status).filter(Boolean))];
+            console.log('Available gender values in data:', uniqueGenders);
+            console.log('Available status values in data:', uniqueStatuses);
+            console.log('Sample patient data:', patients[0]);
+            console.log('Patient status type:', typeof patients[0]?.status);
+            console.log('Patient gender type:', typeof patients[0]?.gender);
+            console.log('Current filters:', { genderFilter, statusFilter, ageRangeFilter, dateRangeFilter });
+            
+            // Debug: Show first few patients' gender values
+            console.log('First 5 patients gender values:', patients.slice(0, 5).map(p => ({ 
+                name: `${p.firstname} ${p.lastname}`, 
+                gender: p.gender, 
+                genderType: typeof p.gender 
+            })));
+        }
+        
+        // Debug counters
+        let searchMatches = 0, statusMatches = 0, genderMatches = 0, ageMatches = 0, dateMatches = 0;
+        
+        let filtered = patients.filter(patient => {
+            const matchesSearch = !searchTerm || 
+                patient.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                patient.lastname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                patient.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                patient.contactno?.includes(searchTerm) ||
+                patient.email?.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            if (matchesSearch) searchMatches++;
+
+            const matchesStatus = statusFilter === "all" || (() => {
+                if (!patient.status) return false;
+                
+                // Handle different status formats
+                const statusMapping = {
+                    'active': ['active', '1', 1],
+                    'inactive': ['inactive', '0', 0],
+                    'pregnant': ['pregnant', '2', 2]
+                };
+                
+                const patientStatus = String(patient.status).toLowerCase().trim();
+                const filterStatus = statusFilter.toLowerCase().trim();
+                
+                // Check if the patient status matches any of the mapped values
+                const mappedValues = statusMapping[filterStatus] || [filterStatus];
+                const matches = mappedValues.includes(patientStatus) || mappedValues.includes(patient.status);
+                
+                if (statusFilter !== "all") {
+                    console.log(`Status filter: ${filterStatus}, Patient status: ${patient.status} (${patientStatus}), Matches: ${matches}`);
+                }
+                
+                return matches;
+            })();
+            
+            if (matchesStatus) statusMatches++;
+            
+            const matchesGender = genderFilter === "all" || (() => {
+                if (!patient.gender) {
+                    console.log('Patient has no gender:', patient.firstname, patient.lastname);
+                    return false;
+                }
+                
+                const patientGender = String(patient.gender).toLowerCase().trim();
+                const filterGender = genderFilter.toLowerCase().trim();
+                
+                // Debug: Log every gender comparison
+                console.log(`Gender comparison - Filter: "${filterGender}", Patient: "${patientGender}" (${patient.gender}), Patient: ${patient.firstname} ${patient.lastname}`);
+                
+                // Handle different possible gender values
+                if (filterGender === "male") {
+                    const matches = patientGender === "male" || 
+                                   patientGender === "m" || 
+                                   patientGender === "masculine" ||
+                                   patientGender === "1" ||
+                                   patient.gender === 1;
+                    console.log(`Male filter check - Patient: ${patient.firstname}, Gender: "${patientGender}" (${patient.gender}), Matches: ${matches}`);
+                    return matches;
+                } else if (filterGender === "female") {
+                    const matches = patientGender === "female" || 
+                                   patientGender === "f" || 
+                                   patientGender === "feminine" ||
+                                   patientGender === "2" ||
+                                   patient.gender === 2;
+                    console.log(`Female filter check - Patient: ${patient.firstname}, Gender: "${patientGender}" (${patient.gender}), Matches: ${matches}`);
+                    return matches;
+                }
+                
+                const exactMatch = patientGender === filterGender;
+                console.log(`Exact match check - Filter: "${filterGender}", Patient: "${patientGender}", Matches: ${exactMatch}`);
+                return exactMatch;
+            })();
+            
+            if (matchesGender) genderMatches++;
+
+            const matchesAgeRange = ageRangeFilter === "all" || (() => {
+                if (!patient.date_of_birth) return false;
+                
+                // More accurate age calculation
+                const today = new Date();
+                const birthDate = new Date(patient.date_of_birth);
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                switch (ageRangeFilter) {
+                    case "0-17": return age >= 0 && age <= 17;
+                    case "18-30": return age >= 18 && age <= 30;
+                    case "31-50": return age >= 31 && age <= 50;
+                    case "51-65": return age >= 51 && age <= 65;
+                    case "65+": return age > 65;
+                    default: return true;
+                }
+            })();
+            
+            if (matchesAgeRange) ageMatches++;
+
+            const matchesDateRange = dateRangeFilter === "all" || (() => {
+                if (!patient.registration_date) return false;
+                const regDate = new Date(patient.registration_date);
+                const now = new Date();
+                switch (dateRangeFilter) {
+                    case "today": return regDate.toDateString() === now.toDateString();
+                    case "week": return (now - regDate) <= 7 * 24 * 60 * 60 * 1000;
+                    case "month": return (now - regDate) <= 30 * 24 * 60 * 60 * 1000;
+                    case "year": return regDate.getFullYear() === now.getFullYear();
+                    default: return true;
+                }
+            })();
+            
+            if (matchesDateRange) dateMatches++;
+
+            const finalMatch = matchesSearch && matchesStatus && matchesGender && matchesAgeRange && matchesDateRange;
+            
+            // Debug logging for first few patients when filtering
+            if (genderFilter !== "all" && patients.indexOf(patient) < 3) {
+                console.log(`Patient ${patient.firstname} ${patient.lastname}:`, {
+                    matchesSearch,
+                    matchesStatus,
+                    matchesGender,
+                    matchesAgeRange,
+                    matchesDateRange,
+                    finalMatch,
+                    gender: patient.gender,
+                    status: patient.status
+                });
+            }
+            
+            return finalMatch;
+        });
+
+        // Debug: Log filter match counts
+        console.log('Filter match counts:', {
+            totalPatients: patients.length,
+            searchMatches,
+            statusMatches,
+            genderMatches,
+            ageMatches,
+            dateMatches,
+            finalFiltered: filtered.length
+        });
+        
+        // Debug: Show first few patients with all their data
+        if (patients.length > 0) {
+            console.log('First 3 patients full data:', patients.slice(0, 3).map(p => ({
+                name: `${p.firstname} ${p.lastname}`,
+                gender: p.gender,
+                status: p.status,
+                date_of_birth: p.date_of_birth,
+                registration_date: p.registration_date
+            })));
+        }
+        
+        // Debug: Test simple filtering
+        console.log('Simple test - patients with gender "Male":', patients.filter(p => p.gender === 'Male').length);
+        console.log('Simple test - patients with gender "male":', patients.filter(p => p.gender === 'male').length);
+        console.log('Simple test - patients with gender containing "ale":', patients.filter(p => p.gender && p.gender.includes('ale')).length);
+        
+        // Debug: Test status filtering
+        console.log('Simple test - patients with status "active":', patients.filter(p => p.status === 'active').length);
+        console.log('Simple test - patients with status 1:', patients.filter(p => p.status === 1).length);
+        console.log('Simple test - patients with status "1":', patients.filter(p => p.status === '1').length);
+        
+        // Debug: Test gender filtering with current filter
+        console.log('Current genderFilter value:', genderFilter);
+        console.log('Test filtering with current genderFilter:', patients.filter(p => {
+            if (!p.gender) return false;
+            const patientGender = String(p.gender).toLowerCase().trim();
+            const filterGender = genderFilter.toLowerCase().trim();
+            return patientGender === filterGender || 
+                   (filterGender === 'male' && (patientGender === 'male' || patientGender === '1' || p.gender === 1)) ||
+                   (filterGender === 'female' && (patientGender === 'female' || patientGender === '2' || p.gender === 2));
+        }).length);
+        
+        // Debug: Test with hardcoded "male" filter
+        console.log('Test with hardcoded "male" filter:', patients.filter(p => {
+            if (!p.gender) return false;
+            const patientGender = String(p.gender).toLowerCase().trim();
+            return patientGender === 'male' || patientGender === '1' || p.gender === 1;
+        }).length);
+        
+        // Debug: Force gender filter to "male" and test
+        const forcedGenderFilter = "male";
+        console.log('Forced gender filter test:', patients.filter(p => {
+            if (!p.gender) return false;
+            const patientGender = String(p.gender).toLowerCase().trim();
+            const filterGender = forcedGenderFilter.toLowerCase().trim();
+            return patientGender === filterGender || 
+                   (filterGender === 'male' && (patientGender === 'male' || patientGender === '1' || p.gender === 1)) ||
+                   (filterGender === 'female' && (patientGender === 'female' || patientGender === '2' || p.gender === 2));
+        }).length);
+
+        // Apply sorting
+        filtered.sort((a, b) => {
+            let aValue = a[sortConfig.key];
+            let bValue = b[sortConfig.key];
+
+            // Handle nested properties
+            if (sortConfig.key.includes('.')) {
+                const keys = sortConfig.key.split('.');
+                aValue = keys.reduce((obj, key) => obj?.[key], a);
+                bValue = keys.reduce((obj, key) => obj?.[key], b);
+            }
+
+            if (aValue < bValue) {
+                return sortConfig.direction === "ascending" ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === "ascending" ? 1 : -1;
+            }
+            return 0;
+        });
+
+        return filtered;
+    };
+
+    const handleSort = (key) => {
+        setSortConfig(prevConfig => ({
+            key,
+            direction: prevConfig.key === key && prevConfig.direction === "ascending" ? "descending" : "ascending"
+        }));
+    };
+
+    const clearFilters = () => {
+        setSearchTerm("");
+        setStatusFilter("all");
+        setGenderFilter("all");
+        setAgeRangeFilter("all");
+        setDateRangeFilter("all");
+    };
 
     const openMedicalRecordModal = (patient) => {
         setMedicalRecordModal({
@@ -555,49 +821,123 @@ export default function Patients({ patients_ }) {
                 transition={{ duration: 0.5 }}
             >
                 <div className="rounded-lg shadow-sm p-6 bg-white">
-                    {/* Filters */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 className="text-xl font-semibold text-primary">
-                            All Patients
-                        </h2>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">
-                                    Filter by:
-                                </span>
+                    {/* Header and Search */}
+                    <div className="space-y-4 mb-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <h2 className="text-xl font-semibold text-primary">
+                                All Patients
+                            </h2>
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                    <Input
+                                        placeholder="Search patients by name, ID, contact, or email..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-10 w-[300px]"
+                                    />
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Filter className="h-4 w-4" />
+                                    {showFilters ? 'Hide Filters' : 'Show Filters'}
+                                </Button>
+                                {(searchTerm || statusFilter !== "all" || genderFilter !== "all" || ageRangeFilter !== "all" || dateRangeFilter !== "all") && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={clearFilters}
+                                        className="text-red-600 hover:text-red-700"
+                                    >
+                                        Clear Filters
+                                    </Button>
+                                )}
                             </div>
-                            <Select
-                                value={statusFilter}
-                                onValueChange={setStatusFilter}
-                            >
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Statuses
-                                    </SelectItem>
-                                    <SelectItem value="Active">
-                                        Active
-                                    </SelectItem>
-                                    <SelectItem value="Inactive">
-                                        Inactive
-                                    </SelectItem>
-                                    <SelectItem value="Pregnant">
-                                        Pregnant
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
+                        </div>
+
+                        {/* Advanced Filters */}
+                        {showFilters && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg border">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
+                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All Statuses" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Statuses</SelectItem>
+                                            <SelectItem value="active">Active</SelectItem>
+                                            <SelectItem value="inactive">Inactive</SelectItem>
+                                            <SelectItem value="pregnant">Pregnant</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Gender</label>
+                                    <Select value={genderFilter} onValueChange={(value) => {
+                                        console.log('Gender Select onValueChange called with:', value);
+                                        setGenderFilter(value);
+                                    }}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All Genders" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Genders</SelectItem>
+                                            <SelectItem value="male">Male</SelectItem>
+                                            <SelectItem value="female">Female</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Age Range</label>
+                                    <Select value={ageRangeFilter} onValueChange={setAgeRangeFilter}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All Ages" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Ages</SelectItem>
+                                            <SelectItem value="0-17">0-17 years</SelectItem>
+                                            <SelectItem value="18-30">18-30 years</SelectItem>
+                                            <SelectItem value="31-50">31-50 years</SelectItem>
+                                            <SelectItem value="51-65">51-65 years</SelectItem>
+                                            <SelectItem value="65+">65+ years</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div>
+                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Registration Date</label>
+                                    <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="All Dates" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Dates</SelectItem>
+                                            <SelectItem value="today">Today</SelectItem>
+                                            <SelectItem value="week">This Week</SelectItem>
+                                            <SelectItem value="month">This Month</SelectItem>
+                                            <SelectItem value="year">This Year</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="text-sm text-muted-foreground">
+                            Showing {getFilteredAndSortedPatients().length} of {patients.length} patients
                         </div>
                     </div>
 
                     {/* Table */}
                     <div className="rounded-md border">
                         <SortableTable
-                            data={patients}
+                            data={getFilteredAndSortedPatients()}
                             defaultSort={{
-                                key: "user.firstname",
+                                key: "firstname",
                                 direction: "asc",
                             }}
                         >

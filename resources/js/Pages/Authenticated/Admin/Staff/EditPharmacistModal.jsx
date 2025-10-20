@@ -30,12 +30,22 @@ import {
 import { motion } from "framer-motion";
 
 export default function EditPharmacistModal({ pharmacist, isOpen, onClose, onSuccess }) {
+    // Convert integer status to string for form
+    const getStatusString = (statusInt) => {
+        const statusMap = {
+            1: 'active',
+            2: 'inactive', 
+            3: 'suspended'
+        };
+        return statusMap[statusInt] || 'active';
+    };
+
     const [formData, setFormData] = useState({
         firstname: pharmacist?.firstname || "",
         lastname: pharmacist?.lastname || "",
         email: pharmacist?.email || "",
         contactno: pharmacist?.contactno || "",
-        status: pharmacist?.status || "active",
+        status: getStatusString(pharmacist?.status) || "active",
         role_id: pharmacist?.role_id || 3, // Pharmacist role
         password: "",
         password_confirmation: "",
@@ -51,8 +61,12 @@ export default function EditPharmacistModal({ pharmacist, isOpen, onClose, onSuc
         e.preventDefault();
         setIsSubmitting(true);
 
-        router.put(`/auth/staff/pharmacists/${pharmacist.id}`, formData, {
-            onSuccess: () => {
+        router.put(`/admin/staff/pharmacists/${pharmacist.id}`, formData, {
+            onSuccess: (page) => {
+                // Show success toast
+                if (page.props.flash?.success) {
+                    // Toast will be handled by the parent component
+                }
                 onSuccess && onSuccess(formData);
                 onClose();
                 setIsSubmitting(false);

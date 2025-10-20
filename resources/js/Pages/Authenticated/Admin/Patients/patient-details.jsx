@@ -400,9 +400,10 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                         </div>
                                         
                                         <div>
-                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Appointments</label>
-                                            <p className="text-2xl font-bold text-orange-600 mt-1">
-                                                {patient.appointment_count || 1}
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
+                                            <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
+                                                <Calendar className="w-4 h-4 text-orange-600" />
+                                                {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
                                             </p>
                                         </div>
                                     </>
@@ -516,9 +517,10 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
 
                                 {isAppointmentPatient && (
                                     <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Appointments</label>
-                                        <p className="text-2xl font-bold text-orange-600 mt-1">
-                                            {patient.appointment_count || 1}
+                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
+                                        <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-green-600" />
+                                            {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
                                         </p>
                                     </div>
                                 )}

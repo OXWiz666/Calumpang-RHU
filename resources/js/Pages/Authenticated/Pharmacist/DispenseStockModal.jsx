@@ -7,7 +7,8 @@ import { Textarea } from "@/components/tempo/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/tempo/components/ui/select";
 import { useForm } from "@inertiajs/react";
 import { motion } from "framer-motion";
-import "@/echo";
+import jsPDF from 'jspdf';
+// import "@/echo"; // Commented out - not needed for basic functionality
 import { 
     Package, 
     Hash, 
@@ -24,7 +25,6 @@ import {
 
 const DispenseStockModal = ({ open, onClose, item }) => {
     const [availableBatches, setAvailableBatches] = useState([]);
-    const [selectedBatch, setSelectedBatch] = useState(null);
     const [validationErrors, setValidationErrors] = useState({});
     const [dispenseMode, setDispenseMode] = useState('prescription'); // 'prescription' or 'manual'
     const [pendingPrescriptions, setPendingPrescriptions] = useState([]);
@@ -43,6 +43,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     const [isProcessing, setIsProcessing] = useState(false); // Processing state for dispense
     const [showSummaryModal, setShowSummaryModal] = useState(false); // Show dispense summary modal
     const [dispenseSummary, setDispenseSummary] = useState(null); // Dispense summary data
+    const [showAllBatches, setShowAllBatches] = useState(false); // Toggle to show all batches including zero stock
 
     const { data, setData, post, processing, errors } = useForm({
         item_id: item?.id || "",
@@ -90,7 +91,9 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             // Check if item has the new grouped structure with batches array
             if (item.batches && Array.isArray(item.batches) && item.batches.length > 0) {
                 // Use the grouped batch data directly
-                batches = item.batches.map(batch => ({
+                batches = item.batches
+                    .filter(batch => batch.batchNumber && batch.batchNumber !== 'new_batch' && batch.batchNumber !== 'N/A')
+                    .map(batch => ({
                     batch_number: batch.batchNumber || 'N/A',
                     expiry_date: batch.expiryDate || 'N/A',
                     available_quantity: batch.quantity || 0,
@@ -100,7 +103,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                 console.log('Loaded grouped batches:', batches);
             } else {
                 // Fallback to API call for single batch items
-                const response = await fetch(route('pharmacist.inventory.item.batches', item.id));
+                const response = await fetch(`/pharmacist/inventory/item/${item.id}/batches`);
                 if (response.ok) {
                     batches = await response.json();
                     console.log('Loaded API batches:', batches);
@@ -151,6 +154,10 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             setCurrentStock(item.quantity || 0);
             // Reset dispense mode to default
             setDispenseMode('prescription');
+            // Clear any previously selected batches
+            setSelectedBatches([]);
+            setData('batch_id', '');
+            setData('batch_number', '');
         }
     }, [item, open]);
 
@@ -159,31 +166,40 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         console.log('Dispense mode changed to:', dispenseMode);
     }, [dispenseMode]);
 
-    // Real-time updates for batch data
+    // Real-time updates for batch data (commented out - Echo not properly configured)
     useEffect(() => {
-        if (open && window.Echo) {
-            const channel = window.Echo.channel('inventory-updates')
-                .listen('InventoryUpdated', (e) => {
-                    console.log('Inventory updated, refreshing batch data...', e);
-                    // Refresh batch data when inventory is updated
-                    loadAvailableBatches();
-                });
+        // if (open && window.Echo) {
+        //     const channel = window.Echo.channel('inventory-updates')
+        //         .listen('InventoryUpdated', (e) => {
+        //             console.log('Inventory updated, refreshing batch data...', e);
+        //             // Refresh batch data when inventory is updated
+        //             loadAvailableBatches();
+        //         });
 
-            return () => {
-                window.Echo.leaveChannel('inventory-updates');
-            };
-        }
+        //     return () => {
+        //         window.Echo.leaveChannel('inventory-updates');
+        //     };
+        // }
     }, [open]);
 
     // Load pending prescriptions
     const loadPendingPrescriptions = async () => {
-        console.log('Loading pending prescriptions...');
+        console.log('Loading pending prescriptions for medicine:', item?.id);
         setLoadingPrescriptions(true);
         try {
-            const url = route('pharmacist.prescriptions.pending');
+            const url = `/pharmacist/inventory/prescriptions/pending?medicine_id=${item?.id || ''}`;
             console.log('Fetching from URL:', url);
             
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                credentials: 'same-origin'
+            });
             console.log('Response status:', response.status);
             console.log('Response headers:', Object.fromEntries(response.headers.entries()));
             
@@ -201,11 +217,18 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             }
 
             const prescriptions = await response.json();
+            console.log('=== PRESCRIPTION LOADING SUCCESS ===');
+            console.log('Filtered for medicine ID:', item?.id);
             console.log('Loaded prescriptions:', prescriptions);
             console.log('Number of prescriptions:', prescriptions.length);
+            console.log('Type of prescriptions:', typeof prescriptions);
+            console.log('Is array:', Array.isArray(prescriptions));
             setPendingPrescriptions(prescriptions);
         } catch (error) {
+            console.error('=== PRESCRIPTION LOADING ERROR ===');
             console.error('Error loading prescriptions:', error);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
             setPendingPrescriptions([]);
         } finally {
             setLoadingPrescriptions(false);
@@ -215,7 +238,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     // Load patients and doctors
     const loadPatientsAndDoctors = async () => {
         try {
-            const response = await fetch(route('pharmacist.patients-doctors'));
+            const response = await fetch('/pharmacist/inventory/patients-doctors');
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -243,7 +266,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     const loadAvailableCaseIds = async () => {
         setLoadingCaseIds(true);
         try {
-            const response = await fetch(route('pharmacist.case-ids'));
+            const response = await fetch('/pharmacist/inventory/case-ids');
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -269,37 +292,79 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     };
 
     useEffect(() => {
+        console.log('=== DISPENSE MODAL USEEFFECT ===');
+        console.log('Modal open:', open);
+        console.log('Item:', item);
         if (open) {
+            console.log('Loading data for dispense modal...');
             loadPatientsAndDoctors();
             loadAvailableCaseIds();
                 loadPendingPrescriptions();
             }
-    }, [open]);
+    }, [open, item]);
 
-    const handleBatchSelect = (batch) => {
-            setSelectedBatch(batch);
-            setData('batch_id', batch.batch_id || batch.id);
-            setData('batch_number', batch.batch_number);
-            setData('quantity', '');
+    const handleBatchSelect = (batch, index) => {
+        // Create a unique identifier for this batch instance
+        const batchUniqueId = `${batch.batch_number}-${index}-${batch.batch_id || batch.id}`;
+        
+        console.log('Batch selection clicked:', {
+            clickedBatch: batch.batch_number,
+            batchUniqueId: batchUniqueId,
+            currentSelectedBatches: selectedBatches.map(b => b.uniqueId),
+            availableQuantity: batch.available_quantity,
+            isSelectable: batch.available_quantity > 0
+        });
+        
+        // Only select if the batch has available quantity > 0
+        if (batch.available_quantity <= 0) {
+            setValidationErrors({ 
+                batch_number: `Cannot select batch ${batch.batch_number} - no available quantity (${batch.available_quantity} units)` 
+            });
+            return;
+        }
+        
+        // Toggle batch selection
+        const batchWithUniqueId = {
+            ...batch,
+            uniqueId: batchUniqueId
+        };
+        
+        setSelectedBatches(prevSelected => {
+            const isAlreadySelected = prevSelected.some(b => b.uniqueId === batchUniqueId);
+            
+            if (isAlreadySelected) {
+                // Remove from selection
+                console.log('Deselecting batch:', batch.batch_number, 'instance:', batchUniqueId);
+                const newSelection = prevSelected.filter(b => b.uniqueId !== batchUniqueId);
+                
+                // Update form data based on remaining selections
+                if (newSelection.length === 0) {
+                    setData('batch_id', '');
+                    setData('batch_number', '');
+                } else if (newSelection.length === 1) {
+                    setData('batch_id', newSelection[0].batch_id || newSelection[0].id);
+                    setData('batch_number', newSelection[0].batch_number);
+                }
+                
+                return newSelection;
+            } else {
+                // Add to selection
+                console.log('Selecting batch:', batch.batch_number, 'instance:', batchUniqueId);
+                const newSelection = [...prevSelected, batchWithUniqueId];
+                
+                // Update form data with the first selected batch for backward compatibility
+                if (newSelection.length === 1) {
+                    setData('batch_id', batch.batch_id || batch.id);
+                    setData('batch_number', batch.batch_number);
+                }
+                
+                return newSelection;
+            }
+        });
+        
         setValidationErrors({});
     };
 
-    const validateForm = () => {
-        const errors = {};
-        
-        // Prescription validation
-        if (!data.prescription_id) {
-            errors.prescription = "Please select a prescription";
-        }
-        
-        // Batch validation
-            if (!data.batch_number) {
-                errors.batch_number = "Please select a batch";
-        }
-
-        setValidationErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
 
     const handlePrescriptionSelect = (prescription) => {
         setSelectedPrescription(prescription);
@@ -318,8 +383,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             return false;
         }
 
-        if (!selectedBatch) {
-            setValidationErrors({ batch_number: 'Please select a batch' });
+        if (selectedBatches.length === 0) {
+            setValidationErrors({ batch_number: 'Please select at least one batch' });
             return false;
         }
 
@@ -333,16 +398,16 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             return false;
         }
 
-        // Check stock availability in selected batch
+        // Check stock availability in selected batches
         const requiredQuantity = selectedPrescription.medicines
             .filter(med => med.medicine_id === item.id)
             .reduce((total, med) => total + (med.quantity || 0), 0);
 
-        const availableQuantity = selectedBatch.available_quantity || 0;
+        const availableQuantity = selectedBatches.reduce((total, batch) => total + (batch.available_quantity || 0), 0);
 
         if (requiredQuantity > availableQuantity) {
             setValidationErrors({ 
-                batch_number: `Insufficient stock in selected batch. Required: ${requiredQuantity}, Available: ${availableQuantity}` 
+                batch_number: `Insufficient stock in selected batches. Required: ${requiredQuantity}, Available: ${availableQuantity}` 
             });
             return false;
         }
@@ -413,6 +478,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         
         return {
             prescription_number: prescription.prescription_number,
+            case_id: prescription.case_id || 'N/A',
             patient_name: prescription.patient_name,
             doctor_name: prescription.doctor_name,
             medicine_name: medicineDetails.name,
@@ -429,7 +495,16 @@ const DispenseStockModal = ({ open, onClose, item }) => {
 
     // Preview dispense before actual dispensing
     const previewDispense = () => {
-        if (!validateForm()) {
+        // Validate based on current mode
+        let errors = {};
+        if (dispenseMode === 'prescription') {
+            errors = validatePrescriptionMode();
+        } else if (dispenseMode === 'manual') {
+            errors = validateManualMode();
+        }
+        
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors);
             return;
         }
 
@@ -440,13 +515,13 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         const medicine = selectedPrescription.medicines.find(med => med.medicine_id === item.id);
         const requiredQuantity = medicine?.quantity || 0;
         
-        // Use the selected batch instead of auto-allocating
-        const allocatedBatches = [{
-            batch_id: selectedBatch.batch_id || selectedBatch.id,
-            batch_number: selectedBatch.batch_number,
-            quantity: Math.min(requiredQuantity, selectedBatch.available_quantity),
-            expiry_date: selectedBatch.expiry_date
-        }];
+        // Use the selected batches instead of auto-allocating
+        const allocatedBatches = selectedBatches.map(batch => ({
+            batch_id: batch.batch_id || batch.id,
+            batch_number: batch.batch_number,
+            quantity: Math.min(requiredQuantity, batch.available_quantity),
+            expiry_date: batch.expiry_date
+        }));
         
         const summary = generateDispenseSummary(selectedPrescription, allocatedBatches);
         
@@ -526,15 +601,350 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         // Reload available batches
         loadAvailableBatches();
         
-        // Trigger inventory refresh event
-        if (window.Echo) {
-            window.Echo.channel('inventory-updates')
-                .trigger('InventoryUpdated', {
-                    type: 'stock_updated',
-                    item_id: item.id,
-                    action: 'dispense'
-                });
-        }
+        // Note: Echo trigger removed - not a valid method
+        // Real-time updates will be handled by the backend events
+    };
+
+    // Export PDF functionality
+    const exportToPDF = () => {
+        if (!dispenseSummary) return;
+        
+        // Create new PDF document
+        const doc = new jsPDF();
+        
+        // Set up professional government colors
+        const colors = {
+            black: [0, 0, 0],
+            darkGray: [64, 64, 64],
+            lightGray: [128, 128, 128],
+            blue: [0, 51, 102],
+            red: [153, 0, 0],
+            white: [255, 255, 255]
+        };
+        
+        let yPosition = 20;
+        
+        // Official Header
+        doc.setFontSize(16);
+        doc.setTextColor(...colors.blue);
+        doc.text('REPUBLIC OF THE PHILIPPINES', 105, yPosition, { align: 'center' });
+        yPosition += 8;
+        
+        doc.setFontSize(14);
+        doc.setTextColor(...colors.blue);
+        doc.text('RURAL HEALTH UNIT OF CALUMPANG', 105, yPosition, { align: 'center' });
+        yPosition += 8;
+        
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.darkGray);
+        doc.text('Calumpang, General Santos City.', 105, yPosition, { align: 'center' });
+        yPosition += 15;
+        
+        // Document Title
+        doc.setFontSize(18);
+        doc.setTextColor(...colors.black);
+        doc.text('MEDICINE DISPENSE RECEIPT', 105, yPosition, { align: 'center' });
+        yPosition += 15;
+        
+        // Horizontal line
+        doc.setDrawColor(...colors.blue);
+        doc.setLineWidth(0.5);
+        doc.line(20, yPosition, 190, yPosition);
+        yPosition += 10;
+        
+        // Transaction Details
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.darkGray);
+        doc.text(`Transaction ID: ${dispenseSummary.transactionId}`, 20, yPosition);
+        doc.text(`Date: ${dispenseSummary.timestamp}`, 20, yPosition + 5);
+        yPosition += 15;
+        
+        // Prescription Information Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('PRESCRIPTION INFORMATION', 20, yPosition);
+        yPosition += 8;
+        
+        // Prescription details table
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Prescription Number:', 20, yPosition);
+        doc.text(dispenseSummary.prescription.number, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Case ID:', 20, yPosition);
+        doc.text(dispenseSummary.prescription.caseId || 'N/A', 80, yPosition);
+        yPosition += 10;
+        
+        // Patient Information Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('PATIENT INFORMATION', 20, yPosition);
+        yPosition += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Patient Name:', 20, yPosition);
+        doc.text(dispenseSummary.patient.name, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Patient ID:', 20, yPosition);
+        doc.text(dispenseSummary.patient.id, 80, yPosition);
+        yPosition += 10;
+        
+        // Medicine Information Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('MEDICINE INFORMATION', 20, yPosition);
+        yPosition += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Medicine Name:', 20, yPosition);
+        doc.text(dispenseSummary.medicine.name, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Manufacturer:', 20, yPosition);
+        doc.text(dispenseSummary.medicine.manufacturer, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Quantity Dispensed:', 20, yPosition);
+        doc.text(`${dispenseSummary.medicine.quantity} ${dispenseSummary.medicine.unit}`, 80, yPosition);
+        yPosition += 10;
+        
+        // Batch Information Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('BATCH INFORMATION', 20, yPosition);
+        yPosition += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Batch Number:', 20, yPosition);
+        doc.text(dispenseSummary.batch.number, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Expiration Date:', 20, yPosition);
+        doc.text(dispenseSummary.batch.expiration, 80, yPosition);
+        yPosition += 10;
+        
+        // Staff Information Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('STAFF INFORMATION', 20, yPosition);
+        yPosition += 8;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Prescribing Doctor:', 20, yPosition);
+        doc.text(dispenseSummary.doctor.name, 80, yPosition);
+        yPosition += 5;
+        
+        doc.text('Dispensing Pharmacist:', 20, yPosition);
+        doc.text(dispenseSummary.pharmacist.name, 80, yPosition);
+        yPosition += 15;
+        
+        // Summary Section
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.blue);
+        doc.text('DISPENSE SUMMARY', 20, yPosition);
+        yPosition += 8;
+        
+        // Summary table
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        
+        // Table headers
+        doc.setFillColor(...colors.lightGray);
+        doc.rect(20, yPosition - 2, 50, 8, 'F');
+        doc.rect(70, yPosition - 2, 50, 8, 'F');
+        doc.rect(120, yPosition - 2, 50, 8, 'F');
+        
+        doc.setTextColor(...colors.white);
+        doc.text('Total Items', 25, yPosition + 3);
+        doc.text('Total Quantity', 75, yPosition + 3);
+        doc.text('Inventory Impact', 125, yPosition + 3);
+        
+        yPosition += 8;
+        
+        // Table values
+        doc.setTextColor(...colors.black);
+        doc.text(dispenseSummary.summary.totalItems.toString(), 25, yPosition + 3);
+        doc.text(dispenseSummary.summary.totalQuantity.toString(), 75, yPosition + 3);
+        doc.text(dispenseSummary.summary.inventoryImpact.toString(), 125, yPosition + 3);
+        
+        yPosition += 20;
+        
+        // Signature lines
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.black);
+        doc.text('Dispensing Pharmacist:', 20, yPosition);
+        doc.text('_________________________', 20, yPosition + 15);
+        doc.text(dispenseSummary.pharmacist.name, 20, yPosition + 20);
+        
+        doc.text('Date:', 100, yPosition);
+        doc.text('_________________________', 100, yPosition + 15);
+        doc.text(new Date().toLocaleDateString(), 100, yPosition + 20);
+        
+        yPosition += 40;
+        
+        // Footer
+        doc.setFontSize(8);
+        doc.setTextColor(...colors.lightGray);
+        doc.text('This is an official document generated by RHU Calumpang Management System', 105, yPosition, { align: 'center' });
+        doc.text(`Generated on: ${new Date().toLocaleString()}`, 105, yPosition + 5, { align: 'center' });
+        
+        // Download the PDF
+        const fileName = `Dispense_Receipt_${dispenseSummary.transactionId}_${new Date().toISOString().split('T')[0]}.pdf`;
+        doc.save(fileName);
+    };
+
+    // Summary function (print functionality)
+    const printSummary = () => {
+        if (!dispenseSummary) return;
+        
+        // Create a new window for printing
+        const printWindow = window.open('', '_blank');
+        
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Dispense Summary - ${dispenseSummary.transactionId}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .header h1 { color: #059669; margin: 0; }
+                    .header p { color: #666; margin: 5px 0; }
+                    .section { margin-bottom: 20px; padding: 15px; border-radius: 8px; }
+                    .prescription { background: #dbeafe; }
+                    .patient { background: #e9d5ff; }
+                    .medicine { background: #dcfce7; }
+                    .batch { background: #fed7aa; }
+                    .staff { background: #f3f4f6; }
+                    .summary { background: linear-gradient(90deg, #dbeafe, #dcfce7); border: 1px solid #93c5fd; }
+                    .section h3 { margin: 0 0 10px 0; font-size: 16px; }
+                    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                    .info-item { margin-bottom: 8px; }
+                    .info-label { font-weight: bold; color: #374151; font-size: 12px; }
+                    .info-value { color: #111827; font-size: 14px; }
+                    .summary-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center; }
+                    .summary-card { background: white; padding: 15px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+                    .summary-number { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+                    .summary-label { font-size: 12px; color: #666; }
+                    .blue { color: #2563eb; }
+                    .green { color: #059669; }
+                    .purple { color: #7c3aed; }
+                    @media print { 
+                        body { margin: 0; }
+                        .no-print { display: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Dispense Summary</h1>
+                    <p>Transaction ID: ${dispenseSummary.transactionId}</p>
+                    <p>Date: ${dispenseSummary.timestamp}</p>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="section prescription">
+                        <h3>Prescription Information</h3>
+                        <div class="info-item">
+                            <div class="info-label">Prescription Number:</div>
+                            <div class="info-value">${dispenseSummary.prescription.number}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Case ID:</div>
+                            <div class="info-value">${dispenseSummary.prescription.caseId || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="section patient">
+                        <h3>Patient Information</h3>
+                        <div class="info-item">
+                            <div class="info-label">Patient Name:</div>
+                            <div class="info-value">${dispenseSummary.patient.name}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Patient ID:</div>
+                            <div class="info-value">${dispenseSummary.patient.id}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="section medicine">
+                        <h3>Medicine Details</h3>
+                        <div class="info-item">
+                            <div class="info-label">Medicine Name:</div>
+                            <div class="info-value">${dispenseSummary.medicine.name}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Manufacturer:</div>
+                            <div class="info-value">${dispenseSummary.medicine.manufacturer}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Quantity Dispensed:</div>
+                            <div class="info-value">${dispenseSummary.medicine.quantity} ${dispenseSummary.medicine.unit}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="section batch">
+                        <h3>Batch Information</h3>
+                        <div class="info-item">
+                            <div class="info-label">Batch Number:</div>
+                            <div class="info-value">${dispenseSummary.batch.number}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Expiration Date:</div>
+                            <div class="info-value">${dispenseSummary.batch.expiration}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section staff">
+                    <h3>Staff Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Prescribing Doctor:</div>
+                            <div class="info-value">${dispenseSummary.doctor.name}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Dispensing Pharmacist:</div>
+                            <div class="info-value">${dispenseSummary.pharmacist.name}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section summary">
+                    <h3>Dispense Summary</h3>
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <div class="summary-number blue">${dispenseSummary.summary.totalItems}</div>
+                            <div class="summary-label">Total Items</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number green">${dispenseSummary.summary.totalQuantity}</div>
+                            <div class="summary-label">Total Quantity</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number purple">${dispenseSummary.summary.inventoryImpact}</div>
+                            <div class="summary-label">Inventory Impact</div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.focus();
+        
+        // Wait for content to load then print
+        setTimeout(() => {
+            printWindow.print();
+        }, 500);
     };
 
     // Log dispense activity
@@ -652,9 +1062,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         console.log('Confirm Dispense started');
         console.log('Preview data:', previewData);
         console.log('Selected prescription:', selectedPrescription);
-        console.log('Selected batch:', selectedBatch);
-        console.log('Selected batch ID:', selectedBatch?.batch_id || selectedBatch?.id);
-        console.log('Selected batch number:', selectedBatch?.batch_number);
+        console.log('Selected batches:', selectedBatches);
         console.log('Item:', item);
         
         if (!previewData) {
@@ -669,9 +1077,9 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             return;
         }
 
-        if (!selectedBatch) {
-            console.error('No batch selected!');
-            alert('Error: No batch selected. Please select a batch first.');
+        if (selectedBatches.length === 0) {
+            console.error('No batches selected!');
+            alert('Error: No batches selected. Please select at least one batch first.');
             return;
         }
 
@@ -679,11 +1087,14 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         const transactionId = `DISP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         console.log('Generated transaction ID:', transactionId);
         
+        // Use the first selected batch for backward compatibility
+        const firstBatch = selectedBatches[0];
+        
         const autoDispenseData = {
             prescription_id: selectedPrescription.id,
             dispensed_by: 'pharmacist',
-            batch_id: String(selectedBatch?.batch_id || selectedBatch?.id || ''),
-            batch_number: selectedBatch?.batch_number,
+            batch_id: String(firstBatch?.batch_id || firstBatch?.id || ''),
+            batch_number: firstBatch?.batch_number,
             item_id: item.id
         };
 
@@ -694,7 +1105,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         
         let apiUrl;
         try {
-            apiUrl = route("pharmacist.prescriptions.auto-dispense");
+            apiUrl = "/pharmacist/inventory/prescriptions/auto-dispense";
         } catch (error) {
             console.error('Route helper failed:', error);
             apiUrl = '/pharmacist/inventory/prescriptions/auto-dispense';
@@ -744,8 +1155,14 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         unit: previewData.medicine_unit
                     },
                     batch: {
-                        number: selectedBatch?.batch_number || 'N/A',
-                        expiration: selectedBatch?.expiration_date || 'N/A'
+                        number: selectedBatches.length > 0 ? selectedBatches[0].batch_number : 'N/A',
+                        expiration: selectedBatches.length > 0 ? 
+                            (selectedBatches[0].expiry_date ? 
+                                new Date(selectedBatches[0].expiry_date).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit'
+                                }) : 'N/A') : 'N/A'
                     },
                     summary: {
                         totalItems: summaryData.summary?.total_items || 1,
@@ -772,16 +1189,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                 // Additional functions after successful dispense
                 executePostDispenseFunctions(summary.transactionId, previewData, summary);
 
-                // Trigger inventory refresh if needed
-                if (window.Echo) {
-                    window.Echo.channel('inventory-updates')
-                        .trigger('InventoryUpdated', {
-                            type: 'dispense',
-                            item_id: item.id,
-                            quantity: previewData.dispensed_quantity,
-                            transaction_id: transactionId
-                        });
-                }
+                // Note: Echo trigger removed - not a valid method
+                // Real-time updates will be handled by the backend events
             } else {
                 const errorData = await response.json();
                 console.error("Auto-dispense error:", errorData);
@@ -834,8 +1243,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     const validatePrescriptionMode = () => {
         const errors = {};
         
-        if (!selectedBatch) {
-            errors.batch_number = 'Please select a batch';
+        if (selectedBatches.length === 0) {
+            errors.batch_number = 'Please select at least one batch';
         }
         
         if (!selectedPrescription) {
@@ -848,8 +1257,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     const validateManualMode = () => {
         const errors = {};
         
-        if (!selectedBatch) {
-            errors.batch_number = 'Please select a batch';
+        if (selectedBatches.length === 0) {
+            errors.batch_number = 'Please select at least one batch';
         }
         
         if (!data.quantity || data.quantity <= 0) {
@@ -868,7 +1277,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         
         console.log('=== FORM SUBMITTED ===');
         console.log('Form submitted, mode:', dispenseMode);
-        console.log('Selected batch:', selectedBatch);
+        console.log('Selected batches:', selectedBatches);
         console.log('Selected prescription:', selectedPrescription);
         console.log('Form data:', data);
         
@@ -903,7 +1312,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
 
     const handleManualDispense = () => {
         console.log('=== MANUAL DISPENSE STARTED ===');
-        console.log('Selected batch:', selectedBatch);
+        console.log('Selected batches:', selectedBatches);
         console.log('Quantity:', data.quantity);
         console.log('Reason:', data.reason);
         console.log('Patient name:', data.patient_name);
@@ -911,9 +1320,9 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         console.log('Notes:', data.notes);
         
         // Validate required fields
-        if (!selectedBatch) {
-            console.error('No batch selected');
-            setValidationErrors({ batch_number: 'Please select a batch' });
+        if (selectedBatches.length === 0) {
+            console.error('No batches selected');
+            setValidationErrors({ batch_number: 'Please select at least one batch' });
             return;
         }
         
@@ -929,11 +1338,14 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             return;
         }
         
+        // Use the first selected batch for backward compatibility
+        const firstBatch = selectedBatches[0];
+        
         // Prepare the dispense data
         const dispenseData = {
             item_id: item.id,
-            batch_id: selectedBatch.batch_id || selectedBatch.id,
-            batch_number: selectedBatch.batch_number,
+            batch_id: firstBatch.batch_id || firstBatch.id,
+            batch_number: firstBatch.batch_number,
             quantity: parseInt(data.quantity),
             reason: data.reason,
             patient_name: data.patient_name || 'Manual Dispense',
@@ -944,10 +1356,10 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         };
         
         console.log('Dispense data prepared:', dispenseData);
-        console.log('Submitting to route:', route('pharmacist.inventory.dispense'));
+        console.log('Submitting to route:', '/pharmacist/inventory/dispense');
         
         // Submit the dispense request
-        post(route('pharmacist.inventory.dispense'), dispenseData, {
+        post('/pharmacist/inventory/dispense', dispenseData, {
             onSuccess: () => {
                 console.log('=== MANUAL DISPENSE SUCCESSFUL ===');
                 onClose();
@@ -963,6 +1375,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
     };
 
     const resetForm = () => {
+        console.log('Resetting form and clearing selected batches');
         setData({
             item_id: "",
             batch_id: "",
@@ -977,13 +1390,13 @@ const DispenseStockModal = ({ open, onClose, item }) => {
             patient_id: "",
             doctor_id: ""
         });
-        setSelectedBatch(null);
         setSelectedPrescription(null);
         setSelectedBatches([]);
         setBatchQuantities({});
         setValidationErrors({});
         setDispenseMode('prescription');
         setAvailableCaseIds([]);
+        setShowAllBatches(false);
     };
 
     const formatDate = (dateString) => {
@@ -1106,7 +1519,24 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                     {/* Available Batches */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
                             <Label className="text-sm font-medium">Available Batches for {item.name}</Label>
+                                {selectedBatches.length > 0 && (
+                                    <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">
+                                        {selectedBatches.length} selected
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-2 text-sm">
+                                    <input
+                                        type="checkbox"
+                                        checked={showAllBatches}
+                                        onChange={(e) => setShowAllBatches(e.target.checked)}
+                                        className="rounded"
+                                    />
+                                    Show all batches
+                                </label>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -1118,6 +1548,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 <Package className={`h-3 w-3 ${loadingBatches ? 'animate-spin' : ''}`} />
                                 {loadingBatches ? 'Loading...' : 'Refresh'}
                             </Button>
+                            </div>
                         </div>
                         <div className="mt-2 space-y-2">
                             {loadingBatches && availableBatches.length === 0 ? (
@@ -1130,36 +1561,72 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                     No batches available for this item
                                 </div>
                             ) : (
-                                availableBatches.map((batch, index) => (
+                                availableBatches
+                                    .filter(batch => showAllBatches || batch.available_quantity > 0)
+                                    .map((batch, index) => {
+                                        const isSelectable = batch.available_quantity > 0;
+                                        const batchUniqueId = `${batch.batch_number}-${index}-${batch.batch_id || batch.id}`;
+                                        const isSelected = selectedBatches.some(b => b.uniqueId === batchUniqueId);
+                                        
+                                        console.log('Rendering batch:', {
+                                            batchNumber: batch.batch_number,
+                                            batchUniqueId: batchUniqueId,
+                                            isSelectable,
+                                            isSelected,
+                                            selectedBatchesCount: selectedBatches.length,
+                                            selectedBatchUniqueIds: selectedBatches.map(b => b.uniqueId),
+                                            availableQuantity: batch.available_quantity
+                                        });
+                                    
+                                    return (
                                     <motion.div
-                                        key={batch.batch_number}
+                                            key={batchUniqueId}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.1 }}
-                                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                                            selectedBatch?.batch_number === batch.batch_number
+                                            className={`p-3 border rounded-lg transition-all ${
+                                                isSelected
                                                     ? 'border-blue-500 bg-blue-50'
-                                                    : 'border-gray-200 hover:border-gray-300'
+                                                    : isSelectable
+                                                        ? 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                                                        : 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-60'
                                         }`}
-                                        onClick={() => handleBatchSelect(batch)}
+                                            onClick={() => isSelectable ? handleBatchSelect(batch, index) : null}
                                     >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className={`w-3 h-3 rounded-full ${
-                                                selectedBatch?.batch_number === batch.batch_number
-                                                        ? 'bg-blue-500'
-                                                        : 'bg-gray-300'
-                                            }`}></div>
+                                            <div className={`w-4 h-4 rounded-full border-2 ${
+                                                isSelected
+                                                    ? 'bg-blue-500 border-blue-500'
+                                                    : isSelectable
+                                                        ? 'bg-white border-gray-300 hover:border-blue-300'
+                                                        : 'bg-gray-100 border-gray-200'
+                                            }`}>
+                                                {isSelected && (
+                                                    <div className="w-2 h-2 bg-white rounded-full mx-auto mt-0.5"></div>
+                                                )}
+                                            </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <Hash className="h-4 w-4 text-gray-500" />
                                                     <span className="font-medium">{batch.batch_number}</span>
+                                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                                        #{index + 1}
+                                                    </span>
                                                     {isExpiringSoon(batch.expiry_date) && (
                                                         <AlertTriangle className="h-4 w-4 text-amber-500" />
                                                     )}
+                                                    {!isSelectable && (
+                                                        <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded">
+                                                            No Stock
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="text-sm text-gray-600">
+                                                <div className={`text-sm ${
+                                                    isSelectable ? 'text-gray-600' : 'text-gray-400'
+                                                }`}>
                                                     Available: {batch.available_quantity} units
+                                                    {!isSelectable && ' (Cannot select)'}
                                                 </div>
                                             </div>
                                         </div>
@@ -1174,7 +1641,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                         </div>
                                     </div>
                                     </motion.div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                         {validationErrors.batch_number && (
@@ -1194,7 +1662,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
                                     {pendingPrescriptions.length === 0 ? (
                                         <div className="p-4 text-center text-gray-500">
-                                            No pending prescriptions found
+                                            No pending prescriptions found for {item?.name || 'this medicine'}
                                         </div>
                                     ) : (
                                         pendingPrescriptions.map((prescription, index) => (
@@ -1361,7 +1829,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                     </div>
 
                     {/* Dispense Summary */}
-                    {selectedPrescription && selectedBatch && (
+                    {selectedPrescription && selectedBatches.length > 0 && (
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -1377,16 +1845,20 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                     <span className="ml-2 font-medium">{item.name}</span>
                                 </div>
                                 <div>
-                                    <span className="text-blue-700">Batch:</span>
-                                    <span className="ml-2 font-medium">{selectedBatch.batch_number}</span>
+                                    <span className="text-blue-700">Selected Batches:</span>
+                                    <span className="ml-2 font-medium">{selectedBatches.length} batch(es)</span>
                                 </div>
                                 <div>
-                                    <span className="text-blue-700">Available Quantity:</span>
-                                    <span className="ml-2 font-medium">{selectedBatch.available_quantity} units</span>
+                                    <span className="text-blue-700">Total Available:</span>
+                                    <span className="ml-2 font-medium">
+                                        {selectedBatches.reduce((total, batch) => total + (batch.available_quantity || 0), 0)} units
+                                    </span>
                                 </div>
                                 <div>
-                                    <span className="text-blue-700">Expiry Date:</span>
-                                    <span className="ml-2 font-medium">{formatDate(selectedBatch.expiry_date)}</span>
+                                    <span className="text-blue-700">Batch Numbers:</span>
+                                    <span className="ml-2 font-medium">
+                                        {selectedBatches.map(b => b.batch_number).join(', ')}
+                                    </span>
                                 </div>
                                 <div>
                                     <span className="text-blue-700">Patient:</span>
@@ -1419,22 +1891,22 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </Button>
                         <Button
                             type="submit"
-                            disabled={processing || !selectedBatch || (dispenseMode === 'prescription' && !selectedPrescription)}
+                            disabled={processing || selectedBatches.length === 0 || (dispenseMode === 'prescription' && !selectedPrescription)}
                             style={{ backgroundColor: '#2C3E50' }}
                             onClick={(e) => {
                                 console.log('=== BUTTON CLICKED ===');
                                 console.log('Button type:', e.target.type);
                                 console.log('Form element:', e.target.closest('form'));
                                 console.log('Dispense mode:', dispenseMode);
-                                console.log('Selected batch:', selectedBatch);
+                                console.log('Selected batches:', selectedBatches);
                                 console.log('Form data:', data);
-                                console.log('Button disabled:', processing || !selectedBatch || (dispenseMode === 'prescription' && !selectedPrescription));
+                                console.log('Button disabled:', processing || selectedBatches.length === 0 || (dispenseMode === 'prescription' && !selectedPrescription));
                                 console.log('Processing:', processing);
-                                console.log('Selected batch exists:', !!selectedBatch);
+                                console.log('Selected batches count:', selectedBatches.length);
                                 console.log('Prescription mode check:', dispenseMode === 'prescription' && !selectedPrescription);
                             }}
                         >
-                            {processing ? "Stock Dispensing..." : "Stock Dispense"}
+                            {processing ? "Stock Dispensing..." : `Stock Dispense${selectedBatches.length > 0 ? ` (${selectedBatches.length} batches)` : ''}`}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -1548,7 +2020,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         <Button
                             type="button"
                             onClick={confirmDispense}
-                            disabled={isProcessing || !selectedPrescription || !selectedBatch}
+                            disabled={isProcessing || !selectedPrescription || selectedBatches.length === 0}
                             className="bg-green-600 hover:bg-green-700"
                         >
                             {isProcessing ? "Processing..." : "Confirm Dispense"}
@@ -1561,7 +2033,7 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         {/* Dispense Summary Modal */}
         {showSummaryModal && dispenseSummary && (
             <Dialog open={showSummaryModal} onOpenChange={setShowSummaryModal}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -1570,16 +2042,16 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 </svg>
                             </div>
                             <div>
-                                <DialogTitle className="text-2xl font-bold text-green-600">Dispense Completed Successfully!</DialogTitle>
-                                <p className="text-gray-600">Transaction Summary</p>
+                                <DialogTitle className="text-xl font-bold text-green-600">Dispense Completed Successfully!</DialogTitle>
+                                <p className="text-sm text-gray-600">Transaction Summary</p>
                             </div>
                         </div>
                     </DialogHeader>
 
-                    <div className="space-y-6">
+                    <div className="space-y-4">
                         {/* Transaction Info */}
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-3 text-gray-800">Transaction Details</h3>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <h3 className="font-semibold text-base mb-2 text-gray-800">Transaction Details</h3>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <span className="text-sm text-gray-600">Transaction ID:</span>
@@ -1593,9 +2065,9 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </div>
 
                         {/* Prescription & Patient Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                                <h3 className="font-semibold text-lg mb-3 text-blue-800">Prescription Information</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-blue-50 p-3 rounded-lg">
+                                <h3 className="font-semibold text-base mb-2 text-blue-800">Prescription Information</h3>
                                 <div className="space-y-2">
                                     <div>
                                         <span className="text-sm text-blue-600">Prescription Number:</span>
@@ -1608,8 +2080,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 </div>
                             </div>
 
-                            <div className="bg-purple-50 p-4 rounded-lg">
-                                <h3 className="font-semibold text-lg mb-3 text-purple-800">Patient Information</h3>
+                            <div className="bg-purple-50 p-3 rounded-lg">
+                                <h3 className="font-semibold text-base mb-2 text-purple-800">Patient Information</h3>
                                 <div className="space-y-2">
                                     <div>
                                         <span className="text-sm text-purple-600">Patient Name:</span>
@@ -1624,17 +2096,13 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </div>
 
                         {/* Medicine & Batch Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-green-50 p-4 rounded-lg">
-                                <h3 className="font-semibold text-lg mb-3 text-green-800">Medicine Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-green-50 p-3 rounded-lg">
+                                <h3 className="font-semibold text-base mb-2 text-green-800">Medicine Details</h3>
                                 <div className="space-y-2">
                                     <div>
                                         <span className="text-sm text-green-600">Medicine Name:</span>
                                         <p className="font-semibold">{dispenseSummary.medicine.name}</p>
-                                    </div>
-                                    <div>
-                                        <span className="text-sm text-green-600">Generic Name:</span>
-                                        <p className="font-semibold">{dispenseSummary.medicine.generic}</p>
                                     </div>
                                     <div>
                                         <span className="text-sm text-green-600">Manufacturer:</span>
@@ -1647,8 +2115,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                                 </div>
                             </div>
 
-                            <div className="bg-orange-50 p-4 rounded-lg">
-                                <h3 className="font-semibold text-lg mb-3 text-orange-800">Batch Information</h3>
+                            <div className="bg-orange-50 p-3 rounded-lg">
+                                <h3 className="font-semibold text-base mb-2 text-orange-800">Batch Information</h3>
                                 <div className="space-y-2">
                                     <div>
                                         <span className="text-sm text-orange-600">Batch Number:</span>
@@ -1663,8 +2131,8 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </div>
 
                         {/* Staff Information */}
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-3 text-gray-800">Staff Information</h3>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                            <h3 className="font-semibold text-base mb-2 text-gray-800">Staff Information</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <span className="text-sm text-gray-600">Prescribing Doctor:</span>
@@ -1678,20 +2146,20 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </div>
 
                         {/* Summary Statistics */}
-                        <div className="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border-2 border-blue-200">
-                            <h3 className="font-semibold text-lg mb-3 text-gray-800">Dispense Summary</h3>
-                            <div className="grid grid-cols-3 gap-4 text-center">
-                                <div className="bg-white p-3 rounded-lg shadow-sm">
-                                    <div className="text-2xl font-bold text-blue-600">{dispenseSummary.summary.totalItems}</div>
-                                    <div className="text-sm text-gray-600">Total Items</div>
+                        <div className="bg-gradient-to-r from-blue-50 to-green-50 p-3 rounded-lg border border-blue-200">
+                            <h3 className="font-semibold text-base mb-2 text-gray-800">Dispense Summary</h3>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    <div className="text-lg font-bold text-blue-600">{dispenseSummary.summary.totalItems}</div>
+                                    <div className="text-xs text-gray-600">Total Items</div>
                                 </div>
-                                <div className="bg-white p-3 rounded-lg shadow-sm">
-                                    <div className="text-2xl font-bold text-green-600">{dispenseSummary.summary.totalQuantity}</div>
-                                    <div className="text-sm text-gray-600">Total Quantity</div>
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    <div className="text-lg font-bold text-green-600">{dispenseSummary.summary.totalQuantity}</div>
+                                    <div className="text-xs text-gray-600">Total Quantity</div>
                                 </div>
-                                <div className="bg-white p-3 rounded-lg shadow-sm">
-                                    <div className="text-2xl font-bold text-purple-600">{dispenseSummary.summary.inventoryImpact}</div>
-                                    <div className="text-sm text-gray-600">Inventory Impact</div>
+                                <div className="bg-white p-2 rounded-lg shadow-sm">
+                                    <div className="text-lg font-bold text-purple-600">{dispenseSummary.summary.inventoryImpact}</div>
+                                    <div className="text-xs text-gray-600">Inventory Impact</div>
                                 </div>
                             </div>
                         </div>
@@ -1710,20 +2178,14 @@ const DispenseStockModal = ({ open, onClose, item }) => {
                         </Button>
                         <Button
                             type="button"
-                            onClick={() => {
-                                // Print functionality
-                                window.print();
-                            }}
+                            onClick={printSummary}
                             className="bg-blue-600 hover:bg-blue-700"
                         >
                             Print Summary
                         </Button>
                         <Button
                             type="button"
-                            onClick={() => {
-                                // Export functionality - could be implemented later
-                                alert('Export functionality will be implemented soon!');
-                            }}
+                            onClick={exportToPDF}
                             className="bg-green-600 hover:bg-green-700"
                         >
                             Export PDF

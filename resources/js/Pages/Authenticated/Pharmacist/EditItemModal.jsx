@@ -15,7 +15,8 @@ import { motion } from "framer-motion";
 import { 
     Calendar, 
     Hash, 
-    Building2
+    Building2,
+    Plus
 } from "lucide-react";
 import {
     Select,
@@ -25,21 +26,7 @@ import {
     SelectValue,
 } from "@/components/tempo/components/ui/select";
 
-const EditItemModal = ({ open, onClose, item, categories = [] }) => {
-    const [formData, setFormData] = useState({
-        itemname: "",
-        categoryid: "",
-        manufacturer: "",
-        description: "",
-        quantity: 0,
-        unit_type: "",
-        minimum_stock: 0,
-        maximum_stock: 0,
-        storage_location: "",
-        batch_number: "",
-        expiry_date: "",
-    });
-    
+const EditItemModal = ({ open, onClose, item, categories = [], onAddBatch }) => {
     const [availableBatches, setAvailableBatches] = useState([]);
     const [loadingBatches, setLoadingBatches] = useState(false);
 
@@ -60,77 +47,134 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
         }
     };
 
-    useEffect(() => {
-        if (item) {
-            setFormData({
-                itemname: item.name || "Invalid Name",
-                categoryid: item.categoryId || "Invalid Category",
-                manufacturer: item.manufacturer || "Invalid Manufacturer",
-                description: item.description || "Invalid Description",
-                unit_type: item.unit || "Invalid Unit",
-                storage_location: item.storageLocation || "Invalid Storage Location",
-                batch_number: (() => {
-                    // For new batch structure, use first batch number or concatenate all
-                    if (item.batches && item.batches.length > 0) {
-                        return item.batches[0].batchNumber || "Invalid Batch Number";
+    // Initialize form data
+    const initialFormData = {
+        itemname: item?.name || "",
+        categoryid: item?.categoryId || "",
+        manufacturer: item?.manufacturer || "",
+        description: item?.description || "",
+        unit_type: item?.unit || "",
+        storage_location: item?.storageLocation || "",
+        batch_number: (() => {
+            // Use the first batch number from the batches array
+            if (item?.batches && item.batches.length > 0) {
+                const batchNumber = item.batches[0].batchNumber;
+                return batchNumber && batchNumber !== 'N/A' && batchNumber !== 'new_batch' ? batchNumber : "";
+            }
+            // Fallback for direct batch_number property
+            const batchNumber = item?.batch_number;
+            return batchNumber && batchNumber !== 'N/A' && batchNumber !== 'new_batch' ? batchNumber : "";
+        })(),
+        expiry_date: (() => {
+            // For new batch structure, use earliest expiry date
+            if (item?.batches && item.batches.length > 0) {
+                const earliestBatch = item.batches.reduce((earliest, batch) => {
+                    if (!earliest || batch.expiryDate === 'N/A') return batch;
+                    if (earliest.expiryDate === 'N/A') return batch;
+                    try {
+                        const batchDate = new Date(batch.expiryDate);
+                        const earliestDate = new Date(earliest.expiryDate);
+                        if (isNaN(batchDate.getTime()) || isNaN(earliestDate.getTime())) return earliest;
+                        return batchDate < earliestDate ? batch : earliest;
+                    } catch (error) {
+                        return earliest;
                     }
-                    // Fallback for old structure
-                    return item.batchNumber || "Invalid Batch Number";
-                })(),
-                expiry_date: (() => {
-                    // For new batch structure, use earliest expiry date
-                    if (item.batches && item.batches.length > 0) {
-                        const earliestBatch = item.batches.reduce((earliest, batch) => {
-                            if (!earliest || batch.expiryDate === 'N/A') return batch;
-                            if (earliest.expiryDate === 'N/A') return batch;
-                            try {
-                                const batchDate = new Date(batch.expiryDate);
-                                const earliestDate = new Date(earliest.expiryDate);
-                                if (isNaN(batchDate.getTime()) || isNaN(earliestDate.getTime())) return earliest;
-                                return batchDate < earliestDate ? batch : earliest;
-                            } catch (error) {
-                                return earliest;
-                            }
-                        }, null);
-                        
-                        if (earliestBatch && earliestBatch.expiryDate && earliestBatch.expiryDate !== 'N/A') {
-                            try {
-                                const date = new Date(earliestBatch.expiryDate);
-                                if (!isNaN(date.getTime())) {
-                                    return date.toISOString().split('T')[0];
-                                }
-                            } catch (error) {
-                                console.warn('Invalid expiry date in EditItemModal:', earliestBatch.expiryDate);
-                            }
+                }, null);
+                
+                if (earliestBatch && earliestBatch.expiryDate && earliestBatch.expiryDate !== 'N/A') {
+                    try {
+                        const date = new Date(earliestBatch.expiryDate);
+                        if (!isNaN(date.getTime())) {
+                            return date.toISOString().split('T')[0];
                         }
+                    } catch (error) {
+                        console.warn('Invalid expiry date in EditItemModal:', earliestBatch.expiryDate);
                     }
-                    // Fallback for old structure or invalid dates
-                    if (item.expiryDate && item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date') {
+                }
+            }
+            // Fallback for old structure or invalid dates
+            if (item?.expiryDate && item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date') {
+                try {
+                    const date = new Date(item.expiryDate);
+                    if (!isNaN(date.getTime())) {
+                        return date.toISOString().split('T')[0];
+                    }
+                } catch (error) {
+                    console.warn('Invalid expiry date in EditItemModal:', item.expiryDate);
+                }
+            }
+            return "";
+        })(),
+    };
+
+    const { data, setData, put, processing, errors } = useForm(initialFormData);
+
+    useEffect(() => {
+        if (item && open) {
+            // Update form data when item changes
+            setData('itemname', item.name || "");
+            setData('categoryid', item.categoryId || "");
+            setData('manufacturer', item.manufacturer || "");
+            setData('description', item.description || "");
+            setData('unit_type', item.unit || "");
+            setData('storage_location', item.storageLocation || "");
+            setData('batch_number', (() => {
+                if (item.batches && item.batches.length > 0) {
+                    const batchNumber = item.batches[0].batchNumber;
+                    const validBatch = batchNumber && batchNumber !== 'N/A' && batchNumber !== 'new_batch' ? batchNumber : "";
+                    return validBatch;
+                }
+                const batchNumber = item.batch_number;
+                const fallbackBatch = batchNumber && batchNumber !== 'N/A' && batchNumber !== 'new_batch' ? batchNumber : "";
+                return fallbackBatch;
+            })());
+            setData('expiry_date', (() => {
+                if (item.batches && item.batches.length > 0) {
+                    const earliestBatch = item.batches.reduce((earliest, batch) => {
+                        if (!earliest || batch.expiryDate === 'N/A') return batch;
+                        if (earliest.expiryDate === 'N/A') return batch;
                         try {
-                            const date = new Date(item.expiryDate);
+                            const batchDate = new Date(batch.expiryDate);
+                            const earliestDate = new Date(earliest.expiryDate);
+                            if (isNaN(batchDate.getTime()) || isNaN(earliestDate.getTime())) return earliest;
+                            return batchDate < earliestDate ? batch : earliest;
+                        } catch (error) {
+                            return earliest;
+                        }
+                    }, null);
+                    
+                    if (earliestBatch && earliestBatch.expiryDate && earliestBatch.expiryDate !== 'N/A') {
+                        try {
+                            const date = new Date(earliestBatch.expiryDate);
                             if (!isNaN(date.getTime())) {
                                 return date.toISOString().split('T')[0];
                             }
                         } catch (error) {
-                            console.warn('Invalid expiry date in EditItemModal:', item.expiryDate);
+                            console.warn('Invalid expiry date in EditItemModal:', earliestBatch.expiryDate);
                         }
                     }
-                    return "";
-                })(),
-            });
+                }
+                if (item.expiryDate && item.expiryDate !== 'N/A' && item.expiryDate !== 'Invalid Date') {
+                    try {
+                        const date = new Date(item.expiryDate);
+                        if (!isNaN(date.getTime())) {
+                            return date.toISOString().split('T')[0];
+                        }
+                    } catch (error) {
+                        console.warn('Invalid expiry date in EditItemModal:', item.expiryDate);
+                    }
+                }
+                return "";
+            })());
             
             // Fetch available batches when modal opens
-            if (open) {
-                fetchAvailableBatches();
-            }
+            fetchAvailableBatches();
         }
     }, [item, open]);
 
-    const { data, setData, put, processing, errors } = useForm(formData);
-
-
     const handleChange = (e) => {
         const { name, value } = e.target;
+        console.log('Input change:', { name, value, currentData: data.batch_number });
         setData(name, value);
     };
 
@@ -155,7 +199,12 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
             return;
         }
         
+        // Update the form data before submitting
+        const formData = { ...data };
+        console.log('Updating existing item:', formData);
+        
         put(route("pharmacist.inventory.item.update", item.id), {
+            data: formData,
             onSuccess: () => {
                 onClose();
             },
@@ -179,7 +228,11 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
     if (!item) return null;
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) {
+                onClose();
+            }
+        }}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-semibold text-gray-900">
@@ -315,65 +368,55 @@ const EditItemModal = ({ open, onClose, item, categories = [] }) => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="batch_number" className="text-sm font-medium">
-                                    Batch/Lot Number
-                                </Label>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="batch_number" className="text-sm font-medium">
+                                        Batch/Lot Number
+                                    </Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => onAddBatch && onAddBatch(item)}
+                                        className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Add Batch
+                                    </Button>
+                                </div>
                                 <div className="relative">
-                                    <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-                                    <Select value={data.batch_number} onValueChange={(value) => {
-                                        if (value === "new_batch") {
-                                            setData("batch_number", "");
-                                        } else {
-                                            setData("batch_number", value);
-                                        }
+                                    <Hash className="absolute left-3 top-3 h-4 w-4 text-gray-400 pointer-events-none" />
+                                    <Select value={data.batch_number || ""} onValueChange={(value) => {
+                                        console.log('Select value changed to:', value);
+                                        setData("batch_number", value);
+                                        console.log('Set batch_number to:', value);
                                     }}>
                                         <SelectTrigger className="w-full pl-10">
                                             <SelectValue placeholder={loadingBatches ? "Loading batches..." : "Select a batch number"} />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {availableBatches.length > 0 ? (
-                                                <>
-                                                    {availableBatches.map((batch) => (
-                                                        <SelectItem key={batch.batch_number} value={batch.batch_number}>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{batch.batch_number}</span>
-                                                                {batch.expiry_date && (
-                                                                    <span className="text-xs text-gray-500">
-                                                                        Expires: {new Date(batch.expiry_date).toLocaleDateString()}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                    <SelectItem value="new_batch">
+                                                availableBatches
+                                                    .filter(batch => batch.batch_number && batch.batch_number !== 'new_batch' && batch.batch_number !== 'N/A')
+                                                    .map((batch, index) => (
+                                                    <SelectItem key={`batch-${batch.batch_number}-${index}`} value={batch.batch_number}>
                                                         <div className="flex flex-col">
-                                                            <span className="font-medium">+ Add New Batch</span>
-                                                            <span className="text-xs text-gray-500">Create a new batch number</span>
+                                                            <span className="font-medium">{batch.batch_number}</span>
+                                                            {batch.expiry_date && (
+                                                                <span className="text-xs text-gray-500">
+                                                                    Expires: {new Date(batch.expiry_date).toLocaleDateString()}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </SelectItem>
-                                                </>
+                                                ))
                                             ) : (
-                                                <SelectItem value="new_batch">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">+ Add New Batch</span>
-                                                        <span className="text-xs text-gray-500">Create a new batch number</span>
-                                                    </div>
-                                                </SelectItem>
+                                                <div className="px-2 py-1 text-sm text-gray-500">
+                                                    No batches available
+                                                </div>
                                             )}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {(availableBatches.length === 0 || data.batch_number === "") && !loadingBatches && (
-                                    <div className="mt-1">
-                                        <Input
-                                            id="batch_number_input"
-                                            value={data.batch_number}
-                                            onChange={handleChange}
-                                            placeholder="Enter new batch number (e.g., RX12001121)"
-                                            className="pl-10"
-                                        />
-                                    </div>
-                                )}
                                 {errors.batch_number && (
                                     <p className="text-sm text-red-600">{errors.batch_number}</p>
                                 )}

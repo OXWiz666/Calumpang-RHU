@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\doctor_details;
 use App\Models\securityquestions;
 use App\Models\User;
+use App\Models\PasswordHistory;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -288,6 +289,33 @@ class StaffController extends Controller
         }
     }
 
+    // Edit Admin (GET)
+    public function editAdmin($id)
+    {
+        try {
+            $admin = User::findOrFail($id);
+            
+            // Check if this is actually an admin
+            if ($admin->roleID != 7) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not an admin'
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => true,
+                'admin' => $admin
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch admin: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     // Update Admin
     public function updateAdmin(Request $request, $id)
     {
@@ -311,31 +339,70 @@ class StaffController extends Controller
                 ], 400);
             }
 
+            // Convert status string to integer
+            $statusMap = [
+                'active' => 1,
+                'inactive' => 2,
+                'suspended' => 3
+            ];
+
             $updateData = [
                 'firstname' => $request->firstname,
                 'lastname' => $request->lastname,
                 'email' => $request->email,
                 'contactno' => $request->contactno,
-                'status' => $request->status,
+                'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
             ];
 
             // Only update password if provided
             if ($request->filled('password')) {
+                // Check if password has been used recently
+                if (PasswordHistory::hasUsedPassword($admin->id, $request->password)) {
+                    return redirect()->back()->with('error', 'You cannot use a password that you have used recently. Please choose a different password.');
+                }
+                
                 $updateData['password'] = bcrypt($request->password);
+                
+                // Add password to history
+                PasswordHistory::addPassword($admin->id, $request->password);
             }
 
             $admin->update($updateData);
 
+            return redirect()->back()->with('success', 'Admin updated successfully');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Failed to update admin: ' . $e->getMessage());
+        }
+    }
+
+    // Edit Doctor (GET)
+    public function editDoctor($id)
+    {
+        try {
+            $doctor = User::findOrFail($id);
+            
+            // Check if this is actually a doctor
+            if ($doctor->roleID != 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not a doctor'
+                ], 400);
+            }
+
+            // Get doctor details if available
+            $doctorDetails = doctor_details::where('user_id', $doctor->id)->first();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Admin updated successfully',
-                'admin' => $admin
+                'doctor' => $doctor,
+                'doctorDetails' => $doctorDetails
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update admin: ' . $e->getMessage()
+                'message' => 'Failed to fetch doctor: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -365,35 +432,71 @@ class StaffController extends Controller
                 ], 400);
             }
 
+            // Convert status string to integer
+            $statusMap = [
+                'active' => 1,
+                'inactive' => 2,
+                'suspended' => 3
+            ];
+
             // Update user details
             $updateData = [
                 'firstname' => $request->firstname,
                 'lastname' => $request->lastname,
                 'email' => $request->email,
                 'contactno' => $request->contactno,
-                'status' => $request->status,
+                'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
             ];
 
             // Only update password if provided
             if ($request->filled('password')) {
+                // Check if password has been used recently
+                if (PasswordHistory::hasUsedPassword($doctor->id, $request->password)) {
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'You cannot use a password that you have used recently. Please choose a different password.');
+                }
+                
                 $updateData['password'] = bcrypt($request->password);
+                
+                // Add password to history
+                PasswordHistory::addPassword($doctor->id, $request->password);
             }
 
             $doctor->update($updateData);
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Doctor updated successfully',
-                'doctor' => $doctor
-            ]);
+            return redirect()->back()->with('success', 'Doctor updated successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update doctor: ' . $e->getMessage());
+        }
+    }
+
+    // Edit Pharmacist (GET)
+    public function editPharmacist($id)
+    {
+        try {
+            $pharmacist = User::findOrFail($id);
+            
+            // Check if this is actually a pharmacist
+            if ($pharmacist->roleID != 6) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not a pharmacist'
+                ], 400);
+            }
+
+            return response()->json([
+                'success' => true,
+                'pharmacist' => $pharmacist
+            ]);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update doctor: ' . $e->getMessage()
+                'message' => 'Failed to fetch pharmacist: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -421,32 +524,40 @@ class StaffController extends Controller
                 ], 400);
             }
 
+            // Convert status string to integer
+            $statusMap = [
+                'active' => 1,
+                'inactive' => 2,
+                'suspended' => 3
+            ];
+
             $updateData = [
                 'firstname' => $request->firstname,
                 'lastname' => $request->lastname,
                 'email' => $request->email,
                 'contactno' => $request->contactno,
-                'status' => $request->status,
+                'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
             ];
 
             // Only update password if provided
             if ($request->filled('password')) {
+                // Check if password has been used recently
+                if (PasswordHistory::hasUsedPassword($pharmacist->id, $request->password)) {
+                    return redirect()->back()->with('error', 'You cannot use a password that you have used recently. Please choose a different password.');
+                }
+                
                 $updateData['password'] = bcrypt($request->password);
+                
+                // Add password to history
+                PasswordHistory::addPassword($pharmacist->id, $request->password);
             }
 
             $pharmacist->update($updateData);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Pharmacist updated successfully',
-                'pharmacist' => $pharmacist
-            ]);
+            return redirect()->back()->with('success', 'Pharmacist updated successfully');
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update pharmacist: ' . $e->getMessage()
-            ], 500);
+            return redirect()->back()->with('error', 'Failed to update pharmacist: ' . $e->getMessage());
         }
     }
 }

@@ -42,69 +42,8 @@ import {
 } from "@/components/tempo/components/ui/select";
 
 import AdminLayout from "@/Layouts/AdminLayout";
-// Mock data for inventory items
-const mockInventoryItems = [
-    {
-        id: "MED001",
-        name: "Paracetamol 500mg",
-        category: "Medication",
-        quantity: 250,
-        unit: "Tablets",
-        expiryDate: "2024-12-31",
-        status: "In Stock",
-        supplier: "PharmaCare Inc.",
-        reorderLevel: 50,
-        avatar: "paracetamol",
-    },
-    {
-        id: "MED002",
-        name: "Amoxicillin 250mg",
-        category: "Medication",
-        quantity: 120,
-        unit: "Capsules",
-        expiryDate: "2024-10-15",
-        status: "In Stock",
-        supplier: "MediPharm Ltd.",
-        reorderLevel: 30,
-        avatar: "amoxicillin",
-    },
-    {
-        id: "MED003",
-        name: "Metformin 500mg",
-        category: "Medication",
-        quantity: 15,
-        unit: "Tablets",
-        expiryDate: "2024-08-20",
-        status: "Low Stock",
-        supplier: "PharmaCare Inc.",
-        reorderLevel: 20,
-        avatar: "metformin",
-    },
-    {
-        id: "SUP001",
-        name: "Disposable Syringes 5ml",
-        category: "Supplies",
-        quantity: 500,
-        unit: "Pieces",
-        expiryDate: "2025-06-30",
-        status: "In Stock",
-        supplier: "MedSupplies Co.",
-        reorderLevel: 100,
-        avatar: "syringe",
-    },
-    {
-        id: "SUP002",
-        name: "Surgical Masks",
-        category: "Supplies",
-        quantity: 5,
-        unit: "Boxes",
-        expiryDate: "2025-12-31",
-        status: "Low Stock",
-        supplier: "MedSupplies Co.",
-        reorderLevel: 10,
-        avatar: "mask",
-    },
-];
+// Mock data for inventory items - now empty for manual input
+const mockInventoryItems = [];
 
 const Inventory = () => {
     const [inventoryItems, setInventoryItems] = useState(mockInventoryItems);
@@ -162,7 +101,7 @@ const Inventory = () => {
             case "Low Stock":
                 return <Badge className=" bg-amber-500">Low Stock</Badge>;
             case "Out of Stock":
-                return <Badge className="bg-red-500">Out of Stock</Badge>;
+                return <Badge className="bg-red-500">Out of Stock Items</Badge>;
             default:
                 return <Badge>{status}</Badge>;
         }
@@ -286,7 +225,7 @@ const Inventory = () => {
                     >
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
+                                <p className="text-sm font-medium text-gray-600">Expiring Soon Items</p>
                                 <p className="text-2xl font-bold text-red-600">{expiringSoonItems}</p>
                             </div>
                             <div className="p-3 bg-red-50 rounded-lg">
@@ -357,7 +296,7 @@ const Inventory = () => {
                                         <SelectItem value="all">All Statuses</SelectItem>
                                         <SelectItem value="In Stock">In Stock</SelectItem>
                                         <SelectItem value="Low Stock">Low Stock</SelectItem>
-                                        <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                                        <SelectItem value="Out of Stock">Out of Stock Items</SelectItem>
                                     </SelectContent>
                                 </Select>
 

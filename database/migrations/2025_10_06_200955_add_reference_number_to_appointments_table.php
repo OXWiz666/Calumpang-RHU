@@ -11,21 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('appointments', function (Blueprint $table) {
-            $table->string('reference_number')->nullable()->after('id');
-        });
-        
-        // Generate reference numbers for existing appointments
-        $appointments = \App\Models\appointments::whereNull('reference_number')->get();
-        foreach ($appointments as $appointment) {
-            $appointment->reference_number = 'APT-' . str_pad($appointment->id, 6, '0', STR_PAD_LEFT);
-            $appointment->save();
+        if (!Schema::hasColumn('appointments', 'reference_number')) {
+            Schema::table('appointments', function (Blueprint $table) {
+                $table->string('reference_number')->nullable()->after('id');
+            });
+            
+            // Generate reference numbers for existing appointments
+            $appointments = \App\Models\appointments::whereNull('reference_number')->get();
+            foreach ($appointments as $appointment) {
+                $appointment->reference_number = 'APT-' . str_pad($appointment->id, 6, '0', STR_PAD_LEFT);
+                $appointment->save();
+            }
+            
+            // Now make it unique
+            Schema::table('appointments', function (Blueprint $table) {
+                $table->string('reference_number')->unique()->change();
+            });
         }
-        
-        // Now make it unique
-        Schema::table('appointments', function (Blueprint $table) {
-            $table->string('reference_number')->unique()->change();
-        });
     }
 
     /**

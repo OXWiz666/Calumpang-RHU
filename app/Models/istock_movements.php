@@ -21,9 +21,16 @@ class istock_movements extends Model
         'prescription_number',
         'dispensed_by',
         'notes',
+        'case_id',
     ];
     protected $table = "istock_movements";
     public $timestamps = true;
+    
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'expiry_date' => 'date',
+    ];
 
     public function inventory(){
         return $this->belongsTo(inventory::class,"inventory_id");

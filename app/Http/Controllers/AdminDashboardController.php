@@ -10,6 +10,7 @@ use App\Models\istock_movements;
 use App\Models\program_schedules;
 use App\Models\Prescription;
 use App\Models\PrescriptionMedicine;
+use App\Models\activity_logs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +95,9 @@ class AdminDashboardController extends Controller
         // Get system health metrics
         $systemHealth = $this->calculateSystemHealth();
         
+        // Get recent activities
+        $recentActivities = $this->getRecentActivities();
+        
         // Prepare comprehensive dashboard data
         $dashboardData = [
             'patients' => [
@@ -137,7 +141,8 @@ class AdminDashboardController extends Controller
         return Inertia::render("Authenticated/Admin/Dashboard", [
             'totalPatients' => $totalPatients,
             'patientGrowthPercentage' => round($patientGrowthPercentage, 2),
-            'dashboardData' => $dashboardData
+            'dashboardData' => $dashboardData,
+            'recentActivities' => $recentActivities
         ]);
     }
     /**
@@ -296,6 +301,209 @@ class AdminDashboardController extends Controller
         if ($previousWeek == 0) return 0;
         
         return round((($currentWeek - $previousWeek) / $previousWeek) * 100, 2);
+    }
+
+    /**
+     * Get recent activities for the dashboard
+     */
+    private function getRecentActivities()
+    {
+        try {
+            $activities = collect();
+            
+            // Get recent appointments
+        $recentAppointments = appointments::with(['servicetypes'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(function($appointment) {
+                $patientName = $appointment->user_id 
+                    ? 'Registered Patient'
+                    : ($appointment->firstname . ' ' . $appointment->lastname);
+                
+                $serviceName = $appointment->servicetypes ? $appointment->servicetypes->servicename : 'General Checkup';
+                
+                return [
+                    'id' => 'appointment_' . $appointment->id,
+                    'type' => 'appointment',
+                    'title' => 'New Appointment',
+                    'description' => "{$patientName} scheduled {$serviceName}",
+                    'timestamp' => $appointment->created_at,
+                    'icon' => 'Calendar',
+                    'status' => $appointment->status,
+                    'color' => $this->getActivityColor('appointment', $appointment->status),
+                    'priority' => $this->getPriority($appointment->status),
+                    'action_url' => route('admin.appointments'),
+                    'action_text' => 'View Details',
+                    'badge_text' => $this->getStatusText($appointment->status),
+                    'time_ago' => $appointment->created_at->diffForHumans()
+                ];
+            });
+        
+        $activities = $activities->merge($recentAppointments);
+        
+        // Get recent stock movements
+        $recentStockMovements = istock_movements::with(['inventory'])
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->map(function($movement) {
+                $staffName = 'Staff Member';
+                
+                return [
+                    'id' => 'stock_' . $movement->id,
+                    'type' => 'inventory',
+                    'title' => 'Stock Movement',
+                    'description' => "{$staffName} {$movement->movement_type} {$movement->quantity} units of {$movement->inventory_name}",
+                    'timestamp' => $movement->created_at,
+                    'icon' => $movement->movement_type === 'add' ? 'Package' : 'TrendingDown',
+                    'status' => 'completed',
+                    'color' => $this->getActivityColor('inventory', $movement->movement_type),
+                    'priority' => 'medium',
+                    'action_url' => route('pharmacist.inventory'),
+                    'action_text' => 'View Inventory',
+                    'badge_text' => ucfirst($movement->movement_type),
+                    'time_ago' => $movement->created_at->diffForHumans()
+                ];
+            });
+        
+        $activities = $activities->merge($recentStockMovements);
+        
+        // Get recent prescriptions
+        $recentPrescriptions = Prescription::orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->map(function($prescription) {
+                $patientName = 'Patient';
+                $doctorName = 'Doctor';
+                
+                return [
+                    'id' => 'prescription_' . $prescription->id,
+                    'type' => 'prescription',
+                    'title' => 'New Prescription',
+                    'description' => "Dr. {$doctorName} prescribed medication for {$patientName}",
+                    'timestamp' => $prescription->created_at,
+                    'icon' => 'Pill',
+                    'status' => $prescription->status,
+                    'color' => $this->getActivityColor('prescription', $prescription->status),
+                    'priority' => $this->getPriority($prescription->status),
+                    'action_url' => route('admin.prescriptions'),
+                    'action_text' => 'View Prescription',
+                    'badge_text' => $this->getStatusText($prescription->status),
+                    'time_ago' => $prescription->created_at->diffForHumans()
+                ];
+            });
+        
+        $activities = $activities->merge($recentPrescriptions);
+        
+        // Get recent user registrations
+        $recentUsers = User::whereIn('roleID', [2, 3, 6, 7]) // Patients, Doctors, Pharmacists, Admins
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->get()
+            ->map(function($user) {
+                $roleNames = [
+                    2 => 'Patient',
+                    3 => 'Doctor', 
+                    6 => 'Pharmacist',
+                    7 => 'Admin'
+                ];
+                
+                $roleName = $roleNames[$user->roleID] ?? 'User';
+                
+                return [
+                    'id' => 'user_' . $user->id,
+                    'type' => 'user',
+                    'title' => 'New User Registration',
+                    'description' => "{$user->firstname} {$user->lastname} registered as {$roleName}",
+                    'timestamp' => $user->created_at,
+                    'icon' => 'User',
+                    'status' => 'completed',
+                    'color' => $this->getActivityColor('user', 'registration'),
+                    'priority' => 'low',
+                    'action_url' => route('admin.staff'),
+                    'action_text' => 'View Staff',
+                    'badge_text' => 'New',
+                    'time_ago' => $user->created_at->diffForHumans()
+                ];
+            });
+        
+        $activities = $activities->merge($recentUsers);
+        
+            // Sort by timestamp and limit to 10 most recent
+            return $activities->sortByDesc('timestamp')->take(10)->values();
+        } catch (\Exception $e) {
+            // Log the error and return empty collection
+            \Log::error('Error fetching recent activities: ' . $e->getMessage());
+            return collect();
+        }
+    }
+    
+    /**
+     * Get activity color based on type and status
+     */
+    private function getActivityColor($type, $status)
+    {
+        $colors = [
+            'appointment' => [
+                'pending' => 'blue',
+                'confirmed' => 'green',
+                'completed' => 'emerald',
+                'cancelled' => 'red',
+                'default' => 'blue'
+            ],
+            'inventory' => [
+                'add' => 'green',
+                'reduce' => 'orange',
+                'default' => 'blue'
+            ],
+            'prescription' => [
+                'pending' => 'yellow',
+                'dispensed' => 'green',
+                'cancelled' => 'red',
+                'default' => 'blue'
+            ],
+            'user' => [
+                'registration' => 'purple',
+                'default' => 'blue'
+            ]
+        ];
+        
+        return $colors[$type][$status] ?? $colors[$type]['default'] ?? 'blue';
+    }
+    
+    /**
+     * Get priority level for activity
+     */
+    private function getPriority($status)
+    {
+        $priorities = [
+            'pending' => 'high',
+            'confirmed' => 'medium',
+            'completed' => 'low',
+            'cancelled' => 'medium',
+            'dispensed' => 'low',
+            'default' => 'low'
+        ];
+        
+        return $priorities[$status] ?? 'low';
+    }
+    
+    /**
+     * Get human-readable status text
+     */
+    private function getStatusText($status)
+    {
+        $statusTexts = [
+            'pending' => 'Pending',
+            'confirmed' => 'Confirmed',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+            'dispensed' => 'Dispensed',
+            'default' => 'Active'
+        ];
+        
+        return $statusTexts[$status] ?? 'Active';
     }
 }
 

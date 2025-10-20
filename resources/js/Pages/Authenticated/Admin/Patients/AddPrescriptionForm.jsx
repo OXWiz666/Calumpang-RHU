@@ -309,7 +309,7 @@ export default function AddPrescriptionForm({
                                                                         value={String(med.id)}
                                                                         disabled={isDuplicateMedicine(med.id, index)}
                                                                     >
-                                                                        {med.name} ({med.generic_name}) - Stock: {med.available_quantity} {med.unit}
+                                                                        {med.name} ({med.generic_name}) - Batch: {med.batch_number} - Stock: {med.available_quantity} {med.unit}
                                                                         {isDuplicateMedicine(med.id, index) && ' (Already added)'}
                                                                     </SelectItem>
                                                                 ))

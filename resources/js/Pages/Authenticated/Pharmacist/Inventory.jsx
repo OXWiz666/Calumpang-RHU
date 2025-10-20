@@ -8,6 +8,7 @@ import AddCategoryForm from "./AddCategoryForm";
 import CategoryManagement from "./CategoryManagement";
 import ViewItemModal from "./ViewItemModal";
 import EditItemModal from "./EditItemModal";
+import AddBatchModal from "./AddBatchModal";
 import UpdateStocksModal from "./UpdateStocksModal";
 import SuccessModal from "./SuccessModal";
 import DispenseStockModal from "./DispenseStockModal";
@@ -65,7 +66,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/tempo/components/ui/dropdown-menu";
 
-export default function PharmacistInventory({ categories = [], allCategories = [], inventoryItems = [] }) {
+export default function PharmacistInventory({ categories = [], allCategories = [], inventoryItems = [], expiringSoonCount = 0 }) {
     const [viewMode, setViewMode] = useState("list"); // grid or list
     const [sortBy, setSortBy] = useState("name");
     const [sortOrder, setSortOrder] = useState("asc");
@@ -79,6 +80,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
     const [showCategoryManagement, setShowCategoryManagement] = useState(false);
     const [showViewModal, setShowViewModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showAddBatchModal, setShowAddBatchModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [successMessage, setSuccessMessage] = useState("");
@@ -89,26 +91,21 @@ export default function PharmacistInventory({ categories = [], allCategories = [
 
     // Helper function to determine overall item status based on batches
     // Cache bust: 2024-01-20
-    const getOverallItemStatus = (batches, minimumStock) => {
+    const getOverallItemStatus = (batches, minimumStock, itemExpiryDate = null) => {
         const totalQuantity = batches.reduce((sum, batch) => sum + batch.quantity, 0);
         
         if (totalQuantity === 0) return 'out_of_stock';
         if (totalQuantity <= minimumStock) return 'low_stock';
         
-        // Check if any batch is expiring soon
+        // Check if any batch is expiring soon using the helper function
         const hasExpiringSoon = batches.some(batch => {
-            if (!batch.expiryDate || batch.expiryDate === 'N/A') return false;
-            try {
-                const expiry = new Date(batch.expiryDate);
-                if (isNaN(expiry.getTime())) return false; // Invalid date
-                const today = new Date();
-                const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-                return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
-            } catch (error) {
-                console.warn('Invalid expiry date:', batch.expiryDate);
-                return false;
-            }
+            return isExpiringSoon(batch.expiryDate);
         });
+        
+        // Also check the main item's expiry date if provided
+        if (!hasExpiringSoon && itemExpiryDate && isExpiringSoon(itemExpiryDate)) {
+            return 'expiring_soon';
+        }
         
         if (hasExpiringSoon) return 'expiring_soon';
         return 'in_stock';
@@ -135,11 +132,17 @@ export default function PharmacistInventory({ categories = [], allCategories = [
 
     // Helper function to check if item is expiring soon (within 30 days)
     const isExpiringSoon = (expiryDate) => {
-        if (!expiryDate) return false;
-        const expiry = new Date(expiryDate);
-        const today = new Date();
-        const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+        if (!expiryDate || expiryDate === 'N/A') return false;
+        try {
+            const expiry = new Date(expiryDate);
+            if (isNaN(expiry.getTime())) return false; // Invalid date
+            const today = new Date();
+            const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+            return daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+        } catch (error) {
+            console.warn('Invalid expiry date:', expiryDate);
+            return false;
+        }
     };
 
     // Helper function to get category icon from database or fallback
@@ -216,6 +219,19 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         setShowEditModal(true);
     };
 
+    const handleAddBatch = (item) => {
+        setSelectedItem(item);
+        setShowAddBatchModal(true);
+    };
+
+    const handleBatchAdded = () => {
+        // Close both modals
+        setShowAddBatchModal(false);
+        setShowEditModal(false);
+        // Refresh the page to show the new batch
+        router.reload();
+    };
+
     const handleArchiveItem = (item) => {
         const successMessage = "Item archived successfully!";
         const errorMessage = "Failed to archive item!";
@@ -290,7 +306,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                 acc[itemName] = {
                     id: item.id, // Use first item's ID as primary ID
                     name: itemName,
-                    category: item.category?.name || 'Uncategorized',
+                    category: item.category || null, // Preserve full category object
                     categoryIcon: getCategoryIcon(item.category),
                     categoryId: item.category_id,
                     manufacturer: item.manufacturer || 'N/A',
@@ -300,14 +316,19 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                     maximumStock: item.maximum_stock || 100,
                     isArchived: item.status === 0,
                     lastUpdated: item.updated_at || 'N/A',
+                    expiryDate: item.expiry_date, // Add expiry date to the main item
                     batches: []
                 };
             }
             
-            // Add batch information
+            // Add batch information (filter out invalid batch numbers)
+            const batchNumber = item.batch_number && item.batch_number !== 'new_batch' && item.batch_number !== 'N/A' 
+                ? item.batch_number 
+                : 'N/A';
+            
             acc[itemName].batches.push({
                 id: item.id,
-                batchNumber: item.batch_number || 'N/A',
+                batchNumber: batchNumber,
                 quantity: item.stock?.stocks || 0,
                 expiryDate: item.expiry_date || 'N/A',
                 storageLocation: item.storage_location || '',
@@ -320,170 +341,28 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         
         // Convert to array and calculate total quantities
         return Object.values(groupedItems).map(item => {
-            const totalQuantity = item.batches.reduce((sum, batch) => sum + batch.quantity, 0);
-            const overallStatus = getOverallItemStatus(item.batches, item.minimumStock);
+            // Filter out invalid batches for counting and display
+            const validBatches = item.batches.filter(batch => 
+                batch.batchNumber && batch.batchNumber !== 'N/A' && batch.batchNumber !== 'new_batch'
+            );
+            
+            const totalQuantity = validBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+            // Get the expiry date from the first valid batch or use the main item's expiry date
+            const itemExpiryDate = validBatches[0]?.expiryDate || item.expiryDate;
+            const overallStatus = getOverallItemStatus(validBatches, item.minimumStock, itemExpiryDate);
             
             return {
                 ...item,
+                batches: validBatches, // Use only valid batches
                 totalQuantity,
                 status: overallStatus,
-                batchCount: item.batches.length
+                batchCount: validBatches.length
             };
         });
     };
 
     // Use real inventory data from props, fallback to mock data if not available
-    const inventoryData = inventoryItems && inventoryItems.length > 0 ? processInventoryData(inventoryItems) : [
-        {
-            id: 1,
-            name: "Paracetamol 500mg",
-            category: "Pain Relief",
-            categoryIcon: getCategoryIcon({ icon: "Pill" }),
-            categoryId: 1,
-            manufacturer: "MedPharm Corp",
-            description: "Pain relief medication",
-            unit: "tablets",
-            minimumStock: 10,
-            maximumStock: 200,
-            isArchived: false,
-            lastUpdated: "2024-01-15",
-            totalQuantity: 250,
-            status: "in_stock",
-            batchCount: 2,
-            batches: [
-                {
-                    id: 1,
-                    batchNumber: "PAR-2024-001",
-                    quantity: 150,
-                    expiryDate: "2025-06-15",
-                    storageLocation: "A-1-01",
-                    status: "in_stock",
-                    lastUpdated: "2024-01-15"
-                },
-                {
-                    id: 6,
-                    batchNumber: "PAR-2024-002",
-                    quantity: 100,
-                    expiryDate: "2025-08-20",
-                    storageLocation: "A-1-02",
-                    status: "in_stock",
-                    lastUpdated: "2024-01-20"
-                }
-            ]
-        },
-        {
-            id: 2,
-            name: "Amoxicillin 250mg",
-            category: "Antibiotics",
-            categoryIcon: getCategoryIcon({ icon: "Syringe" }),
-            categoryId: 2,
-            manufacturer: "Antibio Ltd",
-            description: "Antibiotic medication",
-            unit: "capsules",
-            minimumStock: 5,
-            maximumStock: 100,
-            isArchived: false,
-            lastUpdated: "2024-01-14",
-            totalQuantity: 5,
-            status: "low_stock",
-            batchCount: 1,
-            batches: [
-                {
-                    id: 2,
-                    batchNumber: "AMX-2024-002",
-                    quantity: 5,
-                    expiryDate: "2024-12-20",
-                    storageLocation: "B-2-03",
-                    status: "low_stock",
-                    lastUpdated: "2024-01-14"
-                }
-            ]
-        },
-        {
-            id: 3,
-            name: "Ibuprofen 400mg",
-            category: "Pain Relief",
-            categoryIcon: getCategoryIcon({ icon: "Pill" }),
-            categoryId: 1,
-            manufacturer: "PainFree Inc",
-            description: "Anti-inflammatory medication",
-            unit: "tablets",
-            minimumStock: 10,
-            maximumStock: 150,
-            isArchived: false,
-            lastUpdated: "2024-01-13",
-            totalQuantity: 0,
-            status: "out_of_stock",
-            batchCount: 1,
-            batches: [
-                {
-                    id: 3,
-                    batchNumber: "IBU-2024-003",
-                    quantity: 0,
-                    expiryDate: "2025-03-10",
-                    storageLocation: "A-1-02",
-                    status: "out_of_stock",
-                    lastUpdated: "2024-01-13"
-                }
-            ]
-        },
-        {
-            id: 4,
-            name: "Vitamin C 1000mg",
-            category: "Vitamins",
-            categoryIcon: getCategoryIcon({ icon: "Heart" }),
-            categoryId: 3,
-            manufacturer: "VitaCorp",
-            description: "Vitamin supplement",
-            unit: "tablets",
-            minimumStock: 20,
-            maximumStock: 300,
-            isArchived: false,
-            lastUpdated: "2024-01-12",
-            totalQuantity: 200,
-            status: "expiring_soon",
-            batchCount: 1,
-            batches: [
-                {
-                    id: 4,
-                    batchNumber: "VIT-2024-004",
-                    quantity: 200,
-                    expiryDate: "2024-08-30",
-                    storageLocation: "C-3-01",
-                    status: "expiring_soon",
-                    lastUpdated: "2024-01-12"
-                }
-            ]
-        },
-        {
-            id: 5,
-            name: "Metformin 500mg",
-            category: "Chronic Care",
-            categoryIcon: getCategoryIcon({ icon: "Pill" }),
-            categoryId: 4,
-            manufacturer: "DiabCare",
-            description: "Diabetes medication",
-            unit: "tablets",
-            minimumStock: 15,
-            maximumStock: 200,
-            isArchived: false,
-            lastUpdated: "2024-01-11",
-            totalQuantity: 80,
-            status: "in_stock",
-            batchCount: 1,
-            batches: [
-                {
-                    id: 5,
-                    batchNumber: "MET-2024-005",
-                    quantity: 80,
-                    expiryDate: "2025-09-15",
-                    storageLocation: "D-4-02",
-                    status: "in_stock",
-                    lastUpdated: "2024-01-11"
-                }
-            ]
-        },
-    ];
+    const inventoryData = inventoryItems && inventoryItems.length > 0 ? processInventoryData(inventoryItems) : [];
 
     const [filteredItems, setFilteredItems] = useState(inventoryData);
 
@@ -492,12 +371,12 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         let filtered = inventoryData.filter((item) => {
             // Search in item name, category, and batch numbers
             const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (item.category?.name || 'Uncategorized').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 item.batches.some(batch => 
                                     batch.batchNumber.toLowerCase().includes(searchTerm.toLowerCase())
                                 );
             
-            const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+            const matchesCategory = categoryFilter === "all" || (item.category?.name || 'Uncategorized') === categoryFilter;
             
             // Handle status filtering including archived items
             let matchesStatus = false;
@@ -599,22 +478,43 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             case "low_stock":
                 return "Low Stock";
             case "out_of_stock":
-                return "Out of Stock";
+                return "Out of Stock Items";
             case "expiring_soon":
-                return "Expiring Soon";
+                return "Expiring Soon Items";
             default:
                 return "Unknown";
         }
     };
 
 
+    const frontendExpiringSoon = inventoryData.filter(item => item.status === "expiring_soon" && !item.isArchived).length;
+    
     const stats = {
         total: inventoryData.filter(item => !item.isArchived).length,
         inStock: inventoryData.filter(item => item.status === "in_stock" && !item.isArchived).length,
         lowStock: inventoryData.filter(item => item.status === "low_stock" && !item.isArchived).length,
         outOfStock: inventoryData.filter(item => item.status === "out_of_stock" && !item.isArchived).length,
-        expiringSoon: inventoryData.filter(item => item.status === "expiring_soon" && !item.isArchived).length,
+        expiringSoon: frontendExpiringSoon > 0 ? frontendExpiringSoon : expiringSoonCount, // Use frontend calculation if > 0, otherwise use backend count
     };
+
+    // Debug logging for expiring soon calculation
+    console.log('Inventory Stats Debug:', {
+        totalItems: inventoryData.length,
+        frontendExpiringSoon,
+        backendExpiringSoonCount: expiringSoonCount,
+        finalExpiringSoon: stats.expiringSoon,
+        expiringSoonItems: inventoryData.filter(item => item.status === "expiring_soon" && !item.isArchived),
+        allItemStatuses: inventoryData.map(item => ({ 
+            name: item.name, 
+            status: item.status, 
+            expiryDate: item.expiryDate,
+            isItemExpiringSoon: isExpiringSoon(item.expiryDate),
+            batches: item.batches?.map(b => ({ 
+                expiryDate: b.expiryDate, 
+                isExpiringSoon: isExpiringSoon(b.expiryDate) 
+            })) 
+        }))
+    });
 
     // Realtime: listen for inventory updates and refresh
     useEffect(() => {
@@ -713,7 +613,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600">Out of Stock</p>
+                                    <p className="text-sm text-gray-600">Out of Stock Items</p>
                                     <p className="text-2xl font-bold text-red-600">{stats.outOfStock}</p>
                                 </div>
                                 <TrendingDown className="h-8 w-8 text-red-600" />
@@ -725,7 +625,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm text-gray-600">Expiring Soon</p>
+                                    <p className="text-sm text-gray-600">Expiring Soon Items</p>
                                     <p className="text-2xl font-bold text-orange-600">{stats.expiringSoon}</p>
                                 </div>
                                 <Clock className="h-8 w-8 text-orange-600" />
@@ -772,8 +672,8 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                         <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="in_stock">In Stock</SelectItem>
                                         <SelectItem value="low_stock">Low Stock</SelectItem>
-                                        <SelectItem value="out_of_stock">Out of Stock</SelectItem>
-                                        <SelectItem value="expiring_soon">Expiring Soon</SelectItem>
+                                        <SelectItem value="out_of_stock">Out of Stock Items</SelectItem>
+                                        <SelectItem value="expiring_soon">Expiring Soon Items</SelectItem>
                                         <SelectItem value="archived">Archived</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -853,7 +753,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                         <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                                                             {item.name}
                                                         </CardTitle>
-                                                        <p className="text-sm text-gray-500">{item.category}</p>
+                                                        <p className="text-sm text-gray-500">{item.category?.name || 'Uncategorized'}</p>
                                                     </div>
                                                 </div>
                                                 <DropdownMenu>
@@ -1032,7 +932,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                             </div>
                                                         </td>
                                                         <td className="py-4 px-4 text-gray-600">
-                                                            {item.category}
+                                                            {item.category?.name || 'Uncategorized'}
                                                         </td>
                                                         <td className="py-4 px-4">
                                                             <span className="font-medium text-gray-900">
@@ -1331,6 +1231,17 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                     onClose={() => setShowEditModal(false)}
                     item={selectedItem}
                     categories={categories || []}
+                    onAddBatch={handleAddBatch}
+                />
+
+                {/* Add Batch Modal */}
+                <AddBatchModal
+                    open={showAddBatchModal}
+                    onClose={() => setShowAddBatchModal(false)}
+                    item={selectedItem}
+                    categories={categories || []}
+                    onBatchAdded={handleBatchAdded}
+                    onCloseEditModal={() => setShowEditModal(false)}
                 />
 
                 {/* Success Modal */}

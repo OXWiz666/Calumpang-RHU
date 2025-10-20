@@ -8,7 +8,6 @@ import NotficationDropdown from "../../patient/include/NotificationDropdown.jsx"
 import PatientVerificationModal from "./PatientVerificationModal";
 import TermsOfServiceModal from "./TermsOfServiceModal";
 import PatientTypeSelectionModal from "./PatientTypeSelectionModal";
-import MedicalRecordsRequestModal from "./MedicalRecordsRequestModal";
 import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
 
 const Header = ({
@@ -25,9 +24,29 @@ const Header = ({
     const [showPatientModal, setShowPatientModal] = useState(false);
     const [showTermsModal, setShowTermsModal] = useState(false);
     const [showPatientTypeModal, setShowPatientTypeModal] = useState(false);
-    const [showMedicalRecordsModal, setShowMedicalRecordsModal] = useState(false);
     const [cameFromPatientTypeSelection, setCameFromPatientTypeSelection] = useState(false);
     const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
+    
+    // Check if we're in reschedule mode (from URL or localStorage)
+    const [isRescheduleMode, setIsRescheduleMode] = useState(false);
+    const [isExistingPatientMode, setIsExistingPatientMode] = useState(false);
+    
+    useEffect(() => {
+        // Check URL parameters and localStorage for mode detection
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode');
+        const existingPatientData = localStorage.getItem('existingPatientData');
+        const patientType = localStorage.getItem('selectedPatientType');
+        
+        setIsRescheduleMode(mode === 'reschedule');
+        setIsExistingPatientMode(!!existingPatientData && patientType === 'existing');
+    }, []);
+    
+    // Determine if Seasonal Programs should be disabled
+    const shouldDisableSeasonalPrograms = () => {
+        // Disable in appointment session for ALL modes (Existing, New Patient, and Reschedule)
+        return isInAppointmentSession;
+    };
 
     const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
     const toggleServices = () => setServicesOpen(!servicesOpen);
@@ -296,54 +315,58 @@ const Header = ({
                                             </div>
                                         </button>
 
-                                        <button
-                                            onClick={() => setShowMedicalRecordsModal(true)}
-                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm w-full text-left"
-                                        >
-                                            <svg
-                                                className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-pink-500"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
+                                        {shouldDisableSeasonalPrograms() ? (
+                                            <button
+                                                disabled
+                                                className="flex items-start py-2 px-2 text-sm font-medium text-gray-400 cursor-not-allowed opacity-50 rounded-md transition-all duration-300"
+                                                title="Seasonal Programs is disabled during appointment session"
                                             >
-                                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
-                                                    clipRule="evenodd"
-                                                ></path>
-                                            </svg>
-                                            <div className="flex flex-col text-left">
-                                                <span className="font-medium">Medical Records</span>
-                                                <span className="text-xs text-gray-500 mt-0.5">
-                                                    Request an Medical Certificate
-                                                </span>
-                                            </div>
-                                        </button>
-                                        <Link
-                                            href="#"
-                                            className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
-                                        >
-                                            <svg
-                                                className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-500"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
+                                                <svg
+                                                    className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-gray-400"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth="2"
+                                                        d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
+                                                    ></path>
+                                                </svg>
+                                                <div className="flex flex-col text-left">
+                                                    <span className="font-medium">Seasonal Programs</span>
+                                                    <span className="text-xs text-gray-400 mt-0.5">
+                                                        Disabled during appointment session
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        ) : (
+                                            <Link
+                                                href="/services/seasonal-programs"
+                                                className="flex items-start py-2 px-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent rounded-md transition-all duration-300 transform hover:translate-x-1 hover:shadow-sm"
                                             >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth="2"
-                                                    d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
-                                                ></path>
-                                            </svg>
-                                            <div className="flex flex-col text-left">
-                                                <span className="font-medium">Seasonal Programs</span>
-                                                <span className="text-xs text-gray-500 mt-0.5">
-                                                    View seasonal programs and availability
-                                                </span>
-                                            </div>
-                                        </Link>
+                                                <svg
+                                                    className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0 text-green-500"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth="2"
+                                                        d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
+                                                    ></path>
+                                                </svg>
+                                                <div className="flex flex-col text-left">
+                                                    <span className="font-medium">Seasonal Programs</span>
+                                                    <span className="text-xs text-gray-500 mt-0.5">
+                                                        View seasonal programs and availability
+                                                    </span>
+                                                </div>
+                                            </Link>
+                                        )}
                                     </div>
                                 )}
                             </li>
@@ -535,57 +558,60 @@ const Header = ({
                                                 </p>
                                             </div>
                                         </button>
-                                        <button
-                                            onClick={() => setShowMedicalRecordsModal(true)}
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px] w-full text-left"
-                                        >
-                                            <svg
-                                                className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
+                                        {shouldDisableSeasonalPrograms() ? (
+                                            <button
+                                                disabled
+                                                className="group flex items-center rounded-lg p-3 cursor-not-allowed opacity-50 min-h-[60px]"
+                                                title="Seasonal Programs is disabled during appointment session"
                                             >
-                                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z"
-                                                    clipRule="evenodd"
-                                                />
-                                            </svg>
-                                            <div className="text-center">
-                                                <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
-                                                    Medical Records
-                                                </p>
-                                                <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                Request an Medical Certificate
-
-                                                </p>
-                                            </div>
-                                        </button>
-                                        <Link
-                                            href="/services/seasonal-programs"
-                                            className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
-                                        >
-                                            <svg
-                                                className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
-                                            >
-                                                <path
-                                                    fillRule="evenodd"
-                                                    d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
-                                                    clipRule="evenodd"
+                                                <svg
+                                                    className="mr-3 h-5 w-5 text-gray-400"
+                                                    viewBox="0 0 20 20"
+                                                    fill="currentColor"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
+                                                        clipRule="evenodd"
 
 />
-                                            </svg>
-                                            <div className="text-center">
-                                                <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
-                                                    Seasonal Programs
-                                                </p>
-                                                <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
-                                                    View seasonal programs and availability
-                                                </p>
-                                            </div>
-                                        </Link>
+                                                </svg>
+                                                <div className="text-center">
+                                                    <p className="text-sm font-medium text-gray-400">
+                                                        Seasonal Programs
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        Disabled during appointment session
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        ) : (
+                                            <Link
+                                                href="/services/seasonal-programs"
+                                                className="group flex items-center rounded-lg p-3 hover:bg-gray-50 transition-all duration-300 transform hover:translate-x-1 min-h-[60px]"
+                                            >
+                                                <svg
+                                                    className="mr-3 h-5 w-5 text-gray-400 group-hover:text-black transition-colors duration-300"
+                                                    viewBox="0 0 20 20"
+                                                    fill="currentColor"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
+                                                        clipRule="evenodd"
+
+/>
+                                                </svg>
+                                                <div className="text-center">
+                                                    <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
+                                                        Seasonal Programs
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-300">
+                                                        View seasonal programs and availability
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -699,11 +725,6 @@ const Header = ({
                     onProceed={handlePatientTypeProceed}
                 />
 
-                {/* Medical Records Request Modal */}
-                <MedicalRecordsRequestModal
-                    isOpen={showMedicalRecordsModal}
-                    onClose={() => setShowMedicalRecordsModal(false)}
-                />
             </header>
         );
     };

@@ -11,6 +11,17 @@ export default defineConfig({
         react(),
     ],
     build: {
-        target: 'esnext', // ✅ Allow top-level await and modern syntax
+        target: 'es2022', // Support top-level await
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom'],
+                    pusher: ['pusher-js', 'laravel-echo']
+                }
+            }
+        }
     },
+    esbuild: {
+        target: 'es2022'
+    }
 });

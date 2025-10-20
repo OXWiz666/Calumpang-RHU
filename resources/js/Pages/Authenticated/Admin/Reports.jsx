@@ -202,9 +202,46 @@ const Reports = () => {
     router.get(route('admin.reports'), { start_date: start, end_date: end });
   };
 
-  const handleExport = (type) => {
-    // TODO: Implement export functionality
-    console.log(`Exporting ${type} report...`);
+  const handleExport = async (type) => {
+    try {
+      const response = await axios.post(route('admin.reports.generate'), {
+        report_type: type,
+        report_category: 'overview',
+        date_range: selectedDateRange,
+        custom_fields: [],
+        filters: {}
+      });
+
+      if (response.data.success) {
+        showToast(
+          "Success!",
+          `${type.toUpperCase()} report generated successfully`,
+          "success",
+          "create"
+        );
+        
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = response.data.download_url || '#';
+        link.download = `admin_report_${type}_${new Date().toISOString().split('T')[0]}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        showToast(
+          "Error",
+          response.data.message || "Failed to generate report",
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error('Error generating report:', error);
+      showToast(
+        "Error",
+        "Failed to generate report. Please try again.",
+        "error"
+      );
+    }
   };
 
   const handleGenerateReport = async () => {

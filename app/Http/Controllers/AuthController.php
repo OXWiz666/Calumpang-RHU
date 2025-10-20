@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 
 use App\Models\roles;
 use App\Models\securityquestions;
@@ -371,7 +372,7 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'contactno' => $request->contactNumber,
-                'roleID' => $request->isAdmin == 'true' ? 1 : 7,
+                'roleID' => $request->isAdmin == 'true' ? 7 : 2,
                 'questionID' => $request->securityQuestion ?? null,
                 'answer' => $request->securityAnswer ?? null,
                 'gender' => $request->gender,

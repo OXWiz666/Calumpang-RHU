@@ -273,9 +273,17 @@ class PatientController extends Controller
 
     public function storeAppointment(Request $request){
         $request->validate([
+            'firstname' => 'required|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'required|string|max:20',
             'date' => 'required|date',
-            'time' => 'required',
-            'service' => 'required|exists:servicetypes,id'
+            'time' => 'required|string',
+            'service' => 'required|integer|exists:servicetypes,id',
+            'subservice' => 'nullable|integer',
+            'notes' => 'nullable|string|max:1000',
+            'gender' => 'required|string|in:Male,Female,Other',
+            'date_of_birth' => 'required|date',
         ]);
 
 
@@ -295,6 +303,21 @@ class PatientController extends Controller
         
         $priorityNumber = $latestAppointment ? $latestAppointment->priority_number + 1 : 1;
 
+        // Handle subservice - only set if it exists and is valid
+        $subserviceId = null;
+        if ($request->subservice) {
+            try {
+                // Check if subservices table exists and has the record
+                $subserviceExists = DB::table('subservices')->where('id', $request->subservice)->exists();
+                if ($subserviceExists) {
+                    $subserviceId = $request->subservice;
+                }
+            } catch (Exception $e) {
+                // Table doesn't exist or other error, set to null
+                $subserviceId = null;
+            }
+        }
+
         $appointmentData = [
             'user_id' => $userId,
             'firstname' => $request->firstname,
@@ -305,7 +328,7 @@ class PatientController extends Controller
             'date' => \Carbon\Carbon::parse($request->date)->format("Y-m-d"),
             'time' => \Carbon\Carbon::parse($request->time)->format("H:i:s"),
             'servicetype_id' => $request->service,
-            'subservice_id' => $request->subservice ?? null,
+            'subservice_id' => $subserviceId,
             'notes' => $request->notes,
             'priority_number' => $priorityNumber,
             'status' => 6, // Pending verification
@@ -390,10 +413,31 @@ class PatientController extends Controller
     private function sendAppointmentConfirmation($appointment)
     {
         try {
-            // Send confirmation email
-            if ($appointment->email) {
-                Mail::to($appointment->email)->send(new AppointmentConfirmationMail($appointment));
+            // Send confirmation email using AppointmentEmailService
+            // Only send email if we have a valid email address (not a phone number)
+            if ($appointment->email && filter_var($appointment->email, FILTER_VALIDATE_EMAIL)) {
+                $emailService = new \App\Services\AppointmentEmailService();
+                
+                // Prepare appointment data for email service
+                $appointmentData = [
+                    'email' => $appointment->email,
+                    'firstname' => $appointment->firstname,
+                    'lastname' => $appointment->lastname,
+                    'middlename' => $appointment->middlename,
+                    'phone' => $appointment->phone,
+                    'date' => $appointment->date,
+                    'time' => $appointment->time,
+                    'service_name' => $appointment->service ? $appointment->service->servicename : 'General Consultation',
+                    'subservice_name' => $appointment->subservice ? $appointment->subservice->subservicename : 'N/A',
+                    'priority_number' => $appointment->priority_number,
+                    'appointment_id' => $appointment->reference_number,
+                    'date_of_birth' => $appointment->date_of_birth
+                ];
+                
+                $emailService->sendAppointmentConfirmation($appointmentData);
                 \Log::info("Appointment confirmation email sent to {$appointment->email} for appointment #{$appointment->reference_number}");
+            } else {
+                \Log::warning("Skipping email confirmation for appointment #{$appointment->reference_number} - no valid email address found. Email: " . ($appointment->email ?: 'NULL'));
             }
 
             // Send confirmation SMS
@@ -417,7 +461,7 @@ class PatientController extends Controller
         $message .= "Time: " . \Carbon\Carbon::parse($appointment->time)->format('g:i A') . "\n";
         $message .= "Service: " . ($appointment->service->servicename ?? 'General Consultation') . "\n\n";
         $message .= "Please arrive 15 minutes early. Contact us if you need to reschedule.\n\n";
-        $message .= "Thank you for choosing SEHI!";
+        $message .= "Thank you for choosing RHU Calumpang!";
 
         // Use the same SMS sending logic as verification
         $verificationController = new \App\Http\Controllers\VerificationController();
@@ -624,6 +668,9 @@ class PatientController extends Controller
 
                     \App\Services\ActivityLogger::log('User verified appointment', $user, ['appointment_id' => $appointment->id]);
                 }
+
+                // Send appointment confirmation email after verification
+                $this->sendAppointmentConfirmation($appointment);
 
                 // Notify admins and doctors about verified appointment
                 $userName = $appointment->firstname . ' ' . $appointment->lastname;

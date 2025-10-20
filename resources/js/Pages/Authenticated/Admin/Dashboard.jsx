@@ -40,10 +40,68 @@ import { Badge } from "@/components/tempo/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/tempo/components/ui/card";
 import { Progress } from "@/components/tempo/components/ui/progress";
 
-export default function Dashboard({ totalPatients, patientGrowthPercentage, dashboardData }) {
+export default function Dashboard({ totalPatients, patientGrowthPercentage, dashboardData, recentActivities }) {
     const notifs = usePage().props.auth.notifications;
 
-    const [activities, setActivities] = useState(notifs);
+    // Sample data for testing if backend data is not available
+    const sampleActivities = [
+        {
+            id: 'sample_1',
+            type: 'appointment',
+            title: 'New Appointment',
+            description: 'John Doe scheduled General Checkup',
+            timestamp: new Date(),
+            icon: 'Calendar',
+            status: 'pending',
+            color: 'blue',
+            priority: 'high',
+            action_url: '/admin/appointments',
+            action_text: 'View Details',
+            badge_text: 'Pending',
+            time_ago: '2 minutes ago'
+        },
+        {
+            id: 'sample_2',
+            type: 'inventory',
+            title: 'Stock Movement',
+            description: 'Staff Member added 50 units of Paracetamol',
+            timestamp: new Date(Date.now() - 300000),
+            icon: 'Package',
+            status: 'completed',
+            color: 'green',
+            priority: 'medium',
+            action_url: '/pharmacist/inventory',
+            action_text: 'View Inventory',
+            badge_text: 'Add',
+            time_ago: '5 minutes ago'
+        },
+        {
+            id: 'sample_3',
+            type: 'user',
+            title: 'New User Registration',
+            description: 'Jane Smith registered as Doctor',
+            timestamp: new Date(Date.now() - 600000),
+            icon: 'User',
+            status: 'completed',
+            color: 'purple',
+            priority: 'low',
+            action_url: '/admin/staff',
+            action_text: 'View Staff',
+            badge_text: 'New',
+            time_ago: '10 minutes ago'
+        }
+    ];
+
+    const [activities, setActivities] = useState(recentActivities && recentActivities.length > 0 ? recentActivities : sampleActivities);
+    
+    // Debug: Log activities data
+    useEffect(() => {
+        console.log('Recent Activities Data:', recentActivities);
+        console.log('Activities State:', activities);
+        if (!recentActivities || recentActivities.length === 0) {
+            console.log('Using sample data for testing');
+        }
+    }, [recentActivities, activities]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -343,7 +401,11 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.5 }}
                 >
-                    <ActivityFeed activities={activities} />
+                    <ActivityFeed 
+                        activities={activities} 
+                        title="Recent Activities"
+                        maxItems={6}
+                    />
                 </motion.div>
             </motion.div>
         </AdminLayout>

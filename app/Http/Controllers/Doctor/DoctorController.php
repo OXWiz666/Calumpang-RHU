@@ -174,7 +174,8 @@ class DoctorController extends Controller
                     'generic_name' => $item->generic_name ?? $item->name,
                     'unit' => $item->unit ?? 'pcs',
                     'available_quantity' => $totalQuantity,
-                    'category' => $item->icategory ? $item->icategory->name : 'General'
+                    'category' => $item->icategory ? $item->icategory->name : 'General',
+                    'batch_number' => $item->batch_number ?? 'N/A'
                 ];
             })
             ->filter(function($medicine) {
@@ -182,11 +183,6 @@ class DoctorController extends Controller
             })
             ->values();
 
-        // Debug logging
-        \Log::info('Medicines data for Create Prescription:', [
-            'count' => $medicines->count(),
-            'medicines' => $medicines->toArray()
-        ]);
 
         return Inertia::render('Authenticated/Doctor/CreatePrescription', [
             'patients' => $patients,

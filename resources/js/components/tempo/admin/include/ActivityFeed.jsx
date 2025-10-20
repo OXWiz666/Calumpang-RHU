@@ -23,67 +23,144 @@ import {
     User,
     AlertTriangle,
     Calendar,
+    Pill,
+    TrendingUp,
+    TrendingDown,
+    ArrowRight,
+    Activity,
+    RefreshCw,
+    Eye,
+    ExternalLink,
+    Zap,
+    Star,
+    AlertCircle,
+    CheckCircle2,
+    XCircle,
+    Timer,
+    Users,
+    ShoppingCart,
+    Stethoscope,
+    Heart,
+    Shield,
+    Bell,
+    Sparkles
 } from "lucide-react";
 
 // utils/formatTime.js
 import moment from "moment";
 import PrimaryButton from "@/components/PrimaryButton";
 import Reschedule from "@/Pages/Authenticated/Admin/partials/Reschedule";
-const getActivityIcon = () =>
-    //   type: ActivityItem["type"],
-    //   status?: ActivityItem["status"],
-    {
-        switch (type) {
-            case "patient":
-                return <User className="h-4 w-4 text-blue-500" />;
-            case "appointment":
-                return <Calendar className="h-4 w-4 text-purple-500" />;
-            case "inventory":
-                return <Package className="h-4 w-4 text-green-500" />;
-            case "message":
-                return <MessageSquare className="h-4 w-4 text-indigo-500" />;
-            case "alert":
-                return <AlertTriangle className="h-4 w-4 text-red-500" />;
-            case "program":
-                return <FileText className="h-4 w-4 text-orange-500" />;
-            default:
-                return <Clock className="h-4 w-4 text-gray-500" />;
-        }
-    };
 
-const getStatusBadge = () => {
+const getActivityIcon = (type, status) => {
+    const iconProps = { className: "h-5 w-5" };
+    
+    switch (type) {
+        case "patient":
+        case "user":
+            return <Users {...iconProps} className="h-5 w-5 text-blue-500" />;
+        case "appointment":
+            return <Calendar {...iconProps} className="h-5 w-5 text-purple-500" />;
+        case "inventory":
+            return <Package {...iconProps} className="h-5 w-5 text-green-500" />;
+        case "prescription":
+            return <Pill {...iconProps} className="h-5 w-5 text-orange-500" />;
+        case "message":
+            return <MessageSquare {...iconProps} className="h-5 w-5 text-indigo-500" />;
+        case "alert":
+            return <AlertTriangle {...iconProps} className="h-5 w-5 text-red-500" />;
+        case "program":
+            return <Heart {...iconProps} className="h-5 w-5 text-pink-500" />;
+        default:
+            return <Activity {...iconProps} className="h-5 w-5 text-gray-500" />;
+    }
+};
+
+const getStatusBadge = (status, priority) => {
     if (!status) return null;
 
+    const baseClasses = "text-xs font-medium px-2 py-1 rounded-full";
+    
     switch (status) {
         case "success":
+        case "completed":
+        case "dispensed":
             return (
-                <Badge variant="default" className="bg-green-500">
+                <Badge className={`${baseClasses} bg-green-100 text-green-800 border-green-200`}>
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
                     Completed
                 </Badge>
             );
         case "pending":
             return (
-                <Badge
-                    variant="outline"
-                    className="text-amber-500 border-amber-500"
-                >
+                <Badge className={`${baseClasses} bg-yellow-100 text-yellow-800 border-yellow-200`}>
+                    <Timer className="h-3 w-3 mr-1" />
                     Pending
+                </Badge>
+            );
+        case "confirmed":
+            return (
+                <Badge className={`${baseClasses} bg-blue-100 text-blue-800 border-blue-200`}>
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Confirmed
+                </Badge>
+            );
+        case "cancelled":
+            return (
+                <Badge className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>
+                    <XCircle className="h-3 w-3 mr-1" />
+                    Cancelled
                 </Badge>
             );
         case "warning":
             return (
-                <Badge
-                    variant="outline"
-                    className="text-orange-500 border-orange-500"
-                >
+                <Badge className={`${baseClasses} bg-orange-100 text-orange-800 border-orange-200`}>
+                    <AlertCircle className="h-3 w-3 mr-1" />
                     Warning
                 </Badge>
             );
         case "error":
-            return <Badge variant="destructive">Alert</Badge>;
+            return (
+                <Badge className={`${baseClasses} bg-red-100 text-red-800 border-red-200`}>
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Alert
+                </Badge>
+            );
         default:
-            return null;
+            return (
+                <Badge className={`${baseClasses} bg-gray-100 text-gray-800 border-gray-200`}>
+                    <Activity className="h-3 w-3 mr-1" />
+                    Active
+                </Badge>
+            );
     }
+};
+
+const getPriorityIndicator = (priority) => {
+    switch (priority) {
+        case "high":
+            return <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />;
+        case "medium":
+            return <div className="w-2 h-2 bg-yellow-500 rounded-full" />;
+        case "low":
+            return <div className="w-2 h-2 bg-green-500 rounded-full" />;
+        default:
+            return <div className="w-2 h-2 bg-gray-400 rounded-full" />;
+    }
+};
+
+const getActivityColorClasses = (type, color) => {
+    const colorMap = {
+        'blue': 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+        'green': 'bg-green-50 border-green-200 hover:bg-green-100',
+        'purple': 'bg-purple-50 border-purple-200 hover:bg-purple-100',
+        'orange': 'bg-orange-50 border-orange-200 hover:bg-orange-100',
+        'red': 'bg-red-50 border-red-200 hover:bg-red-100',
+        'yellow': 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100',
+        'emerald': 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100',
+        'pink': 'bg-pink-50 border-pink-200 hover:bg-pink-100'
+    };
+    
+    return colorMap[color] || 'bg-gray-50 border-gray-200 hover:bg-gray-100';
 };
 
 const ActivityFeed = ({
@@ -91,140 +168,197 @@ const ActivityFeed = ({
     title = "Recent Activities",
     maxItems = 10,
 }) => {
-    const displayActivities = activities; //activities.slice(0, maxItems);
-
-    //const { links } = usePage().props; // Get pagination links
+    const displayActivities = activities.slice(0, maxItems);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
-        if (displayActivities) {
-            //console.log(displayActivities);
+        console.log('ActivityFeed - Activities received:', activities);
+        console.log('ActivityFeed - Display activities:', displayActivities);
+        if (displayActivities && displayActivities.length > 0) {
+            console.log('First activity sample:', displayActivities[0]);
         }
-    }, [displayActivities]);
+    }, [activities, displayActivities]);
 
     const [isOpen, setIsOpen] = useState(false);
-
     const [appointDatas, setAppointDatas] = useState({});
-    //const [appointmentkey, setAppKey] = useState(null);
+
     const openModal = (data) => {
         setIsOpen(true);
         setAppointDatas(data);
     };
 
-    // useEffect(() => {
-    //     console.log("datas: ", appointDatas);
-    // }, [appointDatas]);
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        // Simulate refresh
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 1000);
+    };
+
+    const handleActivityClick = (activity) => {
+        if (activity.action_url) {
+            window.open(activity.action_url, '_blank');
+        }
+    };
 
     return (
-        <Card className="w-full bg-white border-r-4 border-r-primary">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-xl font-semibold">{title}</CardTitle>
+        <Card className="w-full bg-white/80 backdrop-blur-sm border-0 shadow-xl">
+            <CardHeader className="pb-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-bold flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-white/20">
+                            <Activity className="h-6 w-6" />
+                        </div>
+                        {title}
+                    </CardTitle>
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            className="text-white hover:bg-white/20"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        </Button>
+                        <div className="flex items-center gap-2 text-white/80">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-sm font-medium">Live</span>
+                        </div>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent>
-                <ScrollArea className="h-[300px] pr-4">
-                    <div className="space-y-4">
-                        {displayActivities.length < 1 && <div>No Record</div>}
-                        {displayActivities.map((activity, i) => (
-                            <div key={i} className="relative">
-                                <div className="flex items-start gap-4">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent">
-                                        {/* {getActivityIcon(activity.type, activity.status)} */}
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                        <div className="flex items-center justify-between">
-                                            <p className="text-sm font-medium">
-                                                {activity.data.title}
-                                            </p>
-                                            <div className="flex items-center gap-2">
-                                                {/* {getStatusBadge(activity.status)} */}
-                                                {activity.data.type ==
-                                                    "new_appointment" && (
-                                                    <PrimaryButton
-                                                        onClick={() => {
-                                                            //setIsOpen(true);
-                                                            openModal({
-                                                                primaryKey:
-                                                                    activity
-                                                                        .data
-                                                                        .key,
-                                                            });
-                                                        }}
-                                                    >
-                                                        Reschedule
-                                                    </PrimaryButton>
+            <CardContent className="p-0">
+                <ScrollArea className="h-[500px] w-full">
+                    <div className="p-6 space-y-4">
+                        {displayActivities.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="p-4 rounded-full bg-gray-100 mb-4">
+                                    <Activity className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-600 mb-2">No Recent Activities</h3>
+                                <p className="text-sm text-gray-500">Activities will appear here as they happen</p>
+                            </div>
+                        ) : (
+                            displayActivities.map((activity, i) => {
+                                // Fallback data if activity structure is incomplete
+                                const safeActivity = {
+                                    id: activity.id || `activity_${i}`,
+                                    type: activity.type || 'default',
+                                    title: activity.title || 'System Activity',
+                                    description: activity.description || 'Activity occurred in the system',
+                                    timestamp: activity.timestamp || new Date(),
+                                    icon: activity.icon || 'Activity',
+                                    status: activity.status || 'completed',
+                                    color: activity.color || 'blue',
+                                    priority: activity.priority || 'low',
+                                    action_url: activity.action_url || null,
+                                    action_text: activity.action_text || null,
+                                    badge_text: activity.badge_text || null,
+                                    time_ago: activity.time_ago || moment(activity.timestamp).fromNow()
+                                };
+
+                                return (
+                                    <div 
+                                        key={safeActivity.id} 
+                                        className={`group relative p-4 rounded-xl border-2 transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer ${getActivityColorClasses(safeActivity.type, safeActivity.color)}`}
+                                        onClick={() => handleActivityClick(safeActivity)}
+                                    >
+                                        <div className="flex items-start gap-4">
+                                            {/* Icon with priority indicator */}
+                                            <div className="relative">
+                                                <div className="p-3 rounded-xl bg-white shadow-sm border">
+                                                    {getActivityIcon(safeActivity.type, safeActivity.status)}
+                                                </div>
+                                                {safeActivity.priority && (
+                                                    <div className="absolute -top-1 -right-1">
+                                                        {getPriorityIndicator(safeActivity.priority)}
+                                                    </div>
                                                 )}
-                                                <span className="text-xs text-muted-foreground">
-                                                    {moment(
-                                                        activity.created_at
-                                                    ).format("h:mm A")}
-                                                </span>
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div className="flex-1">
+                                                        <h4 className="text-sm font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                                            {safeActivity.title}
+                                                        </h4>
+                                                        <p className="text-sm text-gray-600 leading-relaxed">
+                                                            {safeActivity.description}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 ml-4">
+                                                        {getStatusBadge(safeActivity.status, safeActivity.priority)}
+                                                        {safeActivity.badge_text && (
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {safeActivity.badge_text}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Footer */}
+                                                <div className="flex items-center justify-between mt-3">
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                        <Clock className="h-3 w-3" />
+                                                        <span>{safeActivity.time_ago}</span>
+                                                    </div>
+                                                    
+                                                    {safeActivity.action_text && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-xs h-7 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleActivityClick(safeActivity);
+                                                            }}
+                                                        >
+                                                            {safeActivity.action_text}
+                                                            <ArrowRight className="h-3 w-3 ml-1" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            {/* description here */}
-                                            {activity.data.message}
-                                        </p>
 
-                                        {/* {activity.user && (
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <Avatar className="h-6 w-6">
-                                                    {activity.user.avatar ? (
-                                                        <AvatarImage
-                                                            src={
-                                                                activity.user
-                                                                    .avatar
-                                                            }
-                                                            alt={
-                                                                activity.user
-                                                                    .name
-                                                            }
-                                                        />
-                                                    ) : (
-                                                        <AvatarFallback className="text-xs">
-                                                            {activity.user.name
-                                                                .split(" ")
-                                                                .map(
-                                                                    (n) => n[0]
-                                                                )
-                                                                .join("")}
-                                                        </AvatarFallback>
-                                                    )}
-                                                </Avatar>
-                                                <span className="text-xs">
-                                                    <span className="font-medium">
-                                                        {activity.user.name}
-                                                    </span>
-                                                    <span className="text-muted-foreground">
-                                                        {" "}
-                                                        · {activity.user.role}
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {activity.actionLabel && (
-                                            <div className="mt-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 text-xs"
-                                                >
-                                                    {activity.actionLabel}
-                                                </Button>
-                                            </div>
-                                        )} */}
+                                        {/* Hover effect line */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 rounded-b-xl" />
                                     </div>
-                                </div>
-                                <Separator className="my-4" />
-                            </div>
-                        ))}
+                                );
+                            })
+                        )}
                     </div>
                 </ScrollArea>
             </CardContent>
-            <Reschedule
-                maxWidth="lg"
-                isOpen={isOpen}
-                datas={appointDatas}
-                onClose={() => setIsOpen(false)}
+
+            {/* Footer */}
+            {displayActivities.length > 0 && (
+                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-lg">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Sparkles className="h-4 w-4 text-yellow-500" />
+                            <span>Showing {displayActivities.length} recent activities</span>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => window.open('/admin/activities', '_blank')}
+                        >
+                            View All
+                            <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Reschedule Modal */}
+            <Reschedule 
+                isOpen={isOpen} 
+                onClose={() => setIsOpen(false)} 
+                appointmentData={appointDatas} 
             />
         </Card>
     );
