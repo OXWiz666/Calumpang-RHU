@@ -197,16 +197,26 @@ const Services = ({ services_ }) => {
   //     setIsServiceDeleteModalOpen(false);
   // };
 
+  const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
+
+  const [selectedService, setSelectedService] = useState(null);
+  const [expandedService, setExpandedService] = useState(false);
+  const [IsEditDaysOpen, setIsEditDaysOpen] = useState(false);
+
   useEffect(() => {
     setServices(services_);
 
     console.log("services: ", services_);
   }, [services_]);
 
-  const [isServiceDialogOpen, setIsServiceDialogOpen] = useState(false);
-
-  const [selectedService, setSelectedService] = useState(null);
-  const [expandedService, setExpandedService] = useState(false);
+  // Handle selectedService changes for Edit Days modal
+  useEffect(() => {
+    if (selectedService && IsEditDaysOpen) {
+      console.log("Setting form data for service:", selectedService);
+      setDataDays("days", selectedService?.servicedays?.map((sub) => sub.day) || []);
+      setDataDays("serviceid", selectedService?.id);
+    }
+  }, [selectedService, IsEditDaysOpen]);
 
   // New service form state
   const [newService, setNewService] = useState({
@@ -562,8 +572,6 @@ const Services = ({ services_ }) => {
     subservicename: "",
   });
 
-  const [IsEditDaysOpen, setIsEditDaysOpen] = useState(false);
-
   const {
     data: dataDays,
     setData: setDataDays,
@@ -571,11 +579,16 @@ const Services = ({ services_ }) => {
     processing: processDays,
     errors: errorsDays,
   } = useForm({
-    days: newSubService.recurrenceDates,
-    serviceid: selectedServiceID,
+    days: [],
+    serviceid: "",
   });
 
   const saveDays = () => {
+    console.log("Saving days with data:", dataDays);
+    if (!dataDays.serviceid) {
+      showToast("Error", "Service ID is required", "error");
+      return;
+    }
     postDays(route("admin.services.days.update"), {
       preserveScroll: true,
       preserveState: true,
@@ -585,6 +598,9 @@ const Services = ({ services_ }) => {
         setIsEditDaysOpen(false);
         showToast("Success!", "Successfully Updated!", "success");
       },
+      onError: (errors) => {
+        console.log("Save days errors:", errors);
+      }
     });
   };
 
@@ -933,13 +949,16 @@ const Services = ({ services_ }) => {
                 <Table>
                   <TableHeader>
                         <TableRow className="bg-gray-50 hover:bg-gray-50">
-                          <SortableTableHead className="w-12">
+                          <SortableTableHead className="w-12 text-center">
                             <input
                               type="checkbox"
                               checked={selectedServices.length === paginatedServices.length && paginatedServices.length > 0}
                               onChange={handleSelectAll}
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
+                          </SortableTableHead>
+                          <SortableTableHead sortKey="servicename" sortable className="font-semibold text-gray-900 w-12 text-center">
+                            <span className="sr-only">Expand</span>
                           </SortableTableHead>
                           <SortableTableHead sortKey="servicename" sortable className="font-semibold text-gray-900">
                         Service Name
@@ -949,7 +968,7 @@ const Services = ({ services_ }) => {
                       </SortableTableHead>
                           <SortableTableHead className="font-semibold text-gray-900">Available Days</SortableTableHead>
                           <SortableTableHead className="font-semibold text-gray-900">Sub Services</SortableTableHead>
-                          <SortableTableHead className="font-semibold text-gray-900 text-right">Actions</SortableTableHead>
+                          <SortableTableHead className="font-semibold text-gray-900">Actions</SortableTableHead>
                     </TableRow>
                   </TableHeader>
 
@@ -957,7 +976,7 @@ const Services = ({ services_ }) => {
                     {sortedData.map((service, i) => (
                       <React.Fragment key={i}>
                             <TableRow className="hover:bg-gray-50 transition-colors">
-                          <TableCell>
+                          <TableCell className="text-center">
                             <input
                               type="checkbox"
                               checked={selectedServices.includes(service.id)}
@@ -965,7 +984,7 @@ const Services = ({ services_ }) => {
                               className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="text-center">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1009,8 +1028,8 @@ const Services = ({ services_ }) => {
                                   </Badge>
                               </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                          <TableCell>
+                            <div className="flex gap-2">
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -1407,29 +1426,33 @@ const Services = ({ services_ }) => {
                                 open={IsEditDaysOpen}
                                 onOpenChange={(open) => {
                                   setIsEditDaysOpen(open);
-                                  if (open) {
+                                  if (open && selectedService) {
             setDataDays("days", selectedService?.servicedays?.map((sub) => sub.day) || []);
             setDataDays("serviceid", selectedService?.id);
+          } else if (!open) {
+            // Reset form when closing
+            setDataDays("days", []);
+            setDataDays("serviceid", "");
           }
         }}
       >
         <DialogContent className="max-w-md">
                                   <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
+            <DialogTitle className="text-xl font-semibold text-center">
               Edit Available Days
                                     </DialogTitle>
-                                    <DialogDescription>
+                                    <DialogDescription className="text-center">
               Select the days when this service is available
                                     </DialogDescription>
                                   </DialogHeader>
-                                  <div className="grid gap-4 py-4">
-            <div className="space-y-3">
-              <Label>Available Days</Label>
-              <div className="flex flex-wrap gap-2">
+                                  <div className="grid gap-6 py-4">
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Available Days</Label>
+              <div className="grid grid-cols-2 gap-3">
                                       {days_.map((day) => (
                                         <Badge
                                           key={day}
-                    className={`cursor-pointer transition-colors ${
+                    className={`cursor-pointer transition-colors text-center py-2 px-4 ${
                                             dataDays.days.includes(day)
                         ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -1443,8 +1466,8 @@ const Services = ({ services_ }) => {
             </div>
                                     {Object.keys(errorsDays).length > 0 && (
                                       <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
-                                        <div className="flex items-center">
-                  <Cross2Icon className="h-5 w-5 text-red-400 mr-3" />
+                                        <div className="flex items-start">
+                  <Cross2Icon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
                                             <ul className="text-sm text-red-600">
                     {Object.entries(errorsDays).map(([key, error]) => (
                                                   <li key={key}>{error}</li>
@@ -1454,11 +1477,11 @@ const Services = ({ services_ }) => {
                                       </div>
                                     )}
                                   </div>
-                                  <DialogFooter>
+                                  <DialogFooter className="flex justify-center">
                                     <Button
               onClick={saveDays}
                                       disabled={processDays}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-8"
                                     >
               {processDays ? "Saving..." : "Save Days"}
                                     </Button>
