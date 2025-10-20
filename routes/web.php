@@ -10,8 +10,10 @@ use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\ServicesController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Pharmacist\InventoryReportsController;
 use App\Http\Controllers\Pharmacist\PharmacistController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SecureAuthController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
@@ -90,8 +92,8 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     Route::get('/appointments',[PatientController::class,'appointments'])->name('patient.appoint');
     //Route::get('/dashboard/test', [TestDbControllerrr::class, 'index'])->name('dashboard.test');
 
-    // Appointment creation route for guests
-    Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create');
+    // Appointment creation route for guests (exempt from CSRF for API calls)
+    Route::post('/appointment/create',[PatientController::class,'storeAppointment'])->name('patient.appoint.create')->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
     
     // Clear appointment session data
     Route::post('/clear-appointment-session', function() {
@@ -124,7 +126,6 @@ Route::middleware(['auth','Patient'])->group(function(){
         Route::get('/profile',[PatientController::class,'profile'])->name('patient.profile');
         Route::post('/profile/update',[PatientController::class,'update'])->name('patient.profile.update');
         Route::post('/profile/avatar',[PatientController::class,'uploadAvatar'])->name('patient.avatar.upload');
-        Route::get('/medical-records',[PatientController::class,'medicalrecords'])->name('patient.medrecords');
 
         Route::get('/appointments/history',[PatientController::class,'appointmentshistory'])->name('patient.appoint.history');
         ## Appointment
@@ -199,11 +200,14 @@ Route::middleware(['auth','Admin'])->group(function(){
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
         Route::post('/reports/generate',[ReportsController::class,'generateReport'])->name('admin.reports.generate');
+        Route::get('/reports/test-data',[ReportsController::class,'testData'])->name('admin.reports.test-data');
+        Route::get('/reports/test-pdf',[ReportsController::class,'testPDF'])->name('admin.reports.test-pdf');
         Route::get('/reports/templates',[ReportsController::class,'getReportTemplates'])->name('admin.reports.templates');
         Route::post('/reports/schedule',[ReportsController::class,'scheduleReport'])->name('admin.reports.schedule');
         Route::get('/reports/scheduled',[ReportsController::class,'getScheduledReports'])->name('admin.reports.scheduled');
         Route::post('/reports/toggle-schedule',[ReportsController::class,'toggleSchedule'])->name('admin.reports.toggle-schedule');
         Route::delete('/reports/schedule/{id}',[ReportsController::class,'deleteSchedule'])->name('admin.reports.delete-schedule');
+
 
         Route::prefix('programs')->group(function(){
             Route::get('/',[HealthProgramsController::class,'index'])->name('admin.programs');
@@ -222,7 +226,12 @@ Route::middleware(['auth','Admin'])->group(function(){
         Route::post('/archive',[StaffController::class,'archiveStaff'])->name('admin.staff.archive');
             Route::post('/unarchive',[StaffController::class,'unarchiveStaff'])->name('admin.staff.unarchive');
             
-            // Staff Update Routes
+            // Staff Edit Routes (GET)
+            Route::get('/admins/{id}/edit',[StaffController::class,'editAdmin'])->name('admin.staff.edit');
+            Route::get('/doctors/{id}/edit',[StaffController::class,'editDoctor'])->name('doctor.staff.edit');
+            Route::get('/pharmacists/{id}/edit',[StaffController::class,'editPharmacist'])->name('pharmacist.staff.edit');
+            
+            // Staff Update Routes (PUT)
             Route::put('/admins/{id}',[StaffController::class,'updateAdmin'])->name('admin.update');
             Route::put('/doctors/{id}',[StaffController::class,'updateDoctor'])->name('doctor.update');
             Route::put('/pharmacists/{id}',[StaffController::class,'updatePharmacist'])->name('pharmacist.update');
@@ -270,7 +279,6 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
         Route::get('/patients',[PatientsController::class,'index'])->name('patients.index');
-        Route::post('/patients/add-medical/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
         Route::post('/patients/add-prescription/{patientid}',[PatientsController::class,'storePrescription'])->name('patients.prescription.store');
         //add_medical_rec(Request $request, User $patientid)
 
@@ -280,7 +288,6 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //Route::resource('patients',PatientsController::class);
         //Route::get('auth/patients',[PatientsController::class,'index'])->name('admin.patients.index');
 
-        Route::post('/patients/add_medical_record/{patientid}',[PatientsController::class,'add_medical_rec'])->name('patients.medicalrec.store');
 
         Route::post('/settings/pw/update',[SettingsController::class,'changePw'])->name('admin.settings.pw.update');
 
@@ -321,7 +328,17 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
     Route::prefix('pharmacist')->group(function () {
         Route::get('/dashboard', [PharmacistController::class, 'dashboard'])->name('pharmacist.dashboard');
         Route::get('/inventory', [PharmacistController::class, 'inventory'])->name('pharmacist.inventory.index');
-        Route::get('/reports', [PharmacistController::class, 'reports'])->name('pharmacist.reports');
+        Route::get('/reports', [InventoryReportsController::class, 'index'])->name('pharmacist.reports');
+        Route::post('/reports/generate', [InventoryReportsController::class, 'generateReport'])->name('pharmacist.reports.generate');
+        Route::get('/inventory-reports/dashboard-analytics', [InventoryReportsController::class, 'dashboardAnalytics'])->name('pharmacist.reports.analytics');
+        
+        // Individual report endpoints for easy frontend integration
+        Route::get('/inventory-reports/summary', [InventoryReportsController::class, 'summary'])->name('pharmacist.reports.summary');
+        Route::get('/inventory-reports/expiry', [InventoryReportsController::class, 'expiry'])->name('pharmacist.reports.expiry');
+        Route::get('/inventory-reports/dispensing', [InventoryReportsController::class, 'dispensing'])->name('pharmacist.reports.dispensing');
+        Route::get('/inventory-reports/low-stock-alert', [InventoryReportsController::class, 'lowStockAlert'])->name('pharmacist.reports.low-stock-alert');
+        Route::get('/inventory-reports/expired-batches', [InventoryReportsController::class, 'expiredBatches'])->name('pharmacist.reports.expired-batches');
+        Route::get('/inventory-reports/custom', [InventoryReportsController::class, 'custom'])->name('pharmacist.reports.custom');
         Route::get('/settings', [PharmacistController::class, 'settings'])->name('pharmacist.settings');
         
         // Inventory management routes
@@ -329,6 +346,7 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
             Route::post('/category/add', [PharmacistController::class, 'add_category'])->name('pharmacist.inventory.category.add');
             Route::post('/item/add', [PharmacistController::class, 'add_item'])->name('pharmacist.inventory.item.add');
             Route::put('/item/update/{inventory}', [PharmacistController::class, 'update_item'])->name('pharmacist.inventory.item.update');
+            Route::post('/item/add-batch', [PharmacistController::class, 'add_batch'])->name('pharmacist.inventory.item.add-batch');
                 Route::put('/item/archive/{inventory}', [PharmacistController::class, 'archive_item'])->name('pharmacist.inventory.item.archive');
                 Route::put('/item/unarchive/{inventory}', [PharmacistController::class, 'unarchive_item'])->name('pharmacist.inventory.item.unarchive');
                 Route::post('/item/dispense', [PharmacistController::class, 'dispense_item'])->name('pharmacist.inventory.dispense');

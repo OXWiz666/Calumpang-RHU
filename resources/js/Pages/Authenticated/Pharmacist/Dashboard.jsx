@@ -102,7 +102,7 @@ export default function PharmacistDashboard({
             bgColor: "bg-amber-50",
         },
         {
-            title: "Expiring Soon",
+            title: "Expiring Soon Items",
             value: stats.expiringSoon?.toString() || "0",
             change: `${trendChanges.expiringSoonChange >= 0 ? '+' : ''}${trendChanges.expiringSoonChange || 0}%`,
             changeType: trendChanges.expiringSoonChange >= 0 ? "positive" : "negative",

@@ -12,6 +12,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
+use App\Models\servicetypes;
 use App\Events\SendNotification;
 use App\Notifications\SystemNotification;
 use App\Services\ActivityLogger;
@@ -22,11 +23,15 @@ class AppointmentsController extends Controller
     // Controller methods for appointments
     public function index(){
         $appointments = appointments::whereNull('user_id')
-            ->with(['service', 'subservice'])
+            ->with([
+                'service', 
+                'subservice', 
+                'user:id,firstname,lastname,email,contactno'
+            ])
             ->select([
                 'id', 'reference_number', 'user_id', 'firstname', 'lastname', 'middlename', 
                 'email', 'phone', 'date', 'time', 'servicetype_id', 'subservice_id', 
-                'notes', 'status', 'priority_number', 'created_at',
+                'notes', 'status', 'priority_number', 'created_at', 'doctor_id',
                 // Patient profile fields
                 'date_of_birth', 'gender', 'civil_status', 'nationality', 'religion',
                 'country', 'region', 'province', 'city', 'barangay', 'street', 
@@ -36,8 +41,15 @@ class AppointmentsController extends Controller
             ->paginate(10);
         
         
+        // Get active services for the Purpose filter
+        $activeServices = servicetypes::where('status', 1)
+            ->select('id', 'servicename')
+            ->orderBy('servicename')
+            ->get();
+
         return Inertia::render('Authenticated/Admin/Appointments',[
-            'appointments_' => $appointments
+            'appointments_' => $appointments,
+            'activeServices' => $activeServices
         ]);
     }
     public function history(){

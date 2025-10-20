@@ -12,17 +12,23 @@ class inventory extends Model
         "manufacturer",
         "description",
         "unit_type",
-        "minimum_stock",
-        "maximum_stock",
         "storage_location",
         "batch_number",
         "expiry_date",
         "category_id",
         "stock_id",
-        "status"
+        "status",
+        "created_at",
+        "updated_at"
     ];
     protected $table = "inventory";
-    public $timestamps = false;
+    public $timestamps = true;
+    
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'expiry_date' => 'date',
+    ];
 
 
     public function category(){
@@ -34,7 +40,7 @@ class inventory extends Model
     }
 
     public function stock(){
-        return $this->belongsTo(istocks::class,"stock_id");
+        return $this->hasOne(istocks::class,"inventory_id");
     }
 
     public function istocks(){

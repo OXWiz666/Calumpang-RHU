@@ -312,8 +312,10 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                         <SelectValue placeholder={loadingBatches ? "Loading batches..." : "Select a batch number"} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {availableBatches.map((batch) => (
-                                            <SelectItem key={batch.batch_number} value={batch.batch_number}>
+                                        {availableBatches
+                                            .filter(batch => batch.batch_number && batch.batch_number !== 'new_batch' && batch.batch_number !== 'N/A')
+                                            .map((batch, index) => (
+                                            <SelectItem key={`batch-${batch.batch_number}-${index}`} value={batch.batch_number}>
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{batch.batch_number}</span>
                                                     {batch.expiry_date && (

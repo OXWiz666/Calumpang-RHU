@@ -12,7 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('istock_movements', function (Blueprint $table) {
-            $table->timestamps();
+            if (!Schema::hasColumn('istock_movements', 'created_at')) {
+                $table->timestamp('created_at')->nullable();
+            }
+            if (!Schema::hasColumn('istock_movements', 'updated_at')) {
+                $table->timestamp('updated_at')->nullable();
+            }
         });
     }
 

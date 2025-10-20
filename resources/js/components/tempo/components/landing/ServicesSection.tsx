@@ -34,12 +34,6 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
     console.log('loadingStates:', loadingStates);
 
     // Button handler functions
-    const handleGetConsultation = () => {
-        // Navigate to contact page for consultation requests
-        console.log('Navigating to contact page...');
-        window.location.href = '/contact';
-    };
-
     const handleViewSchedule = () => {
         // Navigate to seasonal programs/vaccination schedule
         console.log('Navigating to vaccination registration...');
@@ -72,15 +66,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                         }
                     }
                     break;
-                case 1: // Health Consultation Services
-                    if (action === 'consultation') {
-                        console.log('Getting consultation...');
-                        // Add a small delay for better UX
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        handleGetConsultation();
-                    }
-                    break;
-                case 2: // Seasonal Health Programs
+                case 1: // Seasonal Health Programs
                     if (action === 'schedule') {
                         console.log('Viewing schedule...');
                         // Add a small delay for better UX
@@ -105,30 +91,20 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
             title: "Online Appointment Booking",
             description: "Schedule medical consultations, check-ups, and other health services online without the need to visit the health center in person.",
             features: ["24/7 Online Booking", "Real-time Availability", "Fast Confirmation", "SMS & Email Reminders"],
-            color: "from-blue-500 to-blue-600",
-            bgColor: "bg-blue-50",
-            iconColor: "text-blue-600",
-            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
-        },
-        {
-            icon: FileText,
-            title: "Health Consultation Services",
-            description: "Connect with qualified healthcare professionals for online consultations, health advice, and medical guidance from the comfort of your home.",
-            features: ["Online Consultations", "Health Advice", "Medical Guidance", "Remote Care"],
-            color: "from-green-500 to-green-600",
-            bgColor: "bg-green-50",
-            iconColor: "text-green-600",
-            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+            color: "from-gray-100 to-gray-200",
+            bgColor: "bg-white",
+            iconColor: "text-gray-600",
+            buttonColor: "bg-gray-900 text-white hover:bg-gray-800 shadow-lg hover:shadow-xl"
         },
         {
             icon: Clock,
             title: "Seasonal Health Programs",
             description: "Stay informed about our seasonal health programs, vaccination drives, and other community health initiatives.",
             features: ["Program Schedules", "Vaccination Tracking", "Health Alerts", "Community Updates"],
-            color: "from-purple-500 to-purple-600",
-            bgColor: "bg-purple-50",
-            iconColor: "text-purple-600",
-            buttonColor: "bg-white border-2 border-gray-800 text-gray-800 hover:bg-gray-800 hover:text-white"
+            color: "from-gray-100 to-gray-200",
+            bgColor: "bg-white",
+            iconColor: "text-gray-600",
+            buttonColor: "bg-gray-900 text-white hover:bg-gray-800 shadow-lg hover:shadow-xl"
         }
     ];
 
@@ -138,7 +114,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                 {/* Header */}
                 <div className="text-center mb-16">
                     <div className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-full text-sm font-medium mb-4">
-                        <Star className="w-4 h-4 mr-2" />
+                        <Star className="w-4 h-4 mr-2 text-gray-600" />
                         Trusted Digital Healthcare
                     </div>
                     <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">
@@ -149,29 +125,27 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                     </p>
                 </div>
 
-                {/* Services Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* Services Grid - Centered for 2 services */}
+                <div className="flex justify-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl">
                     {(services || serviceData).map((service, index) => {
                         const Icon = service.icon;
                         return (
                             <div
                                 key={index}
-                                className={`group relative bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 flex flex-col h-full ${
-                                    hoveredCard === index ? 'ring-4 ring-blue-200' : ''
+                                className={`group relative bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden transition-all duration-500 hover:shadow-xl hover:-translate-y-2 flex flex-col h-full ${
+                                    hoveredCard === index ? 'ring-2 ring-gray-300 shadow-xl' : ''
                                 }`}
                                 onMouseEnter={() => setHoveredCard(index)}
                                 onMouseLeave={() => setHoveredCard(null)}
                             >
                                 {/* Card Header */}
-                                <div className={`${service.bgColor} p-8 relative overflow-hidden`}>
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -translate-y-16 translate-x-16"></div>
-                                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
-                                    
+                                <div className="bg-gray-50 p-8 relative">
                                     <div className="relative z-10">
-                                        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-lg mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                                        <div className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-sm border border-gray-200 mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                             <Icon className={`w-8 h-8 ${service.iconColor}`} />
                                         </div>
-                                        <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors duration-300">
+                                        <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-gray-700 transition-colors duration-300">
                                             {service.title}
                                         </h3>
                                         <p className="text-gray-600 leading-relaxed">
@@ -196,22 +170,38 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                                             <div className="flex items-center justify-between mb-2">
                                                 <span className="text-sm font-medium text-gray-700">Service Efficiency</span>
                                                 <span className="text-sm text-gray-500">
-                                                    {index === 0 ? '95%' : index === 1 ? '88%' : '92%'}
+                                                    {index === 0 ? '95%' : '92%'}
                                                 </span>
                                             </div>
                                             <div className="w-full bg-gray-200 rounded-full h-2">
                                                 <div 
-                                                    className="h-2 rounded-full bg-gradient-to-r from-gray-500 to-gray-600 transition-all duration-1000 ease-out"
+                                                    className="h-2 rounded-full bg-gray-900 transition-all duration-1000 ease-out"
                                                     style={{ 
-                                                        width: index === 0 ? '95%' : index === 1 ? '88%' : '92%' 
+                                                        width: index === 0 ? '95%' : '92%' 
                                                     }}
                                                 ></div>
                                             </div>
                                         </div>
+
+                                        {/* Yellow Accent Note */}
+                                        {index === 0 && (
+                                            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
+                                                <p className="text-sm text-yellow-800 font-medium">
+                                                    Note: Available 24/7 for emergency appointments
+                                                </p>
+                                            </div>
+                                        )}
+                                        {index === 1 && (
+                                            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-200 rounded-lg">
+                                                <p className="text-sm text-yellow-800 font-medium">
+                                                    Note: Check our calendar for upcoming vaccination schedules
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* CTA Button */}
-                                    <div className="pt-4 border-t border-gray-100 mt-auto">
+                                    <div className="pt-6 border-t border-gray-100 mt-auto">
                                         {index === 0 ? (
                                             <button
                                                 onClick={(e) => {
@@ -220,16 +210,16 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                                                     handleServiceClick(index, 'book', e);
                                                 }}
                                                 disabled={isInAppointmentSession || loadingStates[index]}
-                                                className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
+                                                className={`w-full inline-flex items-center justify-center px-8 py-4 text-sm font-semibold rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
                                                     isInAppointmentSession || loadingStates[index]
-                                                        ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
+                                                        ? 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-50' 
                                                         : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
                                                 }`}
                                                 title={isInAppointmentSession ? 'You are already in an appointment session' : 'Book an appointment'}
                                             >
                                                 {loadingStates[index] ? (
                                                     <>
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                                         Loading...
                                                     </>
                                                 ) : (
@@ -239,33 +229,6 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                                                     </>
                                                 )}
                                             </button>
-                                          ) : index === 1 ? (
-                                              <button
-                                                  onClick={(e) => {
-                                                      e.preventDefault();
-                                                      e.stopPropagation();
-                                                      handleServiceClick(index, 'consultation');
-                                                  }}
-                                                  disabled={loadingStates[index]}
-                                                  className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
-                                                      loadingStates[index] 
-                                                          ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
-                                                          : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
-                                                  }`}
-                                                  title="Get health consultation services"
-                                              >
-                                                  {loadingStates[index] ? (
-                                                      <>
-                                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                                                          Loading...
-                                                      </>
-                                                  ) : (
-                                                      <>
-                                                          Get Consultation
-                                                          <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-                                                      </>
-                                                  )}
-                                              </button>
                                         ) : (
                                             <button
                                                 onClick={(e) => {
@@ -274,16 +237,16 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                                                     handleServiceClick(index, 'schedule');
                                                 }}
                                                 disabled={loadingStates[index]}
-                                                className={`w-full inline-flex items-center justify-center px-6 py-3 text-sm font-medium border-2 rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
+                                                className={`w-full inline-flex items-center justify-center px-8 py-4 text-sm font-semibold rounded-xl transition-all duration-300 cursor-pointer relative z-10 ${
                                                     loadingStates[index] 
-                                                        ? 'text-gray-400 border-gray-300 cursor-not-allowed opacity-50' 
+                                                        ? 'text-gray-400 bg-gray-200 cursor-not-allowed opacity-50' 
                                                         : service.buttonColor + ' group-hover:scale-105 hover:shadow-lg'
                                                 }`}
                                                 title="View seasonal health program schedules"
                                             >
                                                 {loadingStates[index] ? (
                                                     <>
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                                         Loading...
                                                     </>
                                                 ) : (
@@ -302,6 +265,7 @@ const ServicesSection: React.FC<ServicesSectionProps> = ({
                             </div>
                         );
                     })}
+                    </div>
                 </div>
 
             </div>

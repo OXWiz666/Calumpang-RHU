@@ -380,7 +380,9 @@ const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti 
                     <div>
                         <Label className="text-sm font-medium">Available Batches</Label>
                         <div className="mt-2 space-y-2">
-                            {(Array.isArray(availableBatches) ? availableBatches : []).map((batch, index) => {
+                            {(Array.isArray(availableBatches) ? availableBatches : [])
+                                .filter(batch => batch.batch_number && batch.batch_number !== 'new_batch' && batch.batch_number !== 'N/A')
+                                .map((batch, index) => {
                                 const expiryStatus = getExpiryStatus(batch.expiry_date);
                                 return (
                                     <motion.div
@@ -409,7 +411,7 @@ const BatchDisposalModal = ({ open, onClose, item, multi = false, itemsForMulti 
                                                         <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${expiryStatus.bgColor} ${expiryStatus.color}`}>
                                                             {expiryStatus.icon}
                                                             {expiryStatus.status === "expired" ? "Expired" : 
-                                                             expiryStatus.status === "expiring" ? "Expiring Soon" : "Valid"}
+                                                             expiryStatus.status === "expiring" ? "Expiring Soon Items" : "Valid"}
                                                         </div>
                                                     </div>
                                                     <div className="text-sm text-gray-600">

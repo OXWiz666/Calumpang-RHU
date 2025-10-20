@@ -19,5 +19,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        // Seed inventory data - commented out to prevent hardcoded data
+        // $this->call([
+        //     InventorySeeder::class,
+        // ]);
     }
 }

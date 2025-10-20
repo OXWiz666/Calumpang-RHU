@@ -125,20 +125,20 @@ const AppointmentForm = ({
                 console.error('Error parsing reschedule data:', error);
             }
         }
-        // Handle existing patient mode (fields should be editable)
+        // Handle existing patient mode (fields should be locked)
         else if (existingPatientData && patientType === 'existing') {
             try {
                 const patientData = JSON.parse(existingPatientData);
                 setIsExistingPatientMode(true);
                 
-                // Pre-fill form with existing patient data (all fields editable)
+                // Pre-fill form with existing patient data (all fields locked)
                 setFormData(prev => ({
                     ...(typeof prev === 'object' && prev !== null ? prev : {}),
                     firstname: patientData.firstname || '',
                     middlename: patientData.middlename || '',
                     lastname: patientData.lastname || '',
                     email: patientData.email || '',
-                    phone: patientData.phone || '',
+                    phone: patientData.phone ? String(patientData.phone) : '',
                     gender: patientData.gender || '',
                     birth: patientData.date_of_birth || '',
                     civil_status: patientData.civil_status || '',
@@ -163,7 +163,10 @@ const AppointmentForm = ({
                     subservicename: '',
                 }));
                 
-                // Existing patient mode activated - all fields editable
+                // Lock form for existing patients
+                setIsFormLocked(true);
+                
+                // Existing patient mode activated - all fields locked
             } catch (error) {
                 console.error('Error parsing existing patient data:', error);
             }
@@ -244,7 +247,7 @@ const AppointmentForm = ({
                 middlename: user.middlename ?? "",
                 lastname: user.lastname,
                 email: user.email,
-                phone: user.contactno ?? "",
+                phone: user.contactno ? String(user.contactno) : "",
                 servicename: "",
                 service: "",
                 gender: user.gender,
@@ -287,7 +290,7 @@ const AppointmentForm = ({
                         middlename: patientData.middlename || "",
                         lastname: patientData.lastname || "",
                         email: patientData.email || "",
-                        phone: patientData.phone || "",
+                        phone: patientData.phone ? String(patientData.phone) : "",
                         gender: patientData.sex || "",
                         birth: patientData.birthdate || "",
                         servicename: "",
@@ -327,7 +330,7 @@ const AppointmentForm = ({
                             middlename: patientInfo.middlename || "",
                             lastname: patientInfo.lastname || "",
                             email: patientInfo.email || "",
-                            phone: patientInfo.phone || "",
+                            phone: patientInfo.phone ? String(patientInfo.phone) : "",
                             gender: patientInfo.sex || "",
                             birth: patientInfo.birthdate || "",
                             servicename: "",
@@ -401,8 +404,8 @@ const AppointmentForm = ({
 
         // Special handling for phone number
         if (name === "phone") {
-            // Allow only numbers and + character
-            const cleanedValue = value.replace(/[^0-9+]/g, "");
+            // Allow only numbers and + character, ensure it's a string
+            const cleanedValue = String(value).replace(/[^0-9+]/g, "");
             setFormData((prev) => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [name]: cleanedValue }));
         } else {
             setFormData((prev) => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), [name]: value }));
@@ -477,9 +480,15 @@ const AppointmentForm = ({
     //     console.log("time:", formData.time?.toString().trim(), "wew");
     // }, [formData.time]);
 
+    // Helper function to determine if personal fields should be disabled
+    const shouldDisablePersonalFields = () => {
+        // Disable personal fields in reschedule mode, not in existing patient mode
+        return isRescheduleMode && !isExistingPatientMode;
+    };
+
     // Helper function to determine if service fields should be disabled
     const shouldDisableServiceFields = () => {
-        // Only disable service fields in reschedule mode, not in existing patient mode
+        // Only disable service fields in reschedule mode, not in existing patient or new patient mode
         return isRescheduleMode && !isExistingPatientMode;
     };
 
@@ -508,9 +517,13 @@ const AppointmentForm = ({
 
     // Handle appointment submission with verification
     const handleAppointmentSubmit = async (data) => {
+        // Ensure phone is a string before calling trim
+        const phoneValue = data.phone ? String(data.phone) : '';
+        const emailValue = data.email ? String(data.email) : '';
+        
         // Determine verification method based on available contact info
-        const hasEmail = data.email && data.email.trim() !== '';
-        const hasPhone = data.phone && data.phone.trim() !== '';
+        const hasEmail = emailValue && emailValue.trim() !== '';
+        const hasPhone = phoneValue && phoneValue.trim() !== '';
         
         if (!hasEmail && !hasPhone) {
             setValidationError('Please provide either email or phone number for verification');
@@ -533,15 +546,21 @@ const AppointmentForm = ({
     };
 
     // Handle successful verification
-    const handleVerificationSuccess = async () => {
+    const handleVerificationSuccess = async (verifiedAppointmentData) => {
         console.log('Verification successful! Creating appointment...');
         console.log('Pending appointment data:', pendingAppointmentData);
+        console.log('Verified appointment data from modal:', verifiedAppointmentData);
         
         setShowVerificationModal(false);
         
         // Now create the appointment in the database after successful verification
         try {
             console.log('Sending appointment creation request...');
+            
+            // Use verified appointment data if available, otherwise fall back to pending data
+            const appointmentDataToSend = verifiedAppointmentData || pendingAppointmentData;
+            console.log('Using appointment data:', appointmentDataToSend);
+            
             const response = await fetch(route("patient.appoint.create"), {
                 method: 'POST',
                 headers: {
@@ -550,7 +569,7 @@ const AppointmentForm = ({
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(pendingAppointmentData)
+                body: JSON.stringify(appointmentDataToSend)
             });
 
             console.log('Response status:', response.status);
@@ -601,6 +620,58 @@ const AppointmentForm = ({
                 localStorage.setItem('confirmed_appointment_data', JSON.stringify(newFormData));
                 console.log('Stored appointment data in localStorage:', newFormData);
                 
+                // Send appointment confirmation email if patient has email
+                if (newFormData.email && newFormData.email.trim() !== '') {
+                    try {
+                        console.log('Sending appointment confirmation email to:', newFormData.email);
+                        const emailResponse = await fetch('/api/sms/send-appointment-email', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                appointment_data: {
+                                    email: newFormData.email,
+                                    firstname: newFormData.firstname,
+                                    lastname: newFormData.lastname,
+                                    date: newFormData.date,
+                                    time: newFormData.time,
+                                    service_name: newFormData.servicename,
+                                    subservice_name: newFormData.subservicename,
+                                    priority_number: newFormData.priorityNumber,
+                                    appointment_id: newFormData.id,
+                                    phone: newFormData.phone,
+                                    date_of_birth: newFormData.date_of_birth
+                                }
+                            })
+                        });
+                        
+                        const emailResult = await emailResponse.json();
+                        if (emailResult.success) {
+                            console.log('Appointment confirmation email sent successfully');
+                            // Show success message to user
+                            if (window.toast) {
+                                window.toast.success('Appointment confirmation email sent successfully!');
+                            }
+                        } else {
+                            console.warn('Failed to send appointment confirmation email:', emailResult.message);
+                            // Show warning to user but don't block appointment creation
+                            if (window.toast) {
+                                window.toast.warning('Appointment created but email confirmation failed. Please check your email settings.');
+                            }
+                        }
+                    } catch (emailError) {
+                        console.error('Error sending appointment confirmation email:', emailError);
+                        // Show error to user but don't block appointment creation
+                        if (window.toast) {
+                            window.toast.error('Appointment created but email confirmation failed. Please contact support if needed.');
+                        }
+                    }
+                } else {
+                    console.log('No email address provided, skipping email confirmation');
+                }
+                
                 // Also update the form data
                 setFormData(newFormData);
                 // Update URL to show confirmation state
@@ -648,7 +719,7 @@ const AppointmentForm = ({
                         <div>
                             <h3 className="text-lg font-semibold text-orange-900">Reschedule Appointment</h3>
                             <p className="text-sm text-orange-700">
-                                You are rescheduling your appointment. Service type and sub-service are locked, but you can change the date and time.
+                                You are rescheduling your appointment. Personal information and service type are locked. You can change the sub-service, date, and time.
                             </p>
                         </div>
                     </div>
@@ -698,8 +769,9 @@ const AppointmentForm = ({
                             id="firstname"
                             name="firstname"
                             value={formData.firstname}
+                            onChange={handleChange}
                             placeholder="Your First Name"
-                            disabled={isFormLocked}
+                            disabled={isFormLocked || shouldDisablePersonalFields()}
                             required
                         />
                         <InputError message={errors.firstname} />
@@ -710,8 +782,9 @@ const AppointmentForm = ({
                             id="middlename"
                             name="middlename"
                             value={formData.middlename}
+                            onChange={handleChange}
                             placeholder="N/A"
-                            disabled={isFormLocked}
+                            disabled={isFormLocked || shouldDisablePersonalFields()}
                             required
                         />
                         <InputError message={errors.middlename} />
@@ -722,8 +795,9 @@ const AppointmentForm = ({
                             id="lastname"
                             name="lastname"
                             value={formData.lastname}
+                            onChange={handleChange}
                             placeholder="Your Last Name"
-                            disabled={isFormLocked}
+                            disabled={isFormLocked || shouldDisablePersonalFields()}
                             required
                         />
                         <InputError message={errors.lastname} />
@@ -738,8 +812,9 @@ const AppointmentForm = ({
                             name="email"
                             type="email"
                             value={formData.email}
+                            onChange={handleChange}
                             placeholder="juan@example.com"
-                            disabled={isFormLocked}
+                            disabled={isFormLocked || shouldDisablePersonalFields()}
                         />
                         <InputError message={errors.email} />
                     </div>
@@ -752,7 +827,7 @@ const AppointmentForm = ({
                             value={formData.phone}
                             onChange={handleChange}
                             placeholder="+63 912 345 6789"
-                            disabled={isFormLocked}
+                            disabled={isFormLocked || shouldDisablePersonalFields()}
                         />
                         <InputError message={errors.phone} />
                     </div>
@@ -788,7 +863,7 @@ const AppointmentForm = ({
                                         type="date"
                                         value={formData.date_of_birth}
                                         onChange={handleChange}
-                                        disabled={isFormLocked}
+                                        disabled={isFormLocked || shouldDisablePersonalFields()}
                                     />
                                 </div>
                                 <div>
@@ -796,7 +871,7 @@ const AppointmentForm = ({
                                     <Select
                                         value={formData.gender}
                                         onValueChange={(value) => handleInputChange("gender", value)}
-                                        disabled={isFormLocked}
+                                        disabled={isFormLocked || shouldDisablePersonalFields()}
                                     >
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select gender" />
@@ -813,7 +888,7 @@ const AppointmentForm = ({
                                     <Select
                                         value={formData.civil_status}
                                         onValueChange={(value) => handleInputChange("civil_status", value)}
-                                        disabled={isFormLocked}
+                                        disabled={isFormLocked || shouldDisablePersonalFields()}
                                     >
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select status" />
@@ -839,7 +914,7 @@ const AppointmentForm = ({
                                         value={formData.nationality}
                                         onChange={handleChange}
                                         placeholder="e.g., Filipino"
-                                        disabled={isFormLocked}
+                                        disabled={isFormLocked || shouldDisablePersonalFields()}
                                     />
                                 </div>
                                 <div>
@@ -850,7 +925,7 @@ const AppointmentForm = ({
                                         value={formData.religion}
                                         onChange={handleChange}
                                         placeholder="e.g., Catholic"
-                                        disabled={isFormLocked}
+                                        disabled={isFormLocked || shouldDisablePersonalFields()}
                                     />
                                 </div>
                             </div>
@@ -859,7 +934,7 @@ const AppointmentForm = ({
                             <PhilippinesAddressLookup
                                 formData={formData}
                                 setFormData={setFormData}
-                                isDisabled={isFormLocked}
+                                isDisabled={isFormLocked || shouldDisablePersonalFields()}
                                 showStreet={true}
                                 showZipCode={true}
                             />
@@ -872,7 +947,7 @@ const AppointmentForm = ({
                         <Select
                             value={formData.service?.toString()} // Ensure string value
                             onValueChange={(selectedId) => {
-                                if (shouldDisableServiceFields()) return; // Prevent changes only in reschedule mode
+                                if (shouldDisableServiceFields()) return; // Prevent changes in all modes
                                 
                                 const service = serviceLookup[selectedId];
                                 if (service) {
@@ -929,7 +1004,7 @@ const AppointmentForm = ({
                         <Select
                             value={formData.subservice?.toString()} // Ensure string value
                             onValueChange={(selectedId) => {
-                                if (shouldDisableServiceFields()) return; // Prevent changes only in reschedule mode
+                                if (shouldDisableServiceFields()) return; // Prevent changes in all modes
                                 
                                 const subservice = subServiceLookup[selectedId];
 
@@ -1083,7 +1158,7 @@ const AppointmentForm = ({
             </div>
 
                 <div className="space-y-4">
-                {usePage().props.auth.user ? (
+                {usePage().props.auth.user && !isExistingPatientMode ? (
                     <Button 
                         onClick={(e) => {
                             e.preventDefault();
@@ -1133,9 +1208,61 @@ const AppointmentForm = ({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                 </svg>
                                 <span>
-                                    {isRescheduleMode && !isExistingPatientMode ? 'Reschedule Appointment' : 
-                                     isExistingPatientMode ? 'Book New Appointment' : 'Schedule Appointment'}
+                                    {isRescheduleMode && !isExistingPatientMode ? 'Reschedule Appointment' : 'Schedule Appointment'}
                                 </span>
+                            </div>
+                        )}
+                    </Button>
+                ) : isExistingPatientMode ? (
+                    <Button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Validate required fields before showing verification modal
+                            const requiredFields = ['firstname', 'lastname', 'service', 'date', 'time'];
+                            const missingFields = requiredFields.filter(field => !formData[field] || formData[field].toString().trim() === '');
+                            
+                            if (missingFields.length > 0) {
+                                // Show error message for missing fields
+                                const fieldNames = {
+                                    'firstname': 'First Name',
+                                    'lastname': 'Last Name', 
+                                    'service': 'Service Type',
+                                    'date': 'Appointment Date',
+                                    'time': 'Appointment Time'
+                                };
+                                const missingFieldNames = missingFields.map(field => fieldNames[field] || field);
+                                setValidationError(`Please fill in the following required fields: ${missingFieldNames.join(', ')}`);
+                                
+                                // Scroll to top to show error
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                return;
+                            }
+                            
+                            // Clear any previous errors
+                            setValidationError("");
+                            
+                            // All required fields are filled, start verification process
+                            handleAppointmentSubmit(formData);
+                        }}
+                        disabled={processing} 
+                        className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        {processing ? (
+                            <div className="flex items-center space-x-2">
+                                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Processing...</span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span>Book New Appointment</span>
                             </div>
                         )}
                     </Button>
