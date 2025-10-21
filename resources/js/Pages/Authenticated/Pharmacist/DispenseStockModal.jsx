@@ -5,7 +5,7 @@ import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/tempo/components/ui/select";
-import { useForm } from "@inertiajs/react";
+import { router, useForm } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import jsPDF from 'jspdf';
 // import "@/echo"; // Commented out - not needed for basic functionality
@@ -1359,16 +1359,19 @@ const DispenseStockModal = ({ open, onClose, item }) => {
         console.log('Submitting to route:', '/pharmacist/inventory/dispense');
         
         // Submit the dispense request
-        post('/pharmacist/inventory/dispense', dispenseData, {
+        post(route('pharmacist.inventory.dispense'), dispenseData, {
             onSuccess: () => {
                 console.log('=== MANUAL DISPENSE SUCCESSFUL ===');
                 onClose();
                 resetForm();
                 // Refresh the page to update inventory data
-                window.location.reload();
+                router.reload({
+                    only: ['pharmacist.inventory.index']
+                })
+                //window.location.reload();
             },
             onError: (errors) => {
-                console.error('=== MANUAL DISPENSE ERROR ===', errors);
+                console.log('=== MANUAL DISPENSE ERROR ===', errors);
                 setValidationErrors(errors);
             }
         });
