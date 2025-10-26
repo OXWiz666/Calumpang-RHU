@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import axios from "axios";
 import InputError from "@/components/InputError";
 import { motion } from "framer-motion";
@@ -162,7 +162,7 @@ const HealthPrograms = ({
     flash,
     activePrograms = 0,
     archivedPrograms = 0,
-    todayAppointments = 0,
+    todayParticipants = 0,
     totalParticipants = 0,
 }) => {
     const [localPrograms, setLocalPrograms] = useState(programs);
@@ -433,27 +433,11 @@ const HealthPrograms = ({
         setIsLoading(true);
         post(route("admin.programs.create"), {
             preserveScroll: true,
-            onSuccess: (response) => {
+            onSuccess: () => {
                 reset();
                 setIsCreateDialogOpen(false);
                 setIsLoading(false);
-
-                // Manually update the local programs list with the new data
-                if (response?.props?.flash?.programs) {
-                    setLocalPrograms(response.props.flash.programs);
-                } else {
-                    // If no programs in response, fetch the latest programs
-                    axios
-                        .get(route("admin.programs.fetch"))
-                        .then((res) => {
-                            if (res.data.programs) {
-                                setLocalPrograms(res.data.programs);
-                            }
-                        })
-                        .catch((err) =>
-                            console.error("Error fetching programs:", err)
-                        );
-                }
+                // The backend will redirect to the programs page with updated data
             },
             onError: () => {
                 setIsLoading(false);
@@ -483,28 +467,12 @@ const HealthPrograms = ({
         setIsLoading(true);
         put(route("admin.programs.update", selectedProgram.id), {
             preserveScroll: true,
-            onSuccess: (response) => {
+            onSuccess: () => {
                 resetEdit();
                 setIsEditDialogOpen(false);
                 setIsLoading(false);
                 setSelectedProgram(null);
-
-                // Update local programs list
-                if (response?.props?.flash?.programs) {
-                    setLocalPrograms(response.props.flash.programs);
-                } else {
-                    // Fetch latest programs
-                    axios
-                        .get(route("admin.programs.fetch"))
-                        .then((res) => {
-                            if (res.data.programs) {
-                                setLocalPrograms(res.data.programs);
-                            }
-                        })
-                        .catch((err) =>
-                            console.error("Error fetching programs:", err)
-                        );
-                }
+                // The backend will redirect to the programs page with updated data
             },
             onError: () => {
                 setIsLoading(false);
@@ -583,14 +551,14 @@ const HealthPrograms = ({
                 {/* Statistics Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     <StatisticCard
-                        title="Today's Appointments"
-                        value={todayAppointments}
-                        description="Scheduled for today"
-                        icon={<Calendar className="h-6 w-6" />}
+                        title="Today's Participants"
+                        value={todayParticipants}
+                        description="Registered for today"
+                        icon={<Users className="h-6 w-6" />}
                         iconBgColor="bg-blue-100"
                         iconColor="text-blue-600"
                         trend="up"
-                        change={{ value: todayAppointments, isPositive: true }}
+                        change={{ value: todayParticipants, isPositive: true }}
                     />
 
                     <StatisticCard
@@ -644,14 +612,6 @@ const HealthPrograms = ({
                                     </CardDescription>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Button
-                                        variant="outline"
-                                        className="flex items-center gap-2 border-2 hover:bg-gray-50"
-                                        onClick={handleExport}
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        Export
-                                    </Button>
                     <Dialog
                         open={isCreateDialogOpen}
                         onOpenChange={setIsCreateDialogOpen}
@@ -726,6 +686,7 @@ const HealthPrograms = ({
                                             onChange={(e) =>
                                                 setData("date", e.target.value)
                                             }
+                                            min={new Date().toISOString().split('T')[0]}
                                         />
                                         {errors.date && (
                                             <InputError message={errors.date} />
@@ -842,38 +803,6 @@ const HealthPrograms = ({
                                         {errors.coordinatorid && (
                                             <InputError
                                                 message={errors.coordinatorid}
-                                            />
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <label className="text-sm font-medium">
-                                            Status
-                                        </label>
-                                        <Select
-                                            value={data.status}
-                                            onValueChange={(value) =>
-                                                setData("status", value)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Available">
-                                                    Available
-                                                </SelectItem>
-                                                <SelectItem value="Full">
-                                                    Full
-                                                </SelectItem>
-                                                <SelectItem value="Cancelled">
-                                                    Cancelled
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {errors.status && (
-                                            <InputError
-                                                message={errors.status}
                                             />
                                         )}
                                     </div>
@@ -1081,8 +1010,8 @@ const HealthPrograms = ({
                                                             <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl text-blue-700 font-semibold">
                                                                 {program.name.charAt(0).toUpperCase()}
                                                 </div>
-                                                <div>
-                                                                <div className="font-semibold text-gray-900">
+                                                <div className="min-w-0 flex-1 max-w-[200px]">
+                                                                <div className="font-semibold text-gray-900 truncate">
                                                         {program.name}
                                                     </div>
                                                                 <div className="text-sm text-gray-500">
@@ -1092,32 +1021,32 @@ const HealthPrograms = ({
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                                        <div className="max-w-xs">
-                                                            <p className="text-sm text-gray-700 line-clamp-2">
+                                                        <div className="max-w-[300px]">
+                                                            <p className="text-sm text-gray-700 line-clamp-2 truncate">
                                                 {program.description}
                                                             </p>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Calendar className="h-4 w-4 text-gray-400" />
-                                                            <span className="text-sm font-medium">
+                                                        <div className="flex items-center gap-2 max-w-[120px]">
+                                                            <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm font-medium truncate">
                                                                 {new Date(program.date).toLocaleDateString()}
                                                             </span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Clock3 className="h-4 w-4 text-gray-400" />
-                                                            <span className="text-sm">
+                                                        <div className="flex items-center gap-2 max-w-[150px]">
+                                                            <Clock3 className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm truncate">
                                                                 {program.startTime} - {program.endTime}
                                                             </span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <MapPin className="h-4 w-4 text-gray-400" />
-                                                            <span className="text-sm">
+                                                        <div className="flex items-center gap-2 max-w-[250px]">
+                                                            <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm truncate">
                                                 {program.location}
                                                             </span>
                                             </div>
@@ -1136,9 +1065,9 @@ const HealthPrograms = ({
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <UserIcon className="h-4 w-4 text-gray-400" />
-                                                            <span className="text-sm font-medium">
+                                                        <div className="flex items-center gap-2 max-w-[180px]">
+                                                            <UserIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                                            <span className="text-sm font-medium truncate">
                                                 {program.coordinator}
                                                             </span>
                                             </div>
@@ -1508,6 +1437,7 @@ const HealthPrograms = ({
                                         type="date"
                                         value={editData.date}
                                         onChange={(e) => setEditData("date", e.target.value)}
+                                        min={new Date().toISOString().split('T')[0]}
                                     />
                                     {editErrors.date && (
                                         <InputError message={editErrors.date} />

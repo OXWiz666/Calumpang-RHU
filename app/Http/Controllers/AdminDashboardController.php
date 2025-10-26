@@ -76,15 +76,32 @@ class AdminDashboardController extends Controller
             ->where('expiry_date', '>=', now())
             ->count();
         
-        // Get real staff data
-        $totalStaff = User::whereIn('roleID', ['1', '6', '7'])->count(); // Doctor, Pharmacist, Admin
-        $activeStaff = User::whereIn('roleID', ['1', '6', '7'])
-            ->where('status', 'active')
+        // Get real staff data - use same logic as Staff Statistics
+        $admins = User::where('roleID', '7')->count();
+        $doctorsWithDetails = User::where('roleID', '1')
+            ->whereHas('doctor_details')
             ->count();
+        $pharmacists = User::where('roleID', '6')->count();
+        
+        $totalStaff = $admins + $doctorsWithDetails + $pharmacists;
+        
+        // Count active staff using same logic
+        $activeAdmins = User::where('roleID', '7')
+            ->where('status', 1)
+            ->count();
+        $activeDoctors = User::where('roleID', '1')
+            ->whereHas('doctor_details')
+            ->where('status', 1)
+            ->count();
+        $activePharmacists = User::where('roleID', '6')
+            ->where('status', 1)
+            ->count();
+        
+        $activeStaff = $activeAdmins + $activeDoctors + $activePharmacists;
         $staffOnLeave = $totalStaff - $activeStaff;
         
         // Get real program data
-        $activePrograms = program_schedules::where('status', 'Active')->count();
+        $activePrograms = program_schedules::where('status', 'Available')->count();
         $totalPrograms = program_schedules::count();
         
         // Get real prescription data

@@ -112,11 +112,9 @@ const AppointmentForm = ({
                     province_id: appointmentData.province_id || null,
                     city_id: appointmentData.city_id || null,
                     barangay_id: appointmentData.barangay_id || null,
-                    // Keep service and subservice from original appointment (will be locked)
-                    // We need to find the actual IDs for the service and sub-service
-                    service: '', // Will be set after services are loaded
+                    service: '', 
                     servicename: appointmentData.last_service || '',
-                    subservice: '', // Will be set after sub-services are loaded
+                    subservice: '', 
                     subservicename: appointmentData.last_subservice || '',
                 }));
                 
@@ -208,11 +206,11 @@ const AppointmentForm = ({
                             }));
                             
                             // Set the times array for this sub-service
-                            setTimesArr(matchingSubService.times);
+                            setTimesArr(matchingSubService.time_slots);
                             
                             // If there's a time in the reschedule data, try to match it
                             if (rescheduleData.last_time) {
-                                const matchingTime = matchingSubService.times.find(t => 
+                                const matchingTime = matchingSubService.time_slots.find(t => 
                                     moment(t.time, "HH:mm:ss").format("hh:mm A") === rescheduleData.last_time
                                 );
                                 if (matchingTime) {
@@ -393,10 +391,84 @@ const AppointmentForm = ({
 
 
 
+    // Function to fetch subservices with date-specific availability
+    const fetchSubServices = (serviceId, selectedDate = null) => {
+        if (!serviceId) return;
+        
+        const dateParam = selectedDate || formData.date || new Date().toISOString().split('T')[0];
+        const url = `/services/get-sub-services/${serviceId}?date=${dateParam}`;
+        
+        console.log('Fetching subservices for service:', serviceId, 'date:', dateParam);
+        console.log('URL:', url);
+        
+        fetch(url)
+            .then((resp) => {
+                console.log('Response status:', resp.status);
+                console.log('Response ok:', resp.ok);
+                return resp.json();
+            })
+            .then((data) => {
+                console.log('Subservices data received:', data);
+                console.log('Data type:', typeof data);
+                console.log('Data length:', Array.isArray(data) ? data.length : 'Not an array');
+                setSubServices(data);
+                
+                // Update times array if we have subservices
+                if (data && data.length > 0) {
+                    console.log('All subservices received:', data);
+                    
+                    // Find the currently selected subservice and update its times
+                    const currentSubservice = data.find(s => s.id.toString() === formData.subservice?.toString());
+                    console.log('Current subservice found:', currentSubservice);
+                    console.log('Looking for subservice ID:', formData.subservice);
+                    
+                       if (currentSubservice && currentSubservice.time_slots) {
+                           console.log('Setting times array:', currentSubservice.time_slots);
+                           console.log('Times array length:', currentSubservice.time_slots.length);
+                           setTimesArr(currentSubservice.time_slots);
+                       } else {
+                           console.log('No times found for current subservice');
+                           console.log('Current subservice time_slots property:', currentSubservice?.time_slots);
+                           setTimesArr([]);
+                       }
+                } else {
+                    console.log('No subservices data received');
+                    setTimesArr([]);
+                }
+            })
+            .catch((error) => {
+                console.error('Error fetching sub-services:', error);
+                console.error('Error details:', error.message);
+                console.error('Error stack:', error.stack);
+                setTimesArr([]);
+            });
+    };
+
     // Separate handler for date changes
     const handleDateChange = (date) => {
-        //setDate(date);
-        setFormData((prev) => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), date }));
+        console.log('handleDateChange received date:', date);
+        console.log('date type:', typeof date);
+        console.log('date instanceof Date:', date instanceof Date);
+        
+        // Convert date to YYYY-MM-DD string using local timezone to avoid timezone issues
+        let dateString;
+        if (date instanceof Date) {
+            // Use local timezone formatting to avoid UTC conversion
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            dateString = `${year}-${month}-${day}`;
+        } else {
+            dateString = date;
+        }
+        console.log('converted dateString:', dateString);
+        
+        setFormData((prev) => ({ ...(typeof prev === 'object' && prev !== null ? prev : {}), date: dateString }));
+        
+        // Refresh time slots when date changes to get updated availability
+        if (formData.service) {
+            fetchSubServices(formData.service, dateString);
+        }
     };
 
     const handleChange = (e) => {
@@ -428,6 +500,8 @@ const AppointmentForm = ({
         "10:30 AM",
         "11:00 AM",
         "11:30 AM",
+        "12:00 PM",
+        "12:30 PM",
         "01:00 PM",
         "01:30 PM",
         "02:00 PM",
@@ -435,7 +509,25 @@ const AppointmentForm = ({
         "03:00 PM",
         "03:30 PM",
         "04:00 PM",
+        "04:30 PM",
+        "05:00 PM",
     ];
+
+    // Function to determine slot availability status based on available slots
+    const getSlotAvailabilityStatus = (availableSlots, maxSlots) => {
+        // Calculate percentage of available slots
+        const availabilityPercentage = (availableSlots / maxSlots) * 100;
+        
+        if (availableSlots === 0) {
+            return { status: 'Full', color: 'red', icon: '✗' };
+        } else if (availableSlots <= 2) {
+            return { status: 'Limited', color: 'orange', icon: '!' };
+        } else if (availableSlots <= 5) {
+            return { status: 'Moderate', color: 'yellow', icon: '!' };
+        } else {
+            return { status: 'Available', color: 'green', icon: '✓' };
+        }
+    };
 
     // const services = [
     //     "General Consultation",
@@ -450,6 +542,51 @@ const AppointmentForm = ({
     const [subservices, setSubServices] = useState([]);
 
     const [timesArr, setTimesArr] = useState([]);
+    const [isRefreshingSlots, setIsRefreshingSlots] = useState(false);
+
+    // Function to refresh time slots after selection
+    const refreshTimeSlots = async () => {
+        if (!formData.subservice || !formData.date) return;
+        
+        setIsRefreshingSlots(true);
+        try {
+            const response = await fetch(`/services/get-sub-services/${formData.service}?date=${formData.date}`);
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                const subservice = data.find(s => s.id.toString() === formData.subservice?.toString());
+                if (subservice && subservice.time_slots) {
+                    setTimesArr(subservice.time_slots);
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing time slots:', error);
+        } finally {
+            setIsRefreshingSlots(false);
+        }
+    };
+
+    // Function to handle time slot selection with slot decrease
+    const handleTimeSlotSelection = async (timeId, timeValue) => {
+        if (isRefreshingSlots) return;
+        
+        const subserv = subServiceLookup[formData.subservice];
+        const selectedTime = subserv?.time_slots?.find((t) => t.id == timeId);
+        
+        if (selectedTime && selectedTime.available_slots === 0) {
+            setValidationError("This time slot is full. Please select another time.");
+            return;
+        }
+        
+        setValidationError("");
+        handleSelectChange("timeid", timeId ?? null);
+        handleSelectChange("time", timeValue ?? null);
+        
+        // Refresh time slots to show updated availability
+        setTimeout(() => {
+            refreshTimeSlots();
+        }, 500);
+    };
 
     const subServiceLookup = React.useMemo(() => {
         if (!Array.isArray(subservices) || subservices.length === 0) {
@@ -837,9 +974,9 @@ const AppointmentForm = ({
                 <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-800">Additional Patient Information (Optional)</h3>
+                            <h3 className="text-lg font-semibold text-gray-800">Additional Patient Information</h3>
                             <p className="text-sm text-gray-600 mt-1">
-                                This information will be automatically stored in your Patient Record for future appointments
+                                This information will be automatically stored in our Patient Record for future appointments
                             </p>
                         </div>
                         <button
@@ -962,16 +1099,11 @@ const AppointmentForm = ({
                                     handleSelectChange("subservicename", "");
                                     handleSelectChange("timeid", "");
                                     handleSelectChange("time", "");
-                                    //  handleSelectChange("customAttr", service.customAttribute);
-                                } // handleSelectChange("servicename", selectedService?.servicename || "");
 
-                                fetch(
-                                    `/services/get-sub-services/${selectedId}`
-                                )
-                                    .then((resp) => resp.json())
-                                    .then((data) => {
-                                        setSubServices(data);
-                                    });
+                                    // Fetch subservices for the selected service
+                                    console.log('Service selected, fetching subservices for service:', service.id);
+                                    fetchSubServices(service.id);
+                                }
                             }}
                             disabled={shouldDisableServiceFields()}
                         >
@@ -1008,12 +1140,7 @@ const AppointmentForm = ({
                                 
                                 const subservice = subServiceLookup[selectedId];
 
-                                setTimesArr(subservice?.times);
-                                // handleSelectChange({
-                                //     subservice: subservice.id,
-                                //     subservicename: subservice.subservicename,
-                                // });
-                                // Correct - call separately for each field
+                                // Set subservice data
                                 handleSelectChange(
                                     "subservice",
                                     subservice.id ?? null
@@ -1025,6 +1152,15 @@ const AppointmentForm = ({
 
                                 handleSelectChange("timeid", "");
                                 handleSelectChange("time", "");
+
+                                // Fetch fresh time slots with current date
+                                if (formData.date) {
+                                    console.log('Subservice selected, fetching fresh time slots for date:', formData.date);
+                                    fetchSubServices(formData.service, formData.date);
+                                } else {
+                                    console.log('Subservice selected, but no date selected yet');
+                                    setTimesArr(subservice?.time_slots || []);
+                                }
                             }}
                             disabled={shouldDisableServiceFields()}
                         >
@@ -1105,32 +1241,63 @@ const AppointmentForm = ({
                         <Select
                             value={formData.timeid}
                             onValueChange={(value) => {
-                                if (shouldDisableTimeField()) return; // Time field is always enabled
+                                if (shouldDisableTimeField() || isRefreshingSlots) return; // Time field is always enabled
                                 
-                                const subserv =
-                                    subServiceLookup[formData.subservice];
+                                const subserv = subServiceLookup[formData.subservice];
+                                
+                                // Find the selected time slot
+                                const selectedTime = subserv?.time_slots?.find((t) => t.id == value);
+                                
+                                // Check if the selected time slot has available slots
+                                if (selectedTime && selectedTime.available_slots === 0) {
+                                    // Set validation error for full slots
+                                    setValidationError("This time slot is full. Please select another time.");
+                                    return;
+                                }
+                                
+                                // Clear any previous validation errors
+                                setValidationError("");
+                                
                                 handleSelectChange("timeid", value ?? null);
-                                handleSelectChange(
-                                    "time",
-                                    moment(
-                                        subserv?.times?.find(
-                                            (t) => t.id == value
-                                        )?.time,
-                                        "HH:mm:ss"
-                                    ).format("hh:mm A") ?? null
-                                );
+                                handleSelectChange("time", selectedTime?.time ?? null);
+                                
+                                // Refresh time slots to show updated availability
+                                setTimeout(() => {
+                                    refreshTimeSlots();
+                                }, 500);
                             }}
-                            disabled={shouldDisableTimeField()}
+                            disabled={shouldDisableTimeField() || isRefreshingSlots}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Select time">
-                                    {formData.timeid ? (
+                                    {isRefreshingSlots ? (
                                         <div className="flex items-center">
-                                            <Clock className="mr-2 h-4 w-4" />
-                                            {moment(
-                                                formData.time,
-                                                "HH:mm:ss"
-                                            ).format("h:mm A")}
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                            <span className="text-gray-500">Updating slots...</span>
+                                        </div>
+                                    ) : formData.timeid ? (
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center">
+                                                <Clock className="mr-2 h-4 w-4" />
+                                                {formData.time ? moment(formData.time, "HH:mm:ss").format("h:mm A") : "Invalid time"}
+                                            </div>
+                                            {(() => {
+                                                const selectedTime = subServiceLookup[formData.subservice]?.time_slots?.find((t) => t.id == formData.timeid);
+                                                const availableSlots = selectedTime?.available_slots || 0;
+                                                const maxSlots = selectedTime?.max_slots || 5;
+                                                const availability = getSlotAvailabilityStatus(availableSlots, maxSlots);
+                                                
+                                                return (
+                                                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                        availability.color === 'green' ? 'bg-green-100 text-green-700' :
+                                                        availability.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                                                        availability.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+                                                        'bg-red-100 text-red-700'
+                                                    }`}>
+                                                        {availability.icon} {availableSlots}/{maxSlots}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     ) : (
                                         "Select time"
@@ -1138,21 +1305,109 @@ const AppointmentForm = ({
                                 </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                {timesArr.map((time, i) => (
-                                    <SelectItem key={time.id} value={time.id}>
-                                        {moment(time.time, "HH:mm:ss").format(
-                                            "h:mm A"
-                                        )}
-                                    </SelectItem>
-                                ))}
-                                {/* {timeSlots.map((time) => (
-                                    <SelectItem key={time} value={time}>
-                                        {time}
-                                    </SelectItem>
-                                ))} */}
+                                {isRefreshingSlots ? (
+                                    <div className="flex items-center justify-center p-4">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                                        <span className="text-gray-500">Updating slot availability...</span>
+                                    </div>
+                                ) : timesArr.length > 0 ? (
+                                    timesArr.map((time, i) => {
+                                        const availableSlots = time.available_slots || 0;
+                                        const maxSlots = time.max_slots || 5;
+                                        const availability = getSlotAvailabilityStatus(availableSlots, maxSlots);
+                                        const isFull = availableSlots === 0;
+                                        const isSelected = formData.timeid == time.id;
+                                        
+                                        return (
+                                            <SelectItem 
+                                                key={time.id} 
+                                                value={time.id}
+                                                disabled={isFull}
+                                                className={`${isFull ? "opacity-50 cursor-not-allowed" : ""} ${isSelected ? "bg-blue-50" : ""}`}
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Clock className={`h-4 w-4 ${isFull ? 'text-gray-400' : 'text-gray-500'}`} />
+                                                        <span className={`font-medium ${isFull ? 'text-gray-400' : ''}`}>
+                                                            {moment(time.time, "HH:mm:ss").format("h:mm A")}
+                                                            {isFull && " (Full)"}
+                                                            {isSelected && " (Selected)"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                                            availability.color === 'green' ? 'bg-green-100 text-green-700' :
+                                                            availability.color === 'yellow' ? 'bg-yellow-100 text-yellow-700' :
+                                                            availability.color === 'orange' ? 'bg-orange-100 text-orange-700' :
+                                                            'bg-red-100 text-red-700'
+                                                        }`}>
+                                                            <span>{availability.icon}</span>
+                                                            <span>{availableSlots}/{maxSlots}</span>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })
+           ) : (
+               <div className="flex flex-col items-center justify-center p-3 text-gray-500">
+                   <Clock className="h-3 w-3 mb-2 text-gray-400" />
+                   <span className="text-lg font-medium mb-2">No time slots available</span>
+               </div>
+           )}
                             </SelectContent>
                         </Select>
                         <InputError message={errors.time} />
+                        {validationError && (
+                            <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm text-red-800 font-medium">
+                                            {validationError}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Slot Availability Legend */}
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Slot Availability Legend</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center">
+                                        <span className="text-green-600 text-xs">✓</span>
+                                    </div>
+                                    <span className="text-gray-600">Available (6+ slots)</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-4 h-4 bg-yellow-100 rounded-full flex items-center justify-center">
+                                        <span className="text-yellow-600 text-xs">!</span>
+                                    </div>
+                                    <span className="text-gray-600">Moderate (3-5 slots)</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-4 h-4 bg-orange-100 rounded-full flex items-center justify-center">
+                                        <span className="text-orange-600 text-xs">!</span>
+                                    </div>
+                                    <span className="text-gray-600">Limited (1-2 slots)</span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <div className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center">
+                                        <span className="text-red-600 text-xs">✗</span>
+                                    </div>
+                                    <span className="text-gray-600">Full (0 slots)</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1183,6 +1438,20 @@ const AppointmentForm = ({
                                 // Scroll to top to show error
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                                 return;
+                            }
+                            
+                            // Check if selected time slot is full
+                            if (formData.timeid) {
+                                const subserv = subServiceLookup[formData.subservice];
+                                const selectedTime = subserv?.time_slots?.find((t) => t.id == formData.timeid);
+                                
+                                if (selectedTime && selectedTime.available_slots === 0) {
+                                    setValidationError("The selected time slot is full. Please choose another time.");
+                                    
+                                    // Scroll to top to show error
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    return;
+                                }
                             }
                             
                             // Clear any previous errors

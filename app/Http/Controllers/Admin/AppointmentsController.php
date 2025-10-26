@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 //use App\Models\Appointment;
 use App\Models\appointments;
+use App\Models\Appointment;
 use Exception;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,9 @@ class AppointmentsController extends Controller
             ->with([
                 'service', 
                 'subservice', 
-                'user:id,firstname,lastname,email,contactno'
+                'user:id,firstname,lastname,email,contactno',
+                'doctor:id,firstname,lastname,email,contactno',
+                'patient:id,patient_id,firstname,lastname'
             ])
             ->select([
                 'id', 'reference_number', 'user_id', 'firstname', 'lastname', 'middlename', 
@@ -58,7 +61,7 @@ class AppointmentsController extends Controller
         ]);
     }
     public function GetAppointment(appointments $appointment){
-        $appointment->load(['user','service','subservice']);
+        $appointment->load(['user','service','subservice','doctor','patient']);
         // Make sure all patient profile fields are included
         $appointmentData = $appointment->toArray();
         return response()->json($appointmentData);
@@ -66,7 +69,8 @@ class AppointmentsController extends Controller
 
     public function UpdateStatus(Request $request, appointments $appointment){
         $request->validate([
-            'status' => 'required|in:1,4,5'
+            'status' => 'required|in:1,4,5',
+            'reason' => 'nullable|string|max:500'
         ]);
 
         //dd($appointment);
@@ -97,6 +101,9 @@ class AppointmentsController extends Controller
                 'status' => $request->status
             ]);
 
+            // Update slot availability when appointment status changes
+            $this->updateSlotAvailability($appointment);
+
             $user = Auth::user();
             $mssg_forAdmins = "{$user->firstname} {$user->lastname} ({$user->role->roletype}) has {$stat} patient's appointment.";
 
@@ -104,10 +111,90 @@ class AppointmentsController extends Controller
 
             NotifSender::SendNotif(true,[$appointment->user_id],"{$user->firstname} {$user->lastname} ({$user->role->roletype}) has {$stat} your appointment.","Appointment Updated!",'admin_appointment_update');
 
+            // Send email notification for confirmed or declined appointments
+            if (($request->status == 4 || $request->status == 5) && $appointment->email && filter_var($appointment->email, FILTER_VALIDATE_EMAIL)) {
+                $this->sendAppointmentStatusEmail($appointment, $request->status, $request->reason ?? null);
+            }
+
+            // Send SMS notification for confirmed or declined appointments
+            if (($request->status == 4 || $request->status == 5) && $appointment->phone) {
+                $this->sendAppointmentStatusSMS($appointment, $request->status, $request->reason ?? null);
+            }
+
             DB::commit();
         }
         catch(\Exception $er){
             DB::rollBack();
+        }
+    }
+
+    /**
+     * Send appointment status email notification
+     */
+    private function sendAppointmentStatusEmail($appointment, $status, $reason = null)
+    {
+        try {
+            $patientName = $appointment->firstname . ' ' . $appointment->lastname;
+            $statusText = $status == 5 ? 'confirmed' : 'declined';
+            
+            $appointmentData = [
+                'date' => $appointment->date,
+                'time' => $appointment->time,
+                'service' => $appointment->service ? $appointment->service->servicename : 'General Consultation',
+                'referenceNumber' => $appointment->reference_number,
+                'priorityNumber' => $appointment->priority_number
+            ];
+
+            \Mail::to($appointment->email)->send(new \App\Mail\AppointmentStatusMail(
+                $patientName,
+                $appointmentData,
+                $statusText,
+                $reason
+            ));
+
+            \Log::info("Appointment status email sent", [
+                'email' => $appointment->email,
+                'status' => $statusText,
+                'appointment_id' => $appointment->id
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to send appointment status email', [
+                'email' => $appointment->email,
+                'status' => $status,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Send appointment status SMS notification
+     */
+    private function sendAppointmentStatusSMS($appointment, $status, $reason = null)
+    {
+        try {
+            $smsService = new \App\Services\SMSService();
+            $serviceName = $appointment->service ? $appointment->service->servicename : 'General Consultation';
+            $date = \Carbon\Carbon::parse($appointment->date)->format('M j, Y');
+            $time = \Carbon\Carbon::parse($appointment->time)->format('g:i A');
+            
+            if ($status == 5) { // Confirmed
+                $message = "RHU Calumpang: Your appointment is CONFIRMED. Ref: {$appointment->reference_number}. Date: {$date} at {$time}. Service: {$serviceName}. Priority: {$appointment->priority_number}. Please arrive 15 minutes early.";
+            } elseif ($status == 4) { // Declined
+                $reasonText = $reason ? " Reason: {$reason}." : "";
+                $message = "RHU Calumpang: Your appointment has been DECLINED. Ref: {$appointment->reference_number}.{$reasonText} Please contact us to reschedule.";
+            }
+            
+            $result = $smsService->sendSMS($appointment->phone, $message);
+            
+            if ($result['success']) {
+                \Log::info("Appointment status SMS sent to {$appointment->phone} for appointment #{$appointment->reference_number}");
+            } else {
+                \Log::warning("Failed to send appointment status SMS to {$appointment->phone} for appointment #{$appointment->reference_number}: " . $result['message']);
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error("Failed to send appointment status SMS: " . $e->getMessage());
         }
     }
 
@@ -244,5 +331,149 @@ class AppointmentsController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Add diagnosis to an appointment
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function addDiagnosis(Request $request)
+    {
+        $request->validate([
+            'appointment_id' => 'required|exists:appointments,id',
+            'diagnosis' => 'required|string|min:3',
+            'symptoms' => 'nullable|string',
+            'treatment_plan' => 'nullable|string',
+            'notes' => 'nullable|string',
+            'pertinent_findings' => 'nullable|string',
+        ]);
+
+        try {
+            DB::beginTransaction();
+            
+            $appointment = appointments::findOrFail($request->appointment_id);
+            
+            // Create medical record
+            $medicalRecord = \App\Models\MedicalRecord::create([
+                'patient_id' => null,
+                'appointment_id' => $appointment->id,
+                'doctor_id' => Auth::id(),
+                'diagnosis' => $request->diagnosis,
+                'symptoms' => $request->symptoms,
+                'treatment' => $request->treatment_plan,
+                'notes' => $request->notes,
+                'pertinent_findings' => $request->pertinent_findings,
+                'record_type' => 'consultation',
+                'vital_signs' => null,
+                'lab_results' => null,
+                'follow_up_date' => null,
+                'attachments' => null
+            ]);
+            
+            DB::commit();
+            
+            return response()->json([
+                'message' => 'Diagnosis added successfully',
+                'medical_record' => $medicalRecord
+            ], 200);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Failed to add diagnosis',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get diagnosis data for an appointment
+     * 
+     * @param int $appointmentId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDiagnosis($appointmentId)
+    {
+        try {
+            $appointment = appointments::with(['service', 'subservice', 'medicalRecord.doctor'])
+                ->findOrFail($appointmentId);
+
+            // Debug: Log the appointment and medical record
+            \Log::info('Appointment found:', [
+                'appointment_id' => $appointment->id,
+                'has_medical_record' => $appointment->medicalRecord ? 'yes' : 'no',
+                'medical_record_id' => $appointment->medicalRecord?->id
+            ]);
+
+            if (!$appointment->medicalRecord) {
+                // Try to find medical record directly
+                $medicalRecord = \App\Models\MedicalRecord::where('appointment_id', $appointmentId)->first();
+                
+                if ($medicalRecord) {
+                    \Log::info('Found medical record directly:', ['medical_record_id' => $medicalRecord->id]);
+                    return response()->json([
+                        'message' => 'Diagnosis retrieved successfully',
+                        'diagnosis' => $medicalRecord,
+                        'appointment' => $appointment
+                    ], 200);
+                }
+
+                return response()->json([
+                    'message' => 'No diagnosis found for this appointment',
+                    'diagnosis' => null,
+                    'appointment_id' => $appointmentId
+                ], 404);
+            }
+
+            return response()->json([
+                'message' => 'Diagnosis retrieved successfully',
+                'diagnosis' => $appointment->medicalRecord,
+                'appointment' => $appointment
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in getDiagnosis:', [
+                'appointment_id' => $appointmentId,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'message' => 'Failed to retrieve diagnosis',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Test endpoint to check medical records
+     */
+    public function testMedicalRecords()
+    {
+        try {
+            $medicalRecords = \App\Models\MedicalRecord::all();
+            $appointments = appointments::all();
+            
+            return response()->json([
+                'medical_records_count' => $medicalRecords->count(),
+                'appointments_count' => $appointments->count(),
+                'medical_records' => $medicalRecords,
+                'appointments' => $appointments
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update slot availability when appointments are created/updated
+     */
+    private function updateSlotAvailability($appointment)
+    {
+        // Clear any cached slot availability data
+        // This ensures the next time the services page loads, it will recalculate
+        \Cache::forget('slot_availability_' . $appointment->subservice_id . '_' . $appointment->date);
     }
 }

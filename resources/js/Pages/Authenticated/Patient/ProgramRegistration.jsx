@@ -245,11 +245,40 @@ const ProgramRegistration = ({ isOpen, onClose = () => {}, schedule }) => {
 
                 // Proceed with registration if no duplicates
                 post(route("patient.seasonal.join", { schedule: schedule.id }), {
-                    onSuccess: (res) => {
+                    onSuccess: (page) => {
+                        console.log('=== REGISTRATION DEBUG ===');
+                        console.log('Full page object:', page);
+                        console.log('Page props:', page.props);
+                        console.log('Page props keys:', Object.keys(page.props || {}));
+                        console.log('Registration ID from props:', page.props?.registration_id);
+                        console.log('Flash data:', page.props?.flash);
+                        console.log('Flash keys:', Object.keys(page.props?.flash || {}));
+                        console.log('Flash registration_id:', page.props?.flash?.registration_id);
+                        console.log('Participant data:', page.props?.participant_data);
+                        console.log('Participant registration_id:', page.props?.participant_data?.registration_id);
+                        
+                        // Check all possible locations including participant data
+                        const possibleIds = [
+                            page.props?.registration_id,
+                            page.props?.flash?.registration_id,
+                            page.props?.participant_data?.registration_id,
+                            page.registration_id,
+                            page.data?.registration_id,
+                            page.props?.session?.registration_id
+                        ];
+                        
+                        console.log('All possible Registration IDs:', possibleIds);
+                        
+                        // Find the first non-undefined value
+                        const registrationId = possibleIds.find(id => id !== undefined) || Date.now();
+                        
+                        console.log('Final Registration ID:', registrationId);
+                        console.log('=== END DEBUG ===');
+                        
                         // Store registration data for summary modal
                         setRegistrationData({
                             ...data,
-                            id: res.props?.registration_id || Date.now(), // Use response ID or fallback
+                            id: registrationId,
                         });
                         setFormSuccess("You have been registered for the program!");
                         // Show summary modal instead of closing immediately

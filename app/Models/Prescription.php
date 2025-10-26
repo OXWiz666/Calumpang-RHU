@@ -67,7 +67,8 @@ class Prescription extends Model
                     'date_of_birth' => $appointment->date_of_birth ?: 'N/A',
                     'age' => $age,
                     'gender' => $appointment->gender ?: 'N/A',
-                    'contact_number' => $appointment->phone ?: 'N/A'
+                    'contact_number' => $appointment->phone ?: 'N/A',
+                    'address' => $appointment->address ?: 'N/A'
                 ];
             }
         }
@@ -79,7 +80,8 @@ class Prescription extends Model
             'date_of_birth' => 'N/A',
             'age' => 'N/A',
             'gender' => 'N/A',
-            'contact_number' => 'N/A'
+            'contact_number' => 'N/A',
+            'address' => 'N/A'
         ];
     }
 

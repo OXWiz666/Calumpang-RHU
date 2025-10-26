@@ -9,16 +9,17 @@ class SMSService
 {
     private $apiToken;
     private $baseUrl;
+    private $senderName;
 
     public function __construct()
     {
         $this->apiToken = config('services.iprog_sms.api_token');
         $this->baseUrl = config('services.iprog_sms.base_url', 'https://sms.iprogtech.com/api/v1');
+        $this->senderName = config('services.iprog_sms.sender_name', 'Calumpang Rural Health Unit');
     }
 
     /**
      * Send OTP via IPROG SMS API
-     * TODO: Add rate limiting per phone number
      */
     public function sendOTP($phoneNumber, $message = null)
     {
@@ -31,6 +32,7 @@ class SMSService
             $data = [
                 'api_token' => $this->apiToken,
                 'phone_number' => $formattedPhone,
+                'sender_name' => $this->senderName
             ];
 
             // Add custom message if provided
@@ -40,7 +42,8 @@ class SMSService
 
             Log::info('Sending OTP via IPROG SMS API', [
                 'phone' => $formattedPhone,
-                'endpoint' => $endpoint
+                'endpoint' => $endpoint,
+                'custom_message' => $message ? 'Yes' : 'No'
             ]);
 
             $response = Http::timeout(30)
@@ -52,11 +55,11 @@ class SMSService
 
             $responseData = $response->json();
 
-
             if ($response->successful() && isset($responseData['status']) && $responseData['status'] === 'success') {
-                Log::info('OTP sent successfully', [
+                Log::info('OTP sent successfully via IPROG', [
                     'phone' => $formattedPhone,
-                    'response' => $responseData
+                    'response' => $responseData,
+                    'otp_code' => $responseData['data']['otp_code'] ?? 'N/A'
                 ]);
 
                 return [
@@ -65,7 +68,7 @@ class SMSService
                     'message' => $responseData['message'] ?? 'OTP sent successfully'
                 ];
             } else {
-                Log::error('Failed to send OTP', [
+                Log::error('Failed to send OTP via IPROG', [
                     'phone' => $formattedPhone,
                     'status' => $response->status(),
                     'response' => $responseData
@@ -79,7 +82,7 @@ class SMSService
             }
 
         } catch (\Exception $e) {
-            Log::error('SMS Service Exception', [
+            Log::error('IPROG OTP Service Exception', [
                 'phone' => $phoneNumber,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -110,7 +113,8 @@ class SMSService
 
             Log::info('Verifying OTP via IPROG SMS API', [
                 'phone' => $formattedPhone,
-                'endpoint' => $endpoint
+                'endpoint' => $endpoint,
+                'otp_code' => $otpCode
             ]);
 
             $response = Http::timeout(30)
@@ -122,9 +126,8 @@ class SMSService
 
             $responseData = $response->json();
 
-
             if ($response->successful() && isset($responseData['status']) && $responseData['status'] === 'success') {
-                Log::info('OTP verified successfully', [
+                Log::info('OTP verified successfully via IPROG', [
                     'phone' => $formattedPhone,
                     'response' => $responseData
                 ]);
@@ -134,7 +137,7 @@ class SMSService
                     'message' => $responseData['message'] ?? 'OTP verified successfully'
                 ];
             } else {
-                Log::error('Failed to verify OTP', [
+                Log::error('Failed to verify OTP via IPROG', [
                     'phone' => $formattedPhone,
                     'status' => $response->status(),
                     'response' => $responseData
@@ -147,7 +150,7 @@ class SMSService
             }
 
         } catch (\Exception $e) {
-            Log::error('SMS Verification Exception', [
+            Log::error('IPROG OTP Verification Exception', [
                 'phone' => $phoneNumber,
                 'otp' => $otpCode,
                 'error' => $e->getMessage(),
@@ -213,7 +216,7 @@ class SMSService
     }
 
     /**
-     * Send regular SMS message
+     * Send regular SMS message via IPROG SMS API
      */
     public function sendSMS($phoneNumber, $message)
     {
@@ -225,12 +228,14 @@ class SMSService
             $data = [
                 'api_token' => $this->apiToken,
                 'phone_number' => $formattedPhone,
-                'message' => $message
+                'message' => $message,
+                'sender_name' => $this->senderName
             ];
 
             Log::info('Sending SMS via IPROG SMS API', [
                 'phone' => $formattedPhone,
-                'endpoint' => $endpoint
+                'endpoint' => $endpoint,
+                'message_length' => strlen($message)
             ]);
 
             $response = Http::timeout(30)
@@ -243,11 +248,11 @@ class SMSService
 
             $responseData = $response->json();
 
-
-            if ($response->successful()) {
-                Log::info('SMS sent successfully', [
+            if ($response->successful() && isset($responseData['status']) && $responseData['status'] == 200) {
+                Log::info('SMS sent successfully via IPROG', [
                     'phone' => $formattedPhone,
-                    'response' => $responseData
+                    'response' => $responseData,
+                    'message_id' => $responseData['message_id'] ?? 'N/A'
                 ]);
 
                 return [
@@ -256,7 +261,7 @@ class SMSService
                     'message' => 'SMS sent successfully'
                 ];
             } else {
-                Log::error('Failed to send SMS', [
+                Log::error('Failed to send SMS via IPROG', [
                     'phone' => $formattedPhone,
                     'status' => $response->status(),
                     'response' => $responseData
@@ -270,7 +275,7 @@ class SMSService
             }
 
         } catch (\Exception $e) {
-            Log::error('SMS Service Exception', [
+            Log::error('IPROG SMS Service Exception', [
                 'phone' => $phoneNumber,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()

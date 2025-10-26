@@ -42,6 +42,6 @@ class program_schedules extends Model
      */
     public function registered_participants()
     {
-        return $this->belongsToMany(User::class, 'program_participants', 'program_schedule_id', 'user_id');
+        return $this->hasMany(program_participants::class, 'program_schedule_id');
     }
 }

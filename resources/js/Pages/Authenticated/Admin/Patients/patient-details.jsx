@@ -27,12 +27,10 @@ import {
     Heart,
     Pill,
     AlertTriangle,
-    Plus,
 } from "lucide-react";
 import EditPatientForm from "./edit-patient-form";
-import AddMedicalRecordForm from "./add-medical-record-form";
+import MedicalHistory from "./MedicalHistory";
 import { Trash2 } from "lucide-react";
-import { router, useForm } from "@inertiajs/react";
 
 // interface PatientDetailsProps {
 //   patient: Patient
@@ -42,7 +40,6 @@ import { router, useForm } from "@inertiajs/react";
 
 export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
     const [isEditing, setIsEditing] = useState(false);
-    const [showAddRecord, setShowAddRecord] = useState(false);
     const [editingEmergencyContact, setEditingEmergencyContact] = useState(null);
 
     const calculateAge = (dateOfBirth) => {
@@ -80,49 +77,6 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
         }
     };
 
-    const {
-        data,
-        setData,
-        post,
-        processing,
-        recentlySuccessful,
-        errors,
-        clearErrors,
-        reset,
-    } = useForm({});
-
-    useEffect(() => {
-        if (data && Object.keys(data).length > 0) {
-            post(
-                route("patients.medicalrec.store", { patientid: patient?.id }),
-                {
-                    onSuccess: () => {
-                        setShowAddRecord(false);
-                    },
-                    onFinish: () => {
-                        router.reload({
-                            only: ["patients_", "doctors", "flash"],
-                            //preserveState: false,
-                        });
-                    },
-                }
-            );
-        }
-    }, [data]);
-
-    // Remove the early return for editing - we'll render the modal alongside the main content
-
-    if (showAddRecord) {
-        return (
-            <AddMedicalRecordForm
-                patientName={`${patient.firstname} ${patient.lastname}`}
-                onSubmit={(record) => setData(record)}
-                onCancel={() => setShowAddRecord(false)}
-                doctors={doctors}
-                errors={errors}
-            />
-        );
-    }
 
     return (
         <div className="space-y-4 h-full overflow-hidden">
@@ -184,10 +138,6 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <Button onClick={() => setShowAddRecord(true)} className="bg-green-600 hover:bg-green-700 shadow-sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Medical Record
-                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => setIsEditing(true)}
@@ -206,16 +156,13 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                     <TabsTrigger value="medical-history">
                         Medical History
                     </TabsTrigger>
-                    <TabsTrigger value="medications">
-                        Medications & Allergies
-                    </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="overview" className="space-y-4 overflow-y-auto">
-                    {/* Professional Patient Information Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <TabsContent value="overview" className="space-y-6 overflow-y-auto">
+                    {/* Professional Patient Information Grid - Full Width Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Personal Information Card */}
-                        <Card className="shadow-lg border-0 bg-white">
+                        <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow duration-300">
                             <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
                                 <CardTitle className="flex items-center gap-2 text-white">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,15 +171,16 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                     Personal Information
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-4 space-y-3">
+                            <CardContent className="p-6 space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <label className="text-xs font-medium text-blue-600 uppercase tracking-wide">Full Name</label>
+                                    <p className="text-lg font-bold text-blue-900 mt-1">
+                                        {patient.firstname} {patient.middlename} {patient.lastname}
+                                    </p>
+                                </div>
+                                
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Full Name</label>
-                                        <p className="text-sm font-semibold text-gray-900 mt-1">
-                                            {patient.firstname} {patient.middlename} {patient.lastname}
-                                        </p>
-                                    </div>
-                                    <div>
+                                    <div className="bg-gray-50 p-3 rounded-lg">
                                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gender</label>
                                         <p className="text-sm font-semibold text-gray-900 mt-1">
                                             {(patient.gender || patient.sex) == "M" || (patient.gender || patient.sex) == "Male"
@@ -241,6 +189,14 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                                 ? "Female"
                                                 : (patient.gender || patient.sex) || "Not specified"}
                                         </p>
+                                    </div>
+                                    <div className="bg-gray-50 p-3 rounded-lg">
+                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
+                                        <div className="mt-1">
+                                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                                                Active
+                                            </Badge>
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -305,52 +261,64 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                         </Card>
 
                         {/* Contact Information Card */}
-                        <Card className="shadow-lg border-0 bg-white">
-                            <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
+                        <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow duration-300">
+                            <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
                                 <CardTitle className="flex items-center gap-2 text-white">
                                     <Phone className="w-5 h-5" />
                                     Contact Information
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                <div>
-                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Phone Number</label>
-                                    <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                        <Phone className="w-4 h-4 text-green-600" />
-                                        {patient.contactno || patient.phone || "Not Set"}
-                                    </p>
+                            <CardContent className="p-6 space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <div className="flex items-center gap-3">
+                                        <Phone className="w-5 h-5 text-blue-600" />
+                                        <div>
+                                            <label className="text-xs font-medium text-blue-600 uppercase tracking-wide">Phone Number</label>
+                                            <p className="text-lg font-bold text-blue-900 mt-1">
+                                                {patient.contactno || patient.phone || "Not Set"}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div>
-                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email Address</label>
-                                    <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                        <Mail className="w-4 h-4 text-blue-600" />
-                                        {patient.email || "Not Set"}
-                                    </p>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                        <Mail className="w-5 h-5 text-gray-600" />
+                                        <div>
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Email Address</label>
+                                            <p className="text-sm font-semibold text-gray-900 mt-1">
+                                                {patient.email || "Not Set"}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div>
-                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Address</label>
-                                    <div className="text-sm text-gray-900 mt-1">
-                                        {isAppointmentPatient ? (
-                                            <div className="space-y-1">
-                                                {patient.street && <p className="flex items-center gap-2"><MapPin className="w-3 h-3 text-purple-600" />{patient.street}</p>}
-                                                {patient.barangay && <p className="ml-5">{patient.barangay}</p>}
-                                                {patient.city && <p className="ml-5">{patient.city}</p>}
-                                                {patient.province && <p className="ml-5">{patient.province}</p>}
-                                                {patient.region && <p className="ml-5">{patient.region}</p>}
-                                                {patient.zip_code && <p className="ml-5">{patient.zip_code}</p>}
-                                                {patient.country && <p className="ml-5">{patient.country}</p>}
-                                                {!patient.street && !patient.barangay && !patient.city && !patient.province && !patient.region && !patient.zip_code && !patient.country && (
-                                                    <p className="text-gray-500 italic">No address provided</p>
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <div className="flex items-start gap-3">
+                                        <MapPin className="w-5 h-5 text-gray-600 mt-1" />
+                                        <div className="flex-1">
+                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Address</label>
+                                            <div className="text-sm font-semibold text-gray-900 mt-1">
+                                                {isAppointmentPatient ? (
+                                                    <div className="space-y-1">
+                                                        {patient.street && <p className="text-left">{patient.street}</p>}
+                                                        {patient.barangay && <p className="text-left">{patient.barangay}</p>}
+                                                        {patient.city && <p className="text-left">{patient.city}</p>}
+                                                        {patient.province && <p className="text-left">{patient.province}</p>}
+                                                        {patient.region && <p className="text-left">{patient.region}</p>}
+                                                        {patient.zip_code && <p className="text-left">{patient.zip_code}</p>}
+                                                        {patient.country && <p className="text-left">{patient.country}</p>}
+                                                        {!patient.street && !patient.barangay && !patient.city && !patient.province && !patient.region && !patient.zip_code && !patient.country && (
+                                                            <p className="text-gray-500 italic text-left">No address provided</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-left">
+                                                        {patient.address ?? "Not Set"}
+                                                    </p>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <p className="flex items-center gap-2">
-                                                <MapPin className="w-4 h-4 text-purple-600" />
-                                                {patient.address ?? "Not Set"}
-                                            </p>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -367,8 +335,8 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                         </Card>
 
                         {/* Medical & Status Card */}
-                        <Card className="shadow-lg border-0 bg-white">
-                            <CardHeader className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-t-lg">
+                        <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-shadow duration-300">
+                            <CardHeader className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-t-lg">
                                 <CardTitle className="flex items-center gap-2 text-white">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -376,35 +344,45 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                     Medical & Status
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                <div>
-                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Patient Status</label>
-                                    <div className="mt-1">
-                                        <Badge
-                                            variant={patient.status === "active" ? "default" : "secondary"}
-                                            className="text-sm px-3 py-1"
-                                        >
-                                            {patient.status}
-                                        </Badge>
+                            <CardContent className="p-6 space-y-4">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-green-500 rounded-full">
+                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-medium text-blue-600 uppercase tracking-wide">Patient Status</label>
+                                            <p className="text-lg font-bold text-blue-900 mt-1">Active & Available</p>
+                                        </div>
                                     </div>
                                 </div>
                                 
                                 {isAppointmentPatient && (
                                     <>
-                                        <div>
-                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Registration Date</label>
-                                            <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-orange-600" />
-                                                {patient.registration_date ? new Date(patient.registration_date).toLocaleDateString() : "Not Set"}
-                                            </p>
+                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <Calendar className="w-5 h-5 text-gray-600" />
+                                                <div>
+                                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Registration Date</label>
+                                                    <p className="text-sm font-semibold text-gray-900 mt-1">
+                                                        {patient.registration_date ? new Date(patient.registration_date).toLocaleDateString() : "Not Set"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                         
-                                        <div>
-                                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
-                                            <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-orange-600" />
-                                                {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
-                                            </p>
+                                        <div className="bg-gray-50 p-4 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <Calendar className="w-5 h-5 text-gray-600" />
+                                                <div>
+                                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
+                                                    <p className="text-sm font-semibold text-gray-900 mt-1">
+                                                        {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </>
                                 )}
@@ -412,306 +390,16 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                         </Card>
                     </div>
 
-                    {/* Emergency Contact & Visit Information Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Emergency Contact Card */}
-                        <Card className="shadow-lg border-0 bg-white">
-                            <CardHeader className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-t-lg">
-                                <CardTitle className="flex items-center gap-2 text-white">
-                                    <AlertTriangle className="w-5 h-5" />
-                                    Emergency Contact
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4">
-                                {patient?.emercont && patient.emercont.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {patient.emercont.map((contact, index) => (
-                                            <div key={contact?.id || index} className="bg-gray-50 p-3 rounded-lg border">
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center">
-                                                            <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                                            </svg>
-                                                        </div>
-                                                        <span className="text-xs font-medium text-gray-600">Contact #{index + 1}</span>
-                                                    </div>
-                                                    <div className="flex gap-1">
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm"
-                                                            onClick={() => handleEditEmergencyContact(contact)}
-                                                            title="Edit emergency contact"
-                                                            className="h-6 w-6 p-0"
-                                                        >
-                                                            <Edit className="h-3 w-3 text-primary" />
-                                                        </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm"
-                                                            onClick={() => handleDeleteEmergencyContact(contact.id)}
-                                                            title="Delete emergency contact"
-                                                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                                        >
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <div>
-                                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contact Person</label>
-                                                        <p className="text-sm font-semibold text-gray-900">{contact.name}</p>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Phone Number</label>
-                                                        <p className="text-sm text-gray-700">{contact.contactno}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-6">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                            <Plus className="w-6 h-6 text-gray-400" />
-                                        </div>
-                                        <h3 className="text-sm font-medium text-gray-900 mb-1">No Emergency Contacts</h3>
-                                        <p className="text-xs text-gray-500 mb-3">Add emergency contact information for this patient.</p>
-                                        <Button variant="outline" size="sm" className="text-xs">
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            Add Emergency Contact
-                                        </Button>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Visit Information Card */}
-                        <Card className="shadow-lg border-0 bg-white">
-                            <CardHeader className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-t-lg">
-                                <CardTitle className="flex items-center gap-2 text-white">
-                                    <Calendar className="w-5 h-5" />
-                                    Visit Information
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                <div>
-                                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Registration Date</label>
-                                    <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                        <Calendar className="w-4 h-4 text-green-600" />
-                                        {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : 
-                                         patient.registration_date ? new Date(patient.registration_date).toLocaleDateString() : 
-                                         "Not available"}
-                                    </p>
-                                </div>
-
-                                {patient.lastVisit && (
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Visit</label>
-                                        <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                            <Calendar className="w-4 h-4 text-blue-600" />
-                                            {new Date(patient.lastVisit).toLocaleDateString()}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {isAppointmentPatient && (
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
-                                        <p className="text-sm font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                                            <Calendar className="w-4 h-4 text-green-600" />
-                                            {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {patient.prescriptions && patient.prescriptions.length > 0 && (
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Prescriptions</label>
-                                        <p className="text-2xl font-bold text-purple-600 mt-1 flex items-center gap-2">
-                                            <Pill className="w-5 h-5" />
-                                            {patient.prescriptions.length}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {patient.medical_histories && patient.medical_histories.length > 0 && (
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Medical Records</label>
-                                        <p className="text-2xl font-bold text-red-600 mt-1">
-                                            {patient.medical_histories.length}
-                                        </p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
                 </TabsContent>
 
                 <TabsContent value="medical-history" className="space-y-4 overflow-y-auto">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Medical History</CardTitle>
-                            <CardDescription>
-                                Complete medical record history for this patient
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            {patient.medical_histories &&
-                            patient.medical_histories.length > 0 ? (
-                                <div className="space-y-4">
-                                    {patient.medical_histories.map((record) => (
-                                        <Card key={record.id}>
-                                            <CardContent className="pt-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="text-sm font-medium text-muted-foreground">
-                                                            Date
-                                                        </label>
-                                                        <p>
-                                                            {new Date(
-                                                                record.created_at
-                                                            ).toLocaleDateString()}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm font-medium text-muted-foreground">
-                                                            Doctor
-                                                        </label>
-                                                        <p>
-                                                            {
-                                                                record?.doctor
-                                                                    ?.user
-                                                                    ?.firstname
-                                                            }{" "}
-                                                            {
-                                                                record?.doctor
-                                                                    ?.user
-                                                                    ?.lastname
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm font-medium text-muted-foreground">
-                                                            Diagnosis
-                                                        </label>
-                                                        <p>
-                                                            {record.diagnosis}
-                                                        </p>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm font-medium text-muted-foreground">
-                                                            Treatment
-                                                        </label>
-                                                        <p>
-                                                            {record.treatment}
-                                                        </p>
-                                                    </div>
-                                                    {record.clinic_notes && (
-                                                        <div className="md:col-span-2">
-                                                            <label className="text-sm font-medium text-muted-foreground">
-                                                                Notes
-                                                            </label>
-                                                            <p>
-                                                                {
-                                                                    record.clinic_notes
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {record.followUp && (
-                                                        <div className="md:col-span-2">
-                                                            <label className="text-sm font-medium text-muted-foreground">
-                                                                Follow-up
-                                                            </label>
-                                                            <p>
-                                                                {
-                                                                    record.followup_inst
-                                                                }
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-muted-foreground text-center py-8">
-                                    No medical records found for this patient.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <MedicalHistory 
+                        patient={patient} 
+                        doctors={doctors}
+                        onAddRecord={() => {}} // Not needed since it's handled internally
+                    />
                 </TabsContent>
 
-                <TabsContent value="medications" className="space-y-4 overflow-y-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Current Medications */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Pill className="h-5 w-5" />
-                                    Current Medications
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {patient.medications &&
-                                patient.medications.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {patient.medications.map(
-                                            (medication, index) => (
-                                                <Badge
-                                                    key={index}
-                                                    variant="outline"
-                                                    className="mr-2 mb-2"
-                                                >
-                                                    {medication}
-                                                </Badge>
-                                            )
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-muted-foreground">
-                                        No current medications recorded.
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Allergies */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <AlertTriangle className="h-5 w-5" />
-                                    Known Allergies
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {patient.allergies &&
-                                patient.allergies.length > 0 ? (
-                                    <div className="space-y-2">
-                                        {patient.allergies.map(
-                                            (allergy, index) => (
-                                                <Badge
-                                                    key={index}
-                                                    variant="destructive"
-                                                    className="mr-2 mb-2"
-                                                >
-                                                    {allergy}
-                                                </Badge>
-                                            )
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-muted-foreground">
-                                        No known allergies recorded.
-                                    </p>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-                </TabsContent>
             </Tabs>
 
             {/* Edit Patient Modal */}

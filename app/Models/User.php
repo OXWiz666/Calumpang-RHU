@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Storage;
 
 use App\Models\roles;
 // use Yajra\Address\HasAddress;
@@ -41,7 +42,8 @@ class User extends Authenticatable
         'bloodtype',
         'avatar',
         'address',
-        'status'
+        'status',
+        'license_number'
     ];
 
     /**
@@ -66,6 +68,13 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['avatar_url'];
     public function emercont()
     {
         return $this->hasMany(emergencycontacts::class,'user_id','id');
@@ -90,12 +99,27 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\Prescription::class, 'patient_id');
     }
 
+    public function doctor_details(){
+        return $this->hasOne(doctor_details::class, 'user_id');
+    }
+
     /**
      * Get the user's full name.
      */
     public function getFullNameAttribute()
     {
         return trim($this->firstname . ' ' . $this->lastname);
+    }
+
+    /**
+     * Get the user's avatar URL.
+     */
+    public function getAvatarUrlAttribute()
+    {
+        if ($this->avatar) {
+            return \Storage::disk('public')->url($this->avatar);
+        }
+        return null;
     }
 
 }

@@ -11,6 +11,7 @@ class program_types extends Model
     protected $fillable = [
         'programname',
         'description',
+        'service_id',
         'created_at',
         'updated_at'
     ];

@@ -10,7 +10,7 @@ import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { 
     Calendar, 
@@ -25,6 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/tempo/components/ui/select";
+import { UNIT_OPTIONS } from "@/constants/unitOptions";
 
 const EditItemModal = ({ open, onClose, item, categories = [], onAddBatch }) => {
     const [availableBatches, setAvailableBatches] = useState([]);
@@ -207,6 +208,8 @@ const EditItemModal = ({ open, onClose, item, categories = [], onAddBatch }) => 
             data: formData,
             onSuccess: () => {
                 onClose();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
             onError: (errors) => {
                 console.error("Validation errors:", errors);
@@ -214,16 +217,7 @@ const EditItemModal = ({ open, onClose, item, categories = [], onAddBatch }) => 
         });
     };
 
-    const unitOptions = [
-        { value: "pieces", label: "Pieces" },
-        { value: "tablets", label: "Tablets" },
-        { value: "capsules", label: "Capsules" },
-        { value: "bottles", label: "Bottles" },
-        { value: "vials", label: "Vials" },
-        { value: "tubes", label: "Tubes" },
-        { value: "boxes", label: "Boxes" },
-        { value: "packs", label: "Packs" },
-    ];
+    // Using shared unit options from constants
 
     if (!item) return null;
 
@@ -326,7 +320,7 @@ const EditItemModal = ({ open, onClose, item, categories = [], onAddBatch }) => 
                                         <SelectValue placeholder="Select unit" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {unitOptions.map((option) => (
+                                        {UNIT_OPTIONS.map((option) => (
                                             <SelectItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </SelectItem>

@@ -8,7 +8,10 @@ use App\Models\servicetypes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
+use App\Mail\ProgramRegistrationMail;
+use App\Services\SMSService;
 
 class VaccineController extends Controller
 {
@@ -21,6 +24,27 @@ class VaccineController extends Controller
             ->get()
             ->load('program_type.service')
             ->map(function ($program) {
+                // Calculate real-time available slots from actual registrations
+                $registeredCount = $program->registered_participants->count();
+                $availableSlots = max(0, $program->total_slots - $registeredCount);
+                
+                // Debug logging for Libreng Tuli program
+                if ($program->program_type->programname === 'Libreng Tuli') {
+                    \Log::info('Libreng Tuli Debug:', [
+                        'program_id' => $program->id,
+                        'total_slots' => $program->total_slots,
+                        'registered_count' => $registeredCount,
+                        'calculated_available' => $availableSlots,
+                        'stored_available' => $program->available_slots,
+                        'participants' => $program->registered_participants->toArray()
+                    ]);
+                }
+                
+                // Update the database to keep it in sync
+                if ($program->available_slots !== $availableSlots) {
+                    $program->update(['available_slots' => $availableSlots]);
+                }
+                
                 // Format the program data for the frontend
                 return [
                     'id' => $program->id,
@@ -31,10 +55,10 @@ class VaccineController extends Controller
                     'endTime' => $program->end_time,
                     'location' => $program->location,
                     'totalSlots' => $program->total_slots,
-                    'availableSlots' => ($program->total_slots-$program->registered_participants->count()),
+                    'availableSlots' => $availableSlots,
                     'coordinator' => $program->coordinator ? $program->coordinator->lastname : null,
                     'status' => $program->status ?: 'Active', // Default to 'Active' if status is null
-                    'programType' => $program->program_type->service->servicename,
+                    'programType' => $program->program_type && $program->program_type->service ? $program->program_type->service->servicename : null,
                 ];
             });
 
@@ -63,13 +87,17 @@ class VaccineController extends Controller
             return redirect()->route('services.vaccinations');
         }
 
-        // Get the program details
-        $program = \App\Models\program_schedules::with(['program_type', 'coordinator'])
+        // Get the program details with registered participants
+        $program = \App\Models\program_schedules::with(['program_type', 'coordinator', 'registered_participants'])
             ->find($programId);
 
         if (!$program) {
             return redirect()->route('services.vaccinations');
         }
+
+        // Calculate real-time available slots from actual registrations
+        $registeredCount = $program->registered_participants->count();
+        $availableSlots = max(0, $program->total_slots - $registeredCount);
 
         // Format the program data for the frontend
         $programData = [
@@ -81,7 +109,7 @@ class VaccineController extends Controller
             'endTime' => $program->end_time,
             'location' => $program->location,
             'totalSlots' => $program->total_slots,
-            'availableSlots' => $program->available_slots,
+            'availableSlots' => $availableSlots,
             'coordinator' => $program->coordinator ? $program->coordinator->lastname : null,
             'status' => $program->status ?: 'Active',
             'programType' => $program->program_type->programname,
@@ -111,9 +139,13 @@ class VaccineController extends Controller
         ]);
 
         // Check if the program exists and has available slots
-        $program = \App\Models\program_schedules::findOrFail($request->program_id);
+        $program = \App\Models\program_schedules::with('registered_participants')->findOrFail($request->program_id);
 
-        if ($program->available_slots <= 0) {
+        // Calculate real-time available slots
+        $registeredCount = $program->registered_participants->count();
+        $availableSlots = max(0, $program->total_slots - $registeredCount);
+
+        if ($availableSlots <= 0) {
             return response()->json([
                 'message' => 'No available slots for this program.'
             ], 422);
@@ -123,6 +155,11 @@ class VaccineController extends Controller
         DB::beginTransaction();
 
         try {
+            // Generate a random 10-digit registration ID
+            do {
+                $registrationId = str_pad(random_int(1000000000, 9999999999), 10, '0', STR_PAD_LEFT);
+            } while (program_participants::where('registration_id', $registrationId)->exists());
+
             // Create or find the user
             $user = null;
             if (Auth::check()) {
@@ -147,16 +184,69 @@ class VaccineController extends Controller
                 }
             }
 
-            // Instead of using program_participants table, we'll just update the program slots
-            // Update available slots
-            $program->available_slots = $program->available_slots - 1;
+            // Create a program participant record
+            $participant = program_participants::create([
+                'program_schedule_id' => $program->id,
+                'user_id' => $user->id,
+                'registration_id' => $registrationId,
+                'first_name' => $request->first_name,
+                'middle_name' => $request->middle_name,
+                'last_name' => $request->last_name,
+                'suffix' => $request->suffix,
+                'sex' => $request->sex,
+                'age' => $request->age,
+                'contact_number' => $request->contact_number,
+                'email' => $request->email,
+                'status' => 'Registered',
+            ]);
+
+            // Update the program's available slots to reflect the new registration
+            $program->available_slots = $availableSlots - 1;
             $program->save();
 
             // Commit the transaction
             DB::commit();
 
+            // Send email and SMS notifications
+            try {
+                $programData = [
+                    'name' => $program->program_type->programname,
+                    'date' => $program->date,
+                    'startTime' => $program->start_time,
+                    'endTime' => $program->end_time,
+                    'location' => $program->location,
+                ];
+
+                Mail::to($participant->email)->send(new ProgramRegistrationMail(
+                    $participant->toArray(),
+                    $programData,
+                    $participant->registration_id
+                ));
+
+                $smsMessage = "RHU Calumpang: You have successfully registered for {$programData['name']} on {$programData['date']} at {$programData['startTime']}. Your Registration ID: {$participant->registration_id}. Please bring this ID for verification. Thank you!";
+                
+                $smsService = new SMSService();
+                $smsService->sendSMS($participant->contact_number, $smsMessage);
+
+                \Log::info('Program registration notifications sent', [
+                    'participant_id' => $participant->id,
+                    'registration_id' => $participant->registration_id,
+                    'email' => $participant->email,
+                    'contact_number' => $participant->contact_number
+                ]);
+
+            } catch (\Exception $notificationError) {
+                \Log::error('Failed to send program registration notifications', [
+                    'participant_id' => $participant->id,
+                    'registration_id' => $participant->registration_id,
+                    'error' => $notificationError->getMessage()
+                ]);
+                // Don't fail the registration if notifications fail
+            }
+
             return response()->json([
                 'message' => 'Registration successful!',
+                'registration_id' => $participant->registration_id,
                 'registration' => [
                     'program' => [
                         'name' => $program->program_type->programname,

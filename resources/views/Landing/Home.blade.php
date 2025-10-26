@@ -65,39 +65,5 @@
             ],
         ],
     ])
-    @include('Landing.Testimonials', [
-        'title' => 'What Our Community Says',
-        'subtitle' => 'Hear from residents who have experienced our digital healthcare services',
-        'testimonials' => [
-            [
-                'name' => 'Maria Santos',
-                'role' => 'Barangay Resident',
-                'quote' =>
-                    'The online appointment system has saved me so much time. I no longer have to wait in long lines at the health center.',
-                'imageUrl' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=Maria',
-            ],
-            [
-                'name' => 'Juan Dela Cruz',
-                'role' => 'Senior Citizen',
-                'quote' =>
-                    'As a senior citizen, I appreciate how easy it is to access my medical records online. The staff also helped me learn how to use the system.',
-                'imageUrl' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=Juan',
-            ],
-            [
-                'name' => 'Ana Reyes',
-                'role' => 'Mother of Three',
-                'quote' =>
-                    'Scheduling vaccinations for my children has never been easier. I get reminders and can see their complete vaccination history.',
-                'imageUrl' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana',
-            ],
-            [
-                'name' => 'Pedro Lim',
-                'role' => 'Community Health Worker',
-                'quote' =>
-                    'This system has transformed how we deliver healthcare services. We can now reach more residents and provide better follow-up care.',
-                'imageUrl' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pedro',
-            ],
-        ],
-    ])
     @include('Landing.include.Contact', ['contactData' => $contactData])
 @endsection

@@ -21,7 +21,7 @@ export default function AddPrescriptionForm({
         doctor_id: doctors && doctors.length > 0 ? doctors[0].user_id : '', // Auto-select first doctor's user_id
         prescription_date: new Date().toISOString().split('T')[0],
         case_id: '',
-        medicines: [{ medicine_id: '', dosage: '', frequency: '', duration: '', quantity: '', instructions: '' }]
+        medicines: [{ medicine_id: '', frequency: '', duration: '', quantity: '', instructions: '' }]
     });
 
     const [selectedMedicines, setSelectedMedicines] = useState([]);
@@ -80,7 +80,6 @@ export default function AddPrescriptionForm({
     const addMedicine = () => {
         setData('medicines', [...data.medicines, { 
             medicine_id: '', 
-            dosage: '', 
             frequency: '', 
             duration: '', 
             quantity: '', 
@@ -325,16 +324,6 @@ export default function AddPrescriptionForm({
                                                     )}
                                                 </div>
 
-                                                <div>
-                                                    <Label htmlFor={`dosage_${index}`}>Dosage *</Label>
-                                                    <Input
-                                                        id={`dosage_${index}`}
-                                                        value={medicine.dosage}
-                                                        onChange={(e) => updateMedicine(index, 'dosage', e.target.value)}
-                                                        placeholder="e.g., 500mg"
-                                                        className="mt-1"
-                                                    />
-                                                </div>
 
                                                 <div>
                                                     <Label htmlFor={`frequency_${index}`}>Frequency *</Label>

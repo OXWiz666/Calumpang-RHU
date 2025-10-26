@@ -1,8 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "../../../../components/tempo/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/tempo/components/ui/card";
 import { router } from "@inertiajs/react";
 import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
+import Modal from "../../../CustomModal";
+import axios from "axios";
+import toast, { Toaster } from "react-hot-toast";
+import { FileText, Eye, Check, Printer } from "lucide-react";
 
 interface PatientTypeSelectionModalProps {
     isOpen: boolean;
@@ -25,6 +29,19 @@ const PatientTypeSelectionModal: React.FC<PatientTypeSelectionModalProps> = ({
     const [currentPage, setCurrentPage] = useState<number>(1);
     const itemsPerPage = 5;
     const [showRescheduleModal, setShowRescheduleModal] = useState<boolean>(false);
+    
+    // Diagnosis Summary Modal State
+    const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState<boolean>(false);
+    const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
+    const [loadingDiagnosis, setLoadingDiagnosis] = useState<boolean>(false);
+    const [appointmentsWithDiagnosis, setAppointmentsWithDiagnosis] = useState<Set<number>>(new Set());
+
+    // Check for diagnoses when appointment history is loaded
+    useEffect(() => {
+        if (appointmentHistory.length > 0) {
+            checkAppointmentsForDiagnoses();
+        }
+    }, [appointmentHistory]);
 
     const handleProceed = async () => {
         if (selectedPatientType === 'existing' && referenceNumber.trim()) {
@@ -145,6 +162,303 @@ const PatientTypeSelectionModal: React.FC<PatientTypeSelectionModalProps> = ({
         }
     };
 
+    // Function to fetch diagnosis data for an appointment
+    const fetchDiagnosisData = async (appointmentId: number) => {
+        setLoadingDiagnosis(true);
+        console.log('Fetching diagnosis for appointment ID:', appointmentId);
+        try {
+            const response = await axios.get(`/appointments/diagnosis/${appointmentId}`);
+            console.log('Diagnosis API response:', response.data);
+            
+            const diagnosis = response.data.diagnosis;
+            
+            // Check if diagnosis exists and has actual content
+            if (diagnosis && diagnosis.diagnosis && diagnosis.diagnosis.trim() !== '') {
+                setSelectedDiagnosis(response.data);
+                setIsDiagnosisModalOpen(true);
+                toast.success('Diagnosis loaded successfully');
+            } else {
+                console.log('No valid diagnosis found:', diagnosis);
+                toast.error('No diagnosis found for this appointment');
+            }
+        } catch (error) {
+            console.error('Error fetching diagnosis:', error);
+            console.error('Error response:', error.response?.data);
+            
+            if (error.response?.status === 404) {
+                toast.error('No diagnosis available for this appointment');
+            } else if (error.response?.status === 500) {
+                toast.error('Server error: ' + (error.response?.data?.error || 'Unknown error'));
+            } else {
+                toast.error('Failed to load diagnosis data: ' + (error.message || 'Unknown error'));
+            }
+        } finally {
+            setLoadingDiagnosis(false);
+        }
+    };
+
+    // Function to open diagnosis summary modal
+    const openDiagnosisSummary = (appointmentId: number) => {
+        fetchDiagnosisData(appointmentId);
+    };
+
+    // Function to close diagnosis summary modal
+    const closeDiagnosisSummary = () => {
+        setIsDiagnosisModalOpen(false);
+        setSelectedDiagnosis(null);
+    };
+
+    // Function to check if an appointment has a diagnosis
+    const hasDiagnosis = async (appointmentId: number): Promise<boolean> => {
+        try {
+            const response = await axios.get(`/appointments/diagnosis/${appointmentId}`);
+            console.log(`Checking diagnosis for appointment ${appointmentId}:`, response.data);
+            
+            // Check if diagnosis exists and has actual content
+            const diagnosis = response.data.diagnosis;
+            if (!diagnosis) {
+                console.log(`No diagnosis found for appointment ${appointmentId}`);
+                return false;
+            }
+            
+            // Check if diagnosis has actual content (not just empty object)
+            const hasContent = diagnosis.diagnosis && diagnosis.diagnosis.trim() !== '';
+            console.log(`Appointment ${appointmentId} has diagnosis content:`, hasContent);
+            
+            return hasContent;
+        } catch (error) {
+            console.log(`Error checking diagnosis for appointment ${appointmentId}:`, error);
+            return false;
+        }
+    };
+
+    // Function to check all appointments for diagnoses
+    const checkAppointmentsForDiagnoses = async () => {
+        console.log('Checking appointments for diagnoses...', appointmentHistory);
+        const appointmentsWithDiagnosisSet = new Set<number>();
+        
+        for (const appointment of appointmentHistory) {
+            try {
+                const hasDiagnosisResult = await hasDiagnosis(appointment.id);
+                console.log(`Appointment ${appointment.id} has diagnosis:`, hasDiagnosisResult);
+                if (hasDiagnosisResult) {
+                    appointmentsWithDiagnosisSet.add(appointment.id);
+                }
+            } catch (error) {
+                console.error(`Error checking diagnosis for appointment ${appointment.id}:`, error);
+            }
+        }
+        
+        console.log('Appointments with diagnosis:', Array.from(appointmentsWithDiagnosisSet));
+        setAppointmentsWithDiagnosis(appointmentsWithDiagnosisSet);
+    };
+
+    // Function to print diagnosis summary
+    const printDiagnosisSummary = () => {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            const diagnosisData = selectedDiagnosis;
+            const appointmentData = diagnosisData?.appointment;
+            const diagnosis = diagnosisData?.diagnosis || diagnosisData;
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Diagnosis Summary - ${appointmentData?.firstname} ${appointmentData?.lastname}</title>
+                    <style>
+                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            font-size: 12px; 
+                            line-height: 1.3; 
+                            margin: 10px; 
+                            max-width: 100%;
+                        }
+                        .header { 
+                            text-align: center; 
+                            margin-bottom: 15px; 
+                            border-bottom: 2px solid #2563eb; 
+                            padding-bottom: 10px; 
+                        }
+                        .header h1 { 
+                            color: #2563eb; 
+                            margin: 0; 
+                            font-size: 18px; 
+                        }
+                        .header p { 
+                            color: #666; 
+                            margin: 2px 0; 
+                            font-size: 10px; 
+                        }
+                        .content { 
+                            display: grid; 
+                            grid-template-columns: 1fr 1fr; 
+                            gap: 10px; 
+                            margin-bottom: 10px; 
+                        }
+                        .section { 
+                            padding: 8px; 
+                            border: 1px solid #e5e7eb; 
+                            border-radius: 4px; 
+                            background: #f9fafb; 
+                        }
+                        .section h3 { 
+                            color: #374151; 
+                            margin-bottom: 8px; 
+                            font-size: 11px; 
+                            border-bottom: 1px solid #d1d5db; 
+                            padding-bottom: 2px; 
+                        }
+                        .info-row { 
+                            margin-bottom: 4px; 
+                            font-size: 10px; 
+                        }
+                        .label { 
+                            font-weight: bold; 
+                            color: #374151; 
+                            display: inline-block; 
+                            width: 80px; 
+                        }
+                        .value { 
+                            color: #6b7280; 
+                        }
+                        .diagnosis-content { 
+                            background: white; 
+                            padding: 6px; 
+                            border-radius: 3px; 
+                            margin-top: 4px; 
+                            border: 1px solid #e5e7eb; 
+                        }
+                        .full-width { 
+                            grid-column: 1 / -1; 
+                        }
+                        .footer { 
+                            margin-top: 10px; 
+                            text-align: center; 
+                            color: #6b7280; 
+                            font-size: 9px; 
+                            border-top: 1px solid #e5e7eb; 
+                            padding-top: 5px; 
+                        }
+                        @media print { 
+                            body { margin: 5px; font-size: 11px; }
+                            .content { gap: 8px; }
+                            .section { padding: 6px; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>DIAGNOSIS SUMMARY</h1>
+                        <p>RHU Calumpang Health Center</p>
+                        <p>Generated: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div class="content">
+                        <div class="section">
+                            <h3>Patient Info</h3>
+                            <div class="info-row">
+                                <span class="label">Name:</span> 
+                                <span class="value">${appointmentData?.firstname || 'N/A'} ${appointmentData?.lastname || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Date:</span> 
+                                <span class="value">${appointmentData?.date || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Time:</span> 
+                                <span class="value">${appointmentData?.time || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Service:</span> 
+                                <span class="value">${appointmentData?.service?.servicename || 'General Consultation'}</span>
+                            </div>
+                            ${appointmentData?.subservice?.subservicename ? `
+                            <div class="info-row">
+                                <span class="label">Subservice:</span> 
+                                <span class="value">${appointmentData.subservice.subservicename}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="section">
+                            <h3>Doctor Info</h3>
+                            <div class="info-row">
+                                <span class="label">Doctor:</span> 
+                                <span class="value">Dr. ${diagnosis?.doctor?.firstname || diagnosis?.doctor?.firstname || 'Unknown'} ${diagnosis?.doctor?.lastname || diagnosis?.doctor?.lastname || 'Doctor'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">License:</span> 
+                                <span class="value">${diagnosis?.doctor?.license_number || diagnosis?.doctor?.license_number || 'N/A'}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Date:</span> 
+                                <span class="value">${diagnosis?.created_at ? new Date(diagnosis.created_at).toLocaleDateString() : 'N/A'}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="section full-width">
+                            <h3>Medical Diagnosis</h3>
+                            <div class="diagnosis-content">
+                                <div class="info-row">
+                                    <span class="label">Diagnosis:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.diagnosis || diagnosis?.diagnosis || 'No diagnosis available'}</div>
+                                </div>
+                                ${(diagnosis?.symptoms || diagnosis?.symptoms) ? `
+                                <div class="info-row" style="margin-top: 4px;">
+                                    <span class="label">Symptoms:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.symptoms || diagnosis?.symptoms}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        ${((diagnosis?.treatment || diagnosis?.treatment) || (diagnosis?.notes || diagnosis?.notes) || (diagnosis?.assessment || diagnosis?.assessment) || (diagnosis?.pertinent_findings || diagnosis?.pertinent_findings)) ? `
+                        <div class="section full-width">
+                            <h3>Treatment Plan & Assessment</h3>
+                            <div class="diagnosis-content">
+                                ${(diagnosis?.treatment || diagnosis?.treatment) ? `
+                                <div class="info-row">
+                                    <span class="label">Treatment Plan:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.treatment || diagnosis?.treatment}</div>
+                                </div>
+                                ` : ''}
+                                ${(diagnosis?.assessment || diagnosis?.assessment) ? `
+                                <div class="info-row" style="margin-top: 4px;">
+                                    <span class="label">Assessment:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.assessment || diagnosis?.assessment}</div>
+                                </div>
+                                ` : ''}
+                                ${(diagnosis?.pertinent_findings || diagnosis?.pertinent_findings) ? `
+                                <div class="info-row" style="margin-top: 4px;">
+                                    <span class="label">Pertinent Findings:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.pertinent_findings || diagnosis?.pertinent_findings}</div>
+                                </div>
+                                ` : ''}
+                                ${(diagnosis?.notes || diagnosis?.notes) ? `
+                                <div class="info-row" style="margin-top: 4px;">
+                                    <span class="label">Additional Notes:</span>
+                                    <div class="value" style="margin-top: 2px; font-size: 10px;">${diagnosis?.notes || diagnosis?.notes}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="footer">
+                        <p>Generated electronically - RHU Calumpang Health Center ${new Date().getFullYear()}</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -196,7 +510,7 @@ const PatientTypeSelectionModal: React.FC<PatientTypeSelectionModalProps> = ({
                                                 Welcome back, {patientData.firstname} {patientData.lastname}!
                                             </h3>
                                             <p className="text-blue-700">
-                                                Here's your appointment history. You can book a new appointment or reschedule an existing one.
+                                                Here's your appointment history. You can book a new appointment.
                                             </p>
                                         </div>
                                     </div>
@@ -249,6 +563,32 @@ const PatientTypeSelectionModal: React.FC<PatientTypeSelectionModalProps> = ({
                                                                          'Unknown'}
                                                                     </span>
                                                                 </p>
+                                                            </div>
+                                                            
+                                                            {/* Diagnosis Summary Button - Only show if appointment has diagnosis */}
+                                                            <div className="mt-3">
+                                                                {appointmentsWithDiagnosis.has(appointment.id) ? (
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={() => openDiagnosisSummary(appointment.id)}
+                                                                        disabled={loadingDiagnosis}
+                                                                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                                    >
+                                                                        {loadingDiagnosis ? (
+                                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 mr-1"></div>
+                                                                        ) : (
+                                                                            <FileText className="h-3 w-3 mr-1" />
+                                                                        )}
+                                                                        Diagnosis Summary
+                                                                    </Button>
+                                                                ) : (
+                                                                    <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                                        No diagnosis available
+                                                                    </div>
+                                                                )}
+                                                                
+                                                                {/* Debug info */}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -517,6 +857,183 @@ const PatientTypeSelectionModal: React.FC<PatientTypeSelectionModalProps> = ({
                 isOpen={showRescheduleModal}
                 onClose={handleRescheduleClose}
                 onReschedule={() => {}}
+            />
+
+            {/* Diagnosis Summary Modal */}
+            <Modal
+                isOpen={isDiagnosisModalOpen}
+                hasCancel={true}
+                onClose={closeDiagnosisSummary}
+                maxWidth="4xl"
+                canceltext="Close"
+                savetext=""
+                className="max-h-[95vh] overflow-y-auto w-full"
+            >
+                {/* Beautiful Header with Gradient Background */}
+                <div className="relative bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 rounded-t-lg -m-6 mb-4 p-5 text-white">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm flex-shrink-0">
+                                <FileText className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h1 className="text-xl lg:text-2xl font-bold text-white">Diagnosis Summary</h1>
+                                <p className="text-blue-100 mt-0.5 text-xs lg:text-sm">
+                                    Medical diagnosis and treatment details
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Print Button */}
+                        <div className="flex-shrink-0">
+                            <Button
+                                onClick={printDiagnosisSummary}
+                                variant="outline"
+                                size="sm"
+                                className="bg-white/20 border-white/30 text-white hover:bg-white/30 hover:border-white/50"
+                            >
+                                <Printer className="w-4 h-4 mr-2" />
+                                Print
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {selectedDiagnosis && selectedDiagnosis.diagnosis && (
+                    <div className="space-y-6">
+                        {/* Patient Information */}
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500 rounded-lg">
+                                    <Eye className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-blue-800 text-base mb-2">
+                                        {selectedDiagnosis.appointment?.firstname || 'Unknown'} {selectedDiagnosis.appointment?.lastname || 'Patient'}
+                                    </h3>
+                                    <div className="space-y-1">
+                                        <p className="text-sm text-blue-700">
+                                            <span className="font-medium">Appointment Date:</span> {selectedDiagnosis.appointment?.date || 'N/A'} at {selectedDiagnosis.appointment?.time || 'N/A'}
+                                        </p>
+                                        <p className="text-sm text-blue-700">
+                                            <span className="font-medium">Service:</span> {selectedDiagnosis.appointment?.service?.servicename || 'General Consultation'}
+                                        </p>
+                                        {selectedDiagnosis.appointment?.subservice?.subservicename && (
+                                            <p className="text-sm text-blue-700">
+                                                <span className="font-medium">Subservice:</span> {selectedDiagnosis.appointment.subservice.subservicename}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Diagnosis Information */}
+                        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 bg-green-500 rounded-lg">
+                                    <FileText className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-green-800 text-base">Primary Diagnosis</h3>
+                                    <p className="text-sm text-green-600">Medical diagnosis and symptoms</p>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-sm font-semibold text-green-700">Diagnosis</label>
+                                    <p className="text-sm text-green-800 bg-white p-3 rounded border">
+                                        {selectedDiagnosis.diagnosis?.diagnosis || selectedDiagnosis.diagnosis || 'No diagnosis available'}
+                                    </p>
+                                </div>
+                                {(selectedDiagnosis.diagnosis?.symptoms || selectedDiagnosis.symptoms) && (
+                                    <div>
+                                        <label className="text-sm font-semibold text-green-700">Symptoms</label>
+                                        <p className="text-sm text-green-800 bg-white p-3 rounded border">
+                                            {selectedDiagnosis.diagnosis?.symptoms || selectedDiagnosis.symptoms}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Treatment Plan */}
+                        {((selectedDiagnosis.diagnosis?.treatment || selectedDiagnosis.treatment) || (selectedDiagnosis.diagnosis?.notes || selectedDiagnosis.notes)) && (
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-4">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-orange-500 rounded-lg">
+                                        <Check className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-orange-800 text-base">Treatment Plan</h3>
+                                        <p className="text-sm text-orange-600">Recommended treatment and follow-up</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    {(selectedDiagnosis.diagnosis?.treatment || selectedDiagnosis.treatment) && (
+                                        <div>
+                                            <label className="text-sm font-semibold text-orange-700">Treatment</label>
+                                            <p className="text-sm text-orange-800 bg-white p-3 rounded border">
+                                                {selectedDiagnosis.diagnosis?.treatment || selectedDiagnosis.treatment}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {(selectedDiagnosis.diagnosis?.notes || selectedDiagnosis.notes) && (
+                                        <div>
+                                            <label className="text-sm font-semibold text-orange-700">Assessment</label>
+                                            <p className="text-sm text-orange-800 bg-white p-3 rounded border">
+                                                {selectedDiagnosis.diagnosis?.notes || selectedDiagnosis.notes}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {(selectedDiagnosis.diagnosis?.pertinent_findings || selectedDiagnosis.pertinent_findings) && (
+                                        <div>
+                                            <label className="text-sm font-semibold text-orange-700">Pertinent Findings</label>
+                                            <p className="text-sm text-orange-800 bg-white p-3 rounded border">
+                                                {selectedDiagnosis.diagnosis?.pertinent_findings || selectedDiagnosis.pertinent_findings}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Doctor Information */}
+                        <div className="bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-500 rounded-lg">
+                                    <Eye className="w-5 h-5 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-purple-800 text-base mb-2">Diagnosed by</h3>
+                                    <p className="text-sm text-purple-700">
+                                        Dr. {selectedDiagnosis.diagnosis?.doctor?.firstname || selectedDiagnosis.doctor?.firstname || 'Unknown'} {selectedDiagnosis.diagnosis?.doctor?.lastname || selectedDiagnosis.doctor?.lastname || 'Doctor'}
+                                    </p>
+                                    <p className="text-sm text-purple-700">
+                                        License: {selectedDiagnosis.diagnosis?.doctor?.license_number || selectedDiagnosis.doctor?.license_number || 'N/A'}
+                                    </p>
+                                    <p className="text-xs text-purple-600">
+                                        Date: {selectedDiagnosis.diagnosis?.created_at ? new Date(selectedDiagnosis.diagnosis.created_at).toLocaleDateString() : selectedDiagnosis.created_at ? new Date(selectedDiagnosis.created_at).toLocaleDateString() : 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Toast Notifications */}
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        background: '#fff',
+                        color: '#363636',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    },
+                }}
             />
         </div>
     );

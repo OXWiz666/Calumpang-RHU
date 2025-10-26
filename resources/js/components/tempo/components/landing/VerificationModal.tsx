@@ -7,7 +7,7 @@ interface VerificationModalProps {
     onClose: () => void;
     onVerified: (appointmentData?: any) => void;
     appointmentData: any;
-    verificationMethod: 'email' | 'sms';
+    verificationMethod?: 'email' | 'sms'; // Make optional since user will select
 }
 
 const VerificationModal: React.FC<VerificationModalProps> = ({
@@ -23,7 +23,9 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
     const [errorMessage, setErrorMessage] = useState("");
     const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
     const [isCodeSent, setIsCodeSent] = useState(false);
-        const [phoneNumber, setPhoneNumber] = useState("");
+    const [phoneNumber, setPhoneNumber] = useState("");
+    const [emailAddress, setEmailAddress] = useState("");
+    const [selectedMethod, setSelectedMethod] = useState<'email' | 'sms' | null>(null);
     const [resendCooldown, setResendCooldown] = useState(0); // 2 minutes cooldown
     const [isSending, setIsSending] = useState(false); // Prevent multiple sends
     const [patientName, setPatientName] = useState("N/A");
@@ -94,9 +96,9 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
         }
     }, [appointmentData]);
 
-    // Generate verification code when modal opens
+    // Extract contact information when modal opens
     useEffect(() => {
-        if (isOpen && !isCodeSent) {
+        if (isOpen) {
             // Extract phone number from appointment data - try multiple possible fields
             let phone = appointmentData?.phone ||
                        appointmentData?.mobileNo ||
@@ -104,19 +106,33 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                        (appointmentData?.mobileCountryCode && appointmentData?.mobileNo ?
                         appointmentData.mobileCountryCode + appointmentData.mobileNo : null);
 
+            // Extract email from appointment data
+            let email = appointmentData?.email ||
+                       appointmentData?.emailAddress ||
+                       appointmentData?.email_address;
+
             // Ensure phone is a string and clean it up
             if (phone) {
                 phone = String(phone).trim();
             }
 
+            // Ensure email is a string and clean it up
+            if (email) {
+                email = String(email).trim();
+            }
+
             console.log('VerificationModal - appointmentData:', appointmentData);
             console.log('VerificationModal - extracted phone:', phone, 'type:', typeof phone);
+            console.log('VerificationModal - extracted email:', email, 'type:', typeof email);
 
-            if (phone && phone !== '') {
-                setPhoneNumber(phone);
-                generateVerificationCode();
-            } else {
-                setErrorMessage('Phone number not found in appointment data. Please check your appointment details.');
+            setPhoneNumber(phone || '');
+            setEmailAddress(email || '');
+            
+            // Set default method if only one contact method is available
+            if (phone && !email) {
+                setSelectedMethod('sms');
+            } else if (email && !phone) {
+                setSelectedMethod('email');
             }
         }
     }, [isOpen]);
@@ -127,29 +143,57 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
             return;
         }
 
+        if (!selectedMethod) {
+            setErrorMessage('Please select a verification method first.');
+            return;
+        }
+
         setIsSending(true);
         setErrorMessage("");
 
-        // Generate development OTP code only in development mode
-        const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
-        const devOTP = isDevelopment ? Math.floor(100000 + Math.random() * 900000).toString() : null;
-        if (isDevelopment && devOTP) {
-            setDebugCode(devOTP);
-        }
+        // Generate OTP code for verification
+        const verificationOTP = Math.floor(100000 + Math.random() * 900000).toString();
 
         try {
-            // Send OTP via SMS API
-            const response = await fetch('/api/sms/send-otp', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify({
-                    phone_number: phoneNumber,
-                    message: `Your SEHI appointment verification code is :otp. Valid for 5 minutes. Do not share this code with anyone.`
-                })
-            });
+            let response;
+            
+            if (selectedMethod === 'sms') {
+                // Send verification via unified endpoint to keep cache keys consistent with verification
+                response = await fetch('/api/send-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        appointment_id: appointmentData?.id || appointmentData?.appointment_id || null,
+                        method: 'sms',
+                        contact: phoneNumber,
+                        patient_name: patientName,
+                        appointment_date: appointmentData?.date || appointmentData?.appointment_date,
+                        appointment_time: appointmentData?.time || appointmentData?.appointment_time,
+                        service_name: appointmentData?.service || appointmentData?.service_name || 'General Consultation'
+                    })
+                });
+            } else {
+                // Send OTP via Email API
+                response = await fetch('/api/send-verification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        appointment_id: appointmentData?.id || appointmentData?.appointment_id || null,
+                        method: 'email',
+                        contact: emailAddress,
+                        patient_name: patientName,
+                        appointment_date: appointmentData?.date || appointmentData?.appointment_date,
+                        appointment_time: appointmentData?.time || appointmentData?.appointment_time,
+                        service_name: appointmentData?.service || appointmentData?.service_name || 'General Consultation'
+                    })
+                });
+            }
 
             const data = await response.json();
 
@@ -160,38 +204,19 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                 setErrorMessage("");
                 
                 // Update OTP code with the one from API if available
-                const otpCode = data.data?.otp_code || data.data?.otp || devOTP;
+                const otpCode = data.data?.otp_code || data.data?.otp || verificationOTP;
                 setDebugCode(otpCode);
 
             } else {
-                // Handle SMS failure based on environment
-                if (isDevelopment) {
-                    // In development, show development mode and allow verification
-                    setIsCodeSent(true);
-                    setTimeLeft(300); // 5 minutes
-                    setResendCooldown(120); // 2 minutes cooldown
-                    setErrorMessage("SMS sending failed, but you can use the development code below for testing.");
-                    console.warn('SMS sending failed, using development mode:', data.message);
-                } else {
-                    // In production, show error without development mode
-                    setErrorMessage("SMS sending failed. Please try again or contact support.");
-                    console.error('SMS sending failed:', data.message);
-                }
+                // Handle failure
+                const errorMsg = data.message || `${selectedMethod.toUpperCase()} sending failed. Please try again or contact support.`;
+                setErrorMessage(errorMsg);
+                console.error(`${selectedMethod.toUpperCase()} sending failed:`, data.message);
             }
 
         } catch (error: any) {
-            console.error('Error sending OTP:', error);
-            // Handle API failure based on environment
-            if (isDevelopment) {
-                // In development, show development mode and allow verification
-                setIsCodeSent(true);
-                setTimeLeft(300); // 5 minutes
-                setResendCooldown(120); // 2 minutes cooldown
-                setErrorMessage("SMS sending failed, but you can use the development code below for testing.");
-            } else {
-                // In production, show error without development mode
-                setErrorMessage("SMS sending failed. Please try again or contact support.");
-            }
+            console.error(`Error sending ${selectedMethod.toUpperCase()}:`, error);
+            setErrorMessage(`Network error: ${selectedMethod.toUpperCase()} sending failed. Please check your connection and try again.`);
         } finally {
             setIsSending(false);
         }
@@ -203,8 +228,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
             return;
         }
 
-        if (!phoneNumber) {
-            setErrorMessage('Phone number not found. Please try again.');
+        if (!selectedMethod) {
+            setErrorMessage('Please select a verification method first.');
             return;
         }
 
@@ -212,16 +237,18 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
         setErrorMessage("");
 
         try {
-            // First try regular OTP verification
-            const response = await fetch('/api/sms/verify-otp', {
+            // Use the general verification endpoint
+            const response = await fetch('/api/verify-code', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 },
                 body: JSON.stringify({
-                    phone_number: phoneNumber,
-                    otp_code: verificationCode
+                    verification_code: verificationCode,
+                    appointment_id: appointmentData?.id || appointmentData?.appointment_id || null,
+                    method: selectedMethod,
+                    contact: selectedMethod === 'email' ? emailAddress : phoneNumber
                 })
             });
 
@@ -249,60 +276,11 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                 
                 onVerified(completeAppointmentData);
             } else {
-                // If regular verification fails, check if it's the development code (only in development)
-                const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
-                if (isDevelopment && debugCode && verificationCode === debugCode) {
-                    console.log('Development mode verification successful');
-                    
-                    // Pass the complete appointment data back to parent
-                    const completeAppointmentData = {
-                        ...appointmentData,
-                        // Ensure all required fields are present
-                        firstname: appointmentData?.firstname || appointmentData?.first_name || '',
-                        lastname: appointmentData?.lastname || appointmentData?.last_name || '',
-                        email: appointmentData?.email || '',
-                        phone: phoneNumber,
-                        date: appointmentData?.date || '',
-                        time: appointmentData?.time || '',
-                        service_name: appointmentData?.service_name || appointmentData?.servicename || '',
-                        subservice_name: appointmentData?.subservice_name || appointmentData?.subservicename || '',
-                        date_of_birth: appointmentData?.date_of_birth || appointmentData?.birth || '',
-                        gender: appointmentData?.gender || ''
-                    };
-                    
-                    onVerified(completeAppointmentData);
-                } else {
-                    setErrorMessage(data.message || 'Invalid verification code. Please try again.');
-                }
+                setErrorMessage(data.message || 'Invalid verification code. Please try again.');
             }
         } catch (error: any) {
             console.error('Error verifying code:', error);
-            
-            // If API call fails, check if it's the development code (only in development)
-            const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
-            if (isDevelopment && debugCode && verificationCode === debugCode) {
-                console.log('Development mode verification successful (API failed)');
-                
-                // Pass the complete appointment data back to parent
-                const completeAppointmentData = {
-                    ...appointmentData,
-                    // Ensure all required fields are present
-                    firstname: appointmentData?.firstname || appointmentData?.first_name || '',
-                    lastname: appointmentData?.lastname || appointmentData?.last_name || '',
-                    email: appointmentData?.email || '',
-                    phone: phoneNumber,
-                    date: appointmentData?.date || '',
-                    time: appointmentData?.time || '',
-                    service_name: appointmentData?.service_name || appointmentData?.servicename || '',
-                    subservice_name: appointmentData?.subservice_name || appointmentData?.subservicename || '',
-                    date_of_birth: appointmentData?.date_of_birth || appointmentData?.birth || '',
-                    gender: appointmentData?.gender || ''
-                };
-                
-                onVerified(completeAppointmentData);
-            } else {
-                setErrorMessage('Failed to verify code. Please try again.');
-            }
+            setErrorMessage('Failed to verify code. Please try again.');
         } finally {
             setIsVerifying(false);
         }
@@ -362,18 +340,51 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                         Please verify your appointment using the verification code below.
                     </p>
 
-                    {/* Development Mode Notice - Compact */}
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                        <div className="flex items-center space-x-2">
-                            <svg className="w-4 h-4 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                            </svg>
-                            <div>
-                                <p className="text-sm font-medium text-yellow-800">Development Mode</p>
-                                <p className="text-xs text-yellow-700">OTP code will be displayed below for testing.</p>
+                    {/* Verification Method Selection */}
+                    {!isCodeSent && (phoneNumber || emailAddress) && (
+                        <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-700 text-center">Choose Verification Method</h4>
+                            <div className="grid grid-cols-2 gap-3">
+                                {phoneNumber && (
+                                    <button
+                                        onClick={() => setSelectedMethod('sms')}
+                                        className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                                            selectedMethod === 'sms'
+                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col items-center space-y-1">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                            </svg>
+                                            <span className="text-xs font-medium">SMS</span>
+                                            <span className="text-xs text-gray-500">{phoneNumber}</span>
+                                        </div>
+                                    </button>
+                                )}
+                                {emailAddress && (
+                                    <button
+                                        onClick={() => setSelectedMethod('email')}
+                                        className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                                            selectedMethod === 'email'
+                                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex flex-col items-center space-y-1">
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                            </svg>
+                                            <span className="text-xs font-medium">Email</span>
+                                            <span className="text-xs text-gray-500 truncate">{emailAddress}</span>
+                                        </div>
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    </div>
+                    )}
+
 
                     {/* Appointment Details - Compact */}
                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
@@ -386,27 +397,23 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Development Mode - Show OTP Code */}
-                    {debugCode && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                            <p className="text-xs text-yellow-700 font-medium mb-2">Development Code:</p>
-                            <p className="text-lg font-mono text-yellow-900 bg-white p-2 rounded border border-yellow-300 text-center">
-                                {debugCode}
-                            </p>
-                        </div>
-                    )}
 
-                    {/* SMS Sent Successfully Notice */}
+                    {/* Verification Code Sent Successfully Notice */}
                     {isCodeSent && (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                             <div className="flex items-center space-x-2">
                                 <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                                 </svg>
-                                <p className="text-sm font-medium text-green-800">SMS Sent Successfully</p>
+                                <p className="text-sm font-medium text-green-800">
+                                    {selectedMethod === 'email' ? 'Email Sent Successfully' : 'SMS Sent Successfully'}
+                                </p>
                             </div>
                             <p className="text-xs text-green-700 mt-1">
-                                Verification code sent to your phone. Check your SMS messages.
+                                {selectedMethod === 'email' 
+                                    ? 'Verification code sent to your email. Check your inbox and spam folder.'
+                                    : 'Verification code sent to your phone. Check your SMS messages.'
+                                }
                             </p>
                         </div>
                     )}
@@ -427,7 +434,10 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                                 maxLength={6}
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                                Enter the verification code sent to your phone
+                                {selectedMethod === 'email' 
+                                    ? 'Enter the verification code sent to your email'
+                                    : 'Enter the verification code sent to your phone'
+                                }
                             </p>
                         </div>
                         
@@ -436,12 +446,17 @@ const VerificationModal: React.FC<VerificationModalProps> = ({
                             <div className="text-center">
                                 <Button
                                     onClick={generateVerificationCode}
-                                    disabled={isSending || isResending}
+                                    disabled={isSending || isResending || !selectedMethod}
                                     variant="outline"
                                     size="default"
                                     className="px-6 py-2 text-blue-600 border-blue-200 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isSending || isResending ? 'Sending SMS...' : 'Send Verification Code'}
+                                    {isSending || isResending 
+                                        ? `Sending ${selectedMethod?.toUpperCase()}...` 
+                                        : selectedMethod 
+                                            ? `Send ${selectedMethod.toUpperCase()} Verification Code`
+                                            : 'Select Verification Method First'
+                                    }
                                 </Button>
                             </div>
                         )}

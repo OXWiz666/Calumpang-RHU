@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Head, Link, useForm, usePage, router } from "@inertiajs/react";
 import axios from "axios";
 import { showToast } from "@/utils/toast.jsx";
-import { useArchiveConfirmation } from "@/utils/confirmation.jsx";
 import {
     Search,
     Filter,
@@ -105,7 +104,6 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedDoctor, setSelectedDoctor] = useState(null);
-    const { confirmArchive, confirmUnarchive, ConfirmationDialog } = useArchiveConfirmation();
 
     
     // This section was removed to fix duplicate declarations
@@ -174,8 +172,16 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
     };
 
     const handleEditSuccess = (updatedDoctor) => {
-        // Refresh the page or update the doctor in the list
-        window.location.reload();
+        console.log('Edit success callback triggered:', updatedDoctor);
+        // Show success toast
+        showToast(
+            "Success!",
+            "Doctor information updated successfully!",
+            "success",
+            "update"
+        );
+        // Use Inertia reload to refresh the data
+        router.reload({ only: ['auth'] });
     };
     const [showPositionDropdown, setShowPositionDropdown] = useState(false);
     const [showSecurityDropdown, setShowSecurityDropdown] = useState(false);
@@ -283,107 +289,83 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
     const archiveDoctor = (doctor) => {
         const doctorName = `${doctor.user?.firstname} ${doctor.user?.lastname}`;
         
-        confirmArchive(doctorName, () => {
-            // Show loading toast
-            const loadingToastId = toast.loading(`Archiving ${doctorName}'s account...`, {
-                position: "top-right",
+        // Set loading state
+        setIsArchiveLoading(true);
+        
+        // Use doctor.user.id instead of doctor.id for the staff_id
+        axios.post(route("admin.staff.archive"), { staff_id: doctor.user?.id })
+            .then(response => {
+                // Show success toast
+                showToast(
+                    "Account Archived",
+                    `${doctorName}'s account has been archived successfully.`,
+                    "success",
+                    "archive"
+                );
+                
+                // Reload the page to show updated data
+                window.location.reload();
+            })
+            .catch(error => {
+                // Show error toast
+                showToast(
+                    "Archive Failed",
+                    `There was a problem archiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
+                    "error"
+                );
+                
+                console.error('Error archiving staff:', error);
+            })
+            .finally(() => {
+                // Reset loading state
+                setIsArchiveLoading(false);
             });
-            
-            // Set loading state
-            setIsArchiveLoading(true);
-            
-            axios.post(route("admin.staff.archive"), { staff_id: doctor.id })
-                .then(response => {
-                    // Dismiss loading toast
-                    toast.dismiss(loadingToastId);
-                    
-                    // Show success toast
-                    showToast(
-                        "Account Archived",
-                        `${doctorName}'s account has been archived successfully.`,
-                        "success",
-                        "archive"
-                    );
-                    
-                    // Reload the page to show updated data
-                    window.location.reload();
-                })
-                .catch(error => {
-                    // Dismiss loading toast
-                    toast.dismiss(loadingToastId);
-
-                    // Show error toast
-                    showToast(
-                        "Archive Failed",
-                        `There was a problem archiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
-                        "error"
-                    );
-                    
-                    console.error('Error archiving staff:', error);
-                })
-                .finally(() => {
-                    // Reset loading state
-                    setIsArchiveLoading(false);
-                });
-        });
     };
 
     // Function to unarchive a doctor account with enhanced feedback
     const unarchiveDoctor = (doctor) => {
         const doctorName = `${doctor.user?.firstname} ${doctor.user?.lastname}`;
         
-        confirmUnarchive(doctorName, () => {
-            // Show loading toast
-            const loadingToastId = toast.loading(`Unarchiving ${doctorName}'s account...`, {
-                position: "top-right",
+        // Set loading state
+        setIsArchiveLoading(true);
+        
+        // Use doctor.user.id instead of doctor.id for the staff_id
+        axios.post(route("admin.staff.unarchive"), { staff_id: doctor.user?.id })
+            .then(response => {
+                // Show success toast
+                showToast(
+                    "Account Unarchived",
+                    `${doctorName}'s account has been unarchived successfully.`,
+                    "success",
+                    "unarchive"
+                );
+                
+                // Reload the page to show updated data
+                window.location.reload();
+            })
+            .catch(error => {
+                // Show error toast
+                showToast(
+                    "Unarchive Failed",
+                    `There was a problem unarchiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
+                    "error"
+                );
+                
+                console.error('Error unarchiving staff:', error);
+            })
+            .finally(() => {
+                // Reset loading state
+                setIsArchiveLoading(false);
             });
-            
-            // Set loading state
-            setIsArchiveLoading(true);
-            
-            axios.post(route("admin.staff.unarchive"), { staff_id: doctor.id })
-                .then(response => {
-                    // Dismiss loading toast
-                    toast.dismiss(loadingToastId);
-                    
-                    // Show success toast
-                    showToast(
-                        "Account Unarchived",
-                        `${doctorName}'s account has been unarchived successfully.`,
-                        "success",
-                        "unarchive"
-                    );
-                    
-                    // Reload the page to show updated data
-                    window.location.reload();
-                })
-                .catch(error => {
-                    // Dismiss loading toast
-                    toast.dismiss(loadingToastId);
-
-                    // Show error toast
-                    showToast(
-                        "Unarchive Failed",
-                        `There was a problem unarchiving ${doctorName}'s account: ${error.response?.data?.message || "Please try again."}`,
-                        "error"
-                    );
-                    
-                    console.error('Error unarchiving staff:', error);
-                })
-                .finally(() => {
-                    // Reset loading state
-                    setIsArchiveLoading(false);
-                });
-        });
     };
 
     const handleExport = () => {
         const csvContent = [
-            ['Doctor ID', 'Name', 'Specialization', 'Email', 'Contact', 'Status', 'Created At'],
+            ['Doctor ID', 'Name', 'Medical License Number', 'Email', 'Contact', 'Status', 'Created At'],
             ...doctorsitems.map(doctor => [
                 `DOC-${doctor.id}`,
                 `${doctor.user?.firstname} ${doctor.user?.lastname}`,
-                doctor.specialty?.specialty || 'Not Set',
+                doctor.license_number || 'Not Set',
                 doctor.user?.email,
                 doctor.user?.contactno || 'Not provided',
                 doctor.status === 1 ? 'Available' : 
@@ -552,7 +534,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                         <TableRow>
                                                     <TableHead>ID</TableHead>
                                                     <TableHead>Doctor</TableHead>
-                                                    <TableHead>Specialization</TableHead>
+                                                    <TableHead>Medical License Number</TableHead>
                                                     <TableHead>Contact Information</TableHead>
                                                     <TableHead>Status</TableHead>
                                                     <TableHead className="text-right">Actions</TableHead>
@@ -585,7 +567,7 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                                                 </TableCell>
                                                 <TableCell>
                                                             <div className="text-sm text-gray-700">
-                                                                {d.specialty?.specialty || "Not Set"}
+                                                                {d.user?.license_number || "Not Set"}
                                                             </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -767,7 +749,40 @@ export default function Doctors({ doctorsitems, doctors, questions }) {
                     </DialogFooter>
                 </div>
             </Modal2>
-            <ConfirmationDialog />
+
+            {/* Custom Archive Confirmation Dialog */}
+            <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => {
+                if (!open) {
+                    closeConfirmDialog();
+                }
+            }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {confirmDialog.message}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={closeConfirmDialog}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                closeConfirmDialog();
+                                // Execute the confirm callback after closing the dialog
+                                if (confirmDialog.onConfirm) {
+                                    setTimeout(() => {
+                                        confirmDialog.onConfirm();
+                                    }, 100);
+                                }
+                            }}
+                            className={confirmDialog.type === 'archive' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+                        >
+                            {confirmDialog.type === 'archive' ? 'Archive' : 'Unarchive'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             {/* Edit Doctor Modal */}
             <EditDoctorModal

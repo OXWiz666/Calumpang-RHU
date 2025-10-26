@@ -8,7 +8,8 @@ class subservices extends Model
 {
     protected $fillable = [
         'service_id',
-        'subservicename'
+        'subservicename',
+        'status'
     ];
 
     public function service(){

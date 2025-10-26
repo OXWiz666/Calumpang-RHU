@@ -111,9 +111,12 @@ const SeasonalProgramDashboard = ({
 
         // Send registration data to the server
         router.post("/services/vaccinations/register", registrationData, {
-            onSuccess: () => {
-                // Show success message using alert for now (can be replaced with a toast library)
-                alert("Successfully registered for the program!");
+            onSuccess: (page) => {
+                // Get the registration ID from the response
+                const registrationId = page.registration_id || page.props?.flash?.registration_id || 'N/A';
+                
+                // Show success message with Registration ID
+                alert(`Successfully registered for the program!\n\nYour Registration ID: ${registrationId}\n\nPlease check your email and SMS for confirmation details.`);
 
                 closeRegistrationModal();
 
@@ -775,6 +778,11 @@ const SeasonalProgramDashboard = ({
     const [IsJoiningProgram, setIsJoiningProgram] = useState(false);
     const [selectedSched, setSelectedSched] = useState(null);
     const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+    const [showParticipantTypeModal, setShowParticipantTypeModal] = useState(false);
+    const [showExistingParticipantModal, setShowExistingParticipantModal] = useState(false);
+    const [registrationId, setRegistrationId] = useState("");
+    const [participantHistory, setParticipantHistory] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(false);
     // useEffect(() => {
     //     console.log("selected:", selectedSched);
     // }, [selectedSched]);
@@ -792,7 +800,50 @@ const SeasonalProgramDashboard = ({
     // Handle privacy terms acceptance
     const handlePrivacyAccept = () => {
         setShowPrivacyModal(false);
-        setIsJoiningProgram(true);
+        setShowParticipantTypeModal(true);
+    };
+
+    // Handle participant type selection
+    const handleParticipantTypeSelect = (type) => {
+        setShowParticipantTypeModal(false);
+        if (type === 'new') {
+            setIsJoiningProgram(true);
+        } else if (type === 'existing') {
+            setShowExistingParticipantModal(true);
+        }
+    };
+
+    // Handle existing participant registration ID lookup
+    const handleExistingParticipantSubmit = async (e) => {
+        e.preventDefault();
+        if (!registrationId.trim()) {
+            alert('Please enter a Registration ID');
+            return;
+        }
+
+        setHistoryLoading(true);
+        try {
+            const response = await fetch(`/api/participant-history/${registrationId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setParticipantHistory(data);
+            } else {
+                const error = await response.json();
+                alert(error.message || 'Registration ID not found');
+            }
+        } catch (error) {
+            console.error('Error fetching participant history:', error);
+            alert('Error fetching participant history. Please try again.');
+        } finally {
+            setHistoryLoading(false);
+        }
     };
 
     //const xProps = usePage().props;
@@ -1520,6 +1571,174 @@ const SeasonalProgramDashboard = ({
                             >
                                 I Agree & Register
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            </CustomModal>
+
+            {/* Participant Type Selection Modal */}
+            <CustomModal isOpen={showParticipantTypeModal} onClose={() => setShowParticipantTypeModal(false)}>
+                <div className="max-w-2xl mx-auto">
+                    <div className="bg-white rounded-lg shadow-xl">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                Select Participant Type
+                            </h2>
+                            <p className="text-gray-600 mt-2">
+                                Choose whether you are a new participant or an existing participant with a registration ID.
+                            </p>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* New Participant Card */}
+                                <div 
+                                    className="border-2 border-gray-200 rounded-lg p-6 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+                                    onClick={() => handleParticipantTypeSelect('new')}
+                                >
+                                    <div className="text-center">
+                                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">New Participant</h3>
+                                        <p className="text-gray-600 text-sm">
+                                            I am registering for the first time and need to fill out the registration form.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Existing Participant Card */}
+                                <div 
+                                    className="border-2 border-gray-200 rounded-lg p-6 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200"
+                                    onClick={() => handleParticipantTypeSelect('existing')}
+                                >
+                                    <div className="text-center">
+                                        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Existing Participant</h3>
+                                        <p className="text-gray-600 text-sm">
+                                            I have a registration ID and want to view my seasonal program history.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowParticipantTypeModal(false)}
+                                className="px-6 py-2"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CustomModal>
+
+            {/* Existing Participant Modal */}
+            <CustomModal isOpen={showExistingParticipantModal} onClose={() => setShowExistingParticipantModal(false)}>
+                <div className="max-w-2xl mx-auto">
+                    <div className="bg-white rounded-lg shadow-xl">
+                        <div className="px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-2xl font-bold text-gray-900">
+                                View Program History
+                            </h2>
+                            <p className="text-gray-600 mt-2">
+                                Enter your Registration ID to view your seasonal program history.
+                            </p>
+                        </div>
+                        <div className="px-6 py-6">
+                            <div>
+                                <div className="mb-6">
+                                    <label htmlFor="registrationId" className="block text-sm font-medium text-gray-700 mb-2">
+                                        Registration ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="registrationId"
+                                        value={registrationId}
+                                        onChange={(e) => setRegistrationId(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Enter your Registration ID"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="mb-6">
+                                    <Button
+                                        type="button"
+                                        onClick={handleExistingParticipantSubmit}
+                                        disabled={historyLoading || !registrationId.trim()}
+                                        className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400"
+                                    >
+                                        {historyLoading ? 'Loading...' : 'View History'}
+                                    </Button>
+                                </div>
+
+                                {participantHistory && (
+                                    <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Program History</h3>
+                                        <div className="space-y-3">
+                                            {participantHistory.programs && participantHistory.programs.length > 0 ? (
+                                                participantHistory.programs.map((program, index) => (
+                                                    <div key={index} className="border border-gray-200 rounded-lg p-3">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <h4 className="font-medium text-gray-900">{program.program_name}</h4>
+                                                                <p className="text-sm text-gray-600">Date: {program.date}</p>
+                                                                <p className="text-sm text-gray-600">Status: {program.status}</p>
+                                                            </div>
+                                                            <span className={`px-2 py-1 text-xs rounded-full ${
+                                                                program.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                                program.status === 'registered' ? 'bg-blue-100 text-blue-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {program.status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-gray-600">No program history found for this Registration ID.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-end space-x-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            setShowExistingParticipantModal(false);
+                                            setRegistrationId("");
+                                            setParticipantHistory(null);
+                                        }}
+                                        className="px-6 py-2"
+                                    >
+                                        Close
+                                    </Button>
+                                    {participantHistory && (
+                                        <Button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowExistingParticipantModal(false);
+                                                setRegistrationId("");
+                                                setParticipantHistory(null);
+                                                setIsJoiningProgram(true);
+                                            }}
+                                            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white"
+                                        >
+                                            Join Another Program
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

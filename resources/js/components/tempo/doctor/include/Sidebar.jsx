@@ -14,6 +14,8 @@ import {
     X,
     Home,
     Stethoscope,
+    FileText,
+    Pill,
 } from "lucide-react";
 import { cn } from "@/components/tempo/lib/utils";
 import { Button } from "@/components/tempo/components/ui/button";
@@ -50,10 +52,26 @@ const Sidebar = ({ activePage, userRole = "Admin" }) => {
         {
             title: "Patient Records",
             icon: <Users className="h-5 w-5" />,
-            route: "admin.patients",
+            route: "patients.index",
             path: "/auth/patients",
             id: "patients",
             roles: ["Admin", "Doctor"],
+        },
+        {
+            title: "Medical Records",
+            icon: <FileText className="h-5 w-5" />,
+            route: "doctor.medical-records",
+            path: "/doctor/medical-records",
+            id: "medical-records",
+            roles: ["Doctor"],
+        },
+        {
+            title: "Prescriptions",
+            icon: <Pill className="h-5 w-5" />,
+            route: "doctor.prescriptions",
+            path: "/doctor/prescriptions",
+            id: "prescriptions",
+            roles: ["Doctor"],
         },
         {
             title: "Settings",

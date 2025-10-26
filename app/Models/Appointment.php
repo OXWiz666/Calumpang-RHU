@@ -45,7 +45,7 @@ class Appointment extends Model
 
     public function medicalRecord()
     {
-        return $this->hasOne(MedicalRecord::class);
+        return $this->hasOne(MedicalRecord::class, 'appointment_id');
     }
 
     // Scopes

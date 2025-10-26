@@ -5,9 +5,10 @@ import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/tempo/components/ui/select";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { Package, Plus, Minus, Hash, Calendar, Building2, FileText } from "lucide-react";
+import toast from "react-hot-toast";
 
 const UpdateStocksModal = ({ open, onClose, item }) => {
     const [validationErrors, setValidationErrors] = useState({});
@@ -19,7 +20,6 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
         adjustment_type: "add", // 'add' | 'reduce'
         quantity: "",
         reason: "",
-        reference_number: "",
         supplier: "",
         batch_number: item?.batch_number || "",
         expiry_date: item?.expiry_date ? new Date(item.expiry_date).toISOString().split('T')[0] : "",
@@ -86,45 +86,70 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
         if (!data.adjustment_type) {
             errs.adjustment_type = "Please select an adjustment type";
         }
-        if (!data.reason.trim()) {
-            errs.reason = "Please provide a reason";
-        }
-        const current = getCurrentStock();
-        if (data.adjustment_type === 'reduce' && Number(data.quantity) > current) {
-            errs.quantity = `Cannot reduce more than current stock (${current})`;
-        }
-        if (data.adjustment_type === 'reduce' && getProjectedStock() < 0) {
-            errs.quantity = "Resulting stock cannot be negative";
-        }
+        
+        // Validate projected stock doesn't exceed maximum
         const projected = getProjectedStock();
         const effectiveMax = Number(data.maximum_stock || 0);
         if (effectiveMax > 0 && projected > effectiveMax) {
             errs.quantity = `Projected stock (${projected}) exceeds maximum (${effectiveMax})`;
         }
-        if (data.minimum_stock < 0) {
-            errs.minimum_stock = "Minimum stock cannot be negative";
+        
+        // Enhanced validation matching AddItemForm
+        const minStock = parseInt(data.minimum_stock) || 0;
+        const maxStock = parseInt(data.maximum_stock) || 0;
+        
+        if (minStock < 0) {
+            errs.minimum_stock = "Minimum stock level cannot be negative.";
         }
-        if (data.maximum_stock < 0) {
-            errs.maximum_stock = "Maximum stock cannot be negative";
+        if (maxStock < 0) {
+            errs.maximum_stock = "Maximum stock level cannot be negative.";
         }
-        if (Number(data.minimum_stock) > Number(data.maximum_stock)) {
-            errs.maximum_stock = "Maximum must be greater than or equal to minimum";
+        
+        // Only validate if both fields have meaningful values
+        if (minStock > 0 && maxStock > 0 && minStock > maxStock) {
+            errs.minimum_stock = "Minimum stock level cannot be greater than maximum stock level.";
         }
+        
+        // Validate Batch/Lot Number
+        if (!data.batch_number || data.batch_number.trim() === "") {
+            errs.batch_number = "Batch/Lot number is required.";
+        }
+        
+        // Validate Expiry Date
+        if (!data.expiry_date || data.expiry_date.trim() === "") {
+            errs.expiry_date = "Expiry date is required.";
+        } else {
+            // Check if expiry date is in the past
+            const expiryDate = new Date(data.expiry_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (expiryDate < today) {
+                errs.expiry_date = "Expiry date cannot be in the past.";
+            }
+        }
+        
         setValidationErrors(errs);
         return Object.keys(errs).length === 0;
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (!validateForm()) return;
+        if (!validateForm()) {
+            toast.error('Please fix the validation errors before submitting.');
+            return;
+        }
 
         post(route("pharmacist.inventory.update-stocks"), {
             onSuccess: () => {
+                toast.success('Stock updated successfully!');
                 onClose();
                 reset();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
             onError: (err) => {
                 console.error("Update stocks error:", err);
+                toast.error('Failed to update stock. Please try again.');
             },
             preserveScroll: true,
         });
@@ -174,7 +199,6 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="add">Add Stock</SelectItem>
-                                    <SelectItem value="reduce">Reduce Stock</SelectItem>
                                 </SelectContent>
                             </Select>
                             {validationErrors.adjustment_type && (
@@ -203,12 +227,12 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                             )}
                         </div>
                         <div>
-                            <Label htmlFor="reason">Reason *</Label>
+                            <Label htmlFor="reason">Reason (Optional)</Label>
                             <Input
                                 id="reason"
                                 value={data.reason}
                                 onChange={(e) => setData("reason", e.target.value)}
-                                placeholder="e.g., New delivery, correction, damage, audit"
+                                placeholder="e.g., New delivery, correction, damage, audit (optional)"
                                 className="mt-1"
                             />
                             {validationErrors.reason && (
@@ -248,7 +272,18 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                 type="number"
                                 min="0"
                                 value={data.minimum_stock}
-                                onChange={(e) => setData("minimum_stock", e.target.value)}
+                                onChange={(e) => {
+                                    setData("minimum_stock", e.target.value);
+                                    // Real-time validation
+                                    const numValue = parseInt(e.target.value) || 0;
+                                    const newErrors = { ...validationErrors };
+                                    if (numValue < 0) {
+                                        newErrors.minimum_stock = "Minimum stock level cannot be negative.";
+                                    } else {
+                                        delete newErrors.minimum_stock;
+                                    }
+                                    setValidationErrors(newErrors);
+                                }}
                                 placeholder="0"
                                 className="mt-1"
                             />
@@ -263,7 +298,18 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                 type="number"
                                 min="0"
                                 value={data.maximum_stock}
-                                onChange={(e) => setData("maximum_stock", e.target.value)}
+                                onChange={(e) => {
+                                    setData("maximum_stock", e.target.value);
+                                    // Real-time validation
+                                    const numValue = parseInt(e.target.value) || 0;
+                                    const newErrors = { ...validationErrors };
+                                    if (numValue < 0) {
+                                        newErrors.maximum_stock = "Maximum stock level cannot be negative.";
+                                    } else {
+                                        delete newErrors.maximum_stock;
+                                    }
+                                    setValidationErrors(newErrors);
+                                }}
                                 placeholder="0"
                                 className="mt-1"
                             />
@@ -273,20 +319,7 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="reference_number">Reference No.</Label>
-                            <div className="relative">
-                                <FileText className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                <Input
-                                    id="reference_number"
-                                    value={data.reference_number}
-                                    onChange={(e) => setData("reference_number", e.target.value)}
-                                    placeholder="e.g., DR-001122"
-                                    className="mt-1 pl-10"
-                                />
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-1 gap-4">
                         <div>
                             <Label htmlFor="supplier">Supplier</Label>
                             <div className="relative">
@@ -315,20 +348,23 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                         {availableBatches
                                             .filter(batch => batch.batch_number && batch.batch_number !== 'new_batch' && batch.batch_number !== 'N/A')
                                             .map((batch, index) => (
-                                            <SelectItem key={`batch-${batch.batch_number}-${index}`} value={batch.batch_number}>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{batch.batch_number}</span>
-                                                    {batch.expiry_date && (
-                                                        <span className="text-xs text-gray-500">
-                                                            Expires: {new Date(batch.expiry_date).toLocaleDateString()}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
+                                                <SelectItem key={`batch-${batch.batch_number}-${index}`} value={batch.batch_number}>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{batch.batch_number}</span>
+                                                        {batch.expiry_date && (
+                                                            <span className="text-xs text-gray-500">
+                                                                Expires: {new Date(batch.expiry_date).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {validationErrors.batch_number && (
+                                <p className="text-sm text-red-600 mt-1">{validationErrors.batch_number}</p>
+                            )}
                         </div>
                         <div>
                             <Label htmlFor="expiry_date">Expiry Date</Label>
@@ -340,8 +376,12 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                                     value={data.expiry_date}
                                     onChange={(e) => setData("expiry_date", e.target.value)}
                                     className="mt-1 pl-10"
+                                    min={new Date().toISOString().split('T')[0]}
                                 />
                             </div>
+                            {validationErrors.expiry_date && (
+                                <p className="text-sm text-red-600 mt-1">{validationErrors.expiry_date}</p>
+                            )}
                         </div>
                     </div>
 
@@ -362,7 +402,7 @@ const UpdateStocksModal = ({ open, onClose, item }) => {
                             Cancel
                         </Button>
                         <Button type="submit" disabled={processing} style={{ backgroundColor: '#2C3E50' }}>
-                            {processing ? (data.adjustment_type === 'add' ? 'Adding...' : 'Reducing...') : (data.adjustment_type === 'add' ? 'Add Stock' : 'Reduce Stock')}
+                            {processing ? 'Adding...' : 'Add Stock'}
                         </Button>
                     </DialogFooter>
                 </form>

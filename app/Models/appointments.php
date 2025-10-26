@@ -4,6 +4,7 @@ namespace App\Models;
 use App\Models\servicetypes;
 use App\Models\User;
 use App\Models\subservices;
+use App\Models\MedicalRecord;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -58,6 +59,14 @@ class appointments extends Model
     
     public function doctor(){
         return $this->belongsTo(User::class,'doctor_id');
+    }
+
+    public function medicalRecord(){
+        return $this->hasOne(MedicalRecord::class, 'appointment_id');
+    }
+
+    public function patient(){
+        return $this->belongsTo(Patient::class, 'patient_id');
     }
 
     // Get patient name (either from user or guest info)

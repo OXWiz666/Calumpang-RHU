@@ -14,6 +14,7 @@ interface PatientData {
     civilStatus: string;
     nationality: string;
     religion: string;
+    religionOther?: string;
     country: string;
     region: string;
     province: string;
@@ -57,6 +58,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
         civilStatus: "",
         nationality: "FILIPINO",
         religion: "",
+        religionOther: "",
         country: "Philippines",
         region: "",
         province: "",
@@ -352,6 +354,8 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                 return !value.trim() ? 'Nationality is required' : '';
             case 'religion':
                 return !value || value === 'SELECT' ? 'Please select your religion' : '';
+            case 'religionOther':
+                return patientData.religion === 'Other' && (!value || value.trim() === '') ? 'Please specify your religion' : '';
             case 'country':
                 return !value.trim() ? 'Country is required' : '';
             case 'region':
@@ -400,6 +404,11 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
             'region', 'province', 'city', 'barangay', 'street', 
             'zipCode', 'mobileNo', 'mobileCountryCode', 'emailAddress'
         ];
+
+        // Add religionOther to validation if religion is "Other"
+        if (patientData.religion === 'Other') {
+            requiredFields.push('religionOther');
+        }
 
         requiredFields.forEach(field => {
             const error = validateField(field, String(patientData[field]));
@@ -537,7 +546,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                     phone: `${patientData.mobileCountryCode}${patientData.mobileNo}`,
                     civilStatus: patientData.civilStatus,
                     nationality: patientData.nationality,
-                    religion: patientData.religion,
+                    religion: patientData.religion === 'Other' ? patientData.religionOther : patientData.religion,
                     country: patientData.country,
                     region: patientData.region,
                     province: patientData.province,
@@ -737,6 +746,7 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
             civilStatus: "",
             nationality: "FILIPINO",
             religion: "",
+            religionOther: "",
             country: "Philippines",
             region: "",
             province: "",
@@ -1180,14 +1190,37 @@ const PatientVerificationModal: React.FC<PatientVerificationModalProps> = ({
                                                     }`}
                                                 >
                                                     <option value="">SELECT</option>
-                                                    <option value="Catholic">Catholic</option>
+                                                    <option value="Roman Catholic">Roman Catholic</option>
+                                                    <option value="Iglesia ni Cristo">Iglesia ni Cristo</option>
                                                     <option value="Protestant">Protestant</option>
+                                                    <option value="Baptist">Baptist</option>
+                                                    <option value="Methodist">Methodist</option>
+                                                    <option value="Adventist">Adventist</option>
+                                                    <option value="Jehovah's Witness">Jehovah's Witness</option>
+                                                    <option value="Mormon">Mormon</option>
                                                     <option value="Islam">Islam</option>
                                                     <option value="Buddhist">Buddhist</option>
                                                     <option value="Hindu">Hindu</option>
+                                                    <option value="Agnostic">Agnostic</option>
+                                                    <option value="Atheist">Atheist</option>
                                                     <option value="Other">Other</option>
                                                 </select>
                                                 <ErrorMessage field="religion" />
+                                                {patientData.religion === 'Other' && (
+                                                    <div className="mt-3">
+                                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Specify: *</label>
+                                                        <input 
+                                                            type="text"
+                                                            value={patientData.religionOther || ''}
+                                                            onChange={(e) => handleInputChange('religionOther', e.target.value)}
+                                                            placeholder="Please specify your religion"
+                                                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md bg-white ${
+                                                                fieldErrors.religionOther ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                                                            }`}
+                                                        />
+                                                        <ErrorMessage field="religionOther" />
+                                                    </div>
+                                                )}
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-semibold text-gray-700 mb-2">Country *</label>

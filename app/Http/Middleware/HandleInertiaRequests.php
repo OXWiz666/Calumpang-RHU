@@ -43,6 +43,8 @@ class HandleInertiaRequests extends Middleware
                 'userPrograms' => optional($request->user())->userprograms ?? [],
             ],
             'flash' => Session::get('flash'),
+            'registration_id' => Session::get('registration_id'),
+            'participant_data' => Session::get('participant_data'),
             'appointment_priority_number' => Session::get('appointment_priority_number'),
             'appointment_reference_number' => Session::get('appointment_reference_number'),
             'appointment_id' => Session::get('appointment_id')

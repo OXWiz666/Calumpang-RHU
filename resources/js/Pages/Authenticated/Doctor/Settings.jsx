@@ -1,28 +1,23 @@
 import React, { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/tempo/components/ui/card';
 import { Button } from '@/components/tempo/components/ui/button';
 import { Input } from '@/components/tempo/components/ui/input';
 import { Label } from '@/components/tempo/components/ui/label';
-import { Textarea } from '@/components/tempo/components/ui/textarea';
 import { Separator } from '@/components/tempo/components/ui/separator';
 import { 
     Settings, 
-    User, 
     Lock, 
-    Bell, 
-    Shield, 
-    Save,
     Eye,
     EyeOff,
-    CheckCircle,
-    AlertCircle
+    User
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 
 export default function DoctorSettings({ user }) {
+    const { auth } = usePage().props;
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -30,12 +25,11 @@ export default function DoctorSettings({ user }) {
 
     // Profile form
     const { data: profileData, setData: setProfileData, post: updateProfile, processing: profileProcessing, errors: profileErrors } = useForm({
-        firstname: user?.firstname || '',
-        lastname: user?.lastname || '',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        specialization: user?.specialization || '',
-        bio: user?.bio || '',
+        firstname: auth.user?.firstname || '',
+        middlename: auth.user?.middlename || '',
+        lastname: auth.user?.lastname || '',
+        email: auth.user?.email || '',
+        contactno: auth.user?.contactno || '',
     });
 
     // Password form
@@ -45,23 +39,17 @@ export default function DoctorSettings({ user }) {
         password_confirmation: '',
     });
 
-    // Notification preferences
-    const [notificationPrefs, setNotificationPrefs] = useState({
-        email_notifications: true,
-        sms_notifications: false,
-        appointment_reminders: true,
-        prescription_updates: true,
-        system_alerts: true,
-    });
-
     const handleProfileUpdate = (e) => {
         e.preventDefault();
+        
         updateProfile(route('doctor.settings.profile'), {
             onSuccess: () => {
                 toast.success('Profile updated successfully!');
+                // Reload auth data using Inertia
+                router.reload({ only: ['auth'] });
             },
             onError: () => {
-                toast.error('Failed to update profile. Please try again.');
+                toast.error('Failed to update profile.');
             }
         });
     };
@@ -79,15 +67,9 @@ export default function DoctorSettings({ user }) {
         });
     };
 
-    const handleNotificationUpdate = () => {
-        // This would typically make an API call to update notification preferences
-        toast.success('Notification preferences updated!');
-    };
-
     const tabs = [
         { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
         { id: 'security', label: 'Security', icon: <Lock className="h-4 w-4" /> },
-        { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
     ];
 
     return (
@@ -145,12 +127,12 @@ export default function DoctorSettings({ user }) {
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <User className="h-5 w-5" />
-                                    Profile Information
+                                    Profile Settings
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <form onSubmit={handleProfileUpdate} className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="firstname">First Name</Label>
                                             <Input
@@ -161,6 +143,19 @@ export default function DoctorSettings({ user }) {
                                             />
                                             {profileErrors.firstname && (
                                                 <p className="text-sm text-red-500">{profileErrors.firstname}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="middlename">Middle Name</Label>
+                                            <Input
+                                                id="middlename"
+                                                value={profileData.middlename}
+                                                onChange={(e) => setProfileData('middlename', e.target.value)}
+                                                className={profileErrors.middlename ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.middlename && (
+                                                <p className="text-sm text-red-500">{profileErrors.middlename}</p>
                                             )}
                                         </div>
 
@@ -178,7 +173,7 @@ export default function DoctorSettings({ user }) {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="email">Email Address</Label>
+                                            <Label htmlFor="email">Email</Label>
                                             <Input
                                                 id="email"
                                                 type="email"
@@ -192,44 +187,15 @@ export default function DoctorSettings({ user }) {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="phone">Phone Number</Label>
+                                            <Label htmlFor="contactno">Contact Number</Label>
                                             <Input
-                                                id="phone"
-                                                value={profileData.phone}
-                                                onChange={(e) => setProfileData('phone', e.target.value)}
-                                                className={profileErrors.phone ? 'border-red-500' : ''}
+                                                id="contactno"
+                                                value={profileData.contactno}
+                                                onChange={(e) => setProfileData('contactno', e.target.value)}
+                                                className={profileErrors.contactno ? 'border-red-500' : ''}
                                             />
-                                            {profileErrors.phone && (
-                                                <p className="text-sm text-red-500">{profileErrors.phone}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="specialization">Specialization</Label>
-                                            <Input
-                                                id="specialization"
-                                                value={profileData.specialization}
-                                                onChange={(e) => setProfileData('specialization', e.target.value)}
-                                                placeholder="e.g., Internal Medicine, Pediatrics, etc."
-                                                className={profileErrors.specialization ? 'border-red-500' : ''}
-                                            />
-                                            {profileErrors.specialization && (
-                                                <p className="text-sm text-red-500">{profileErrors.specialization}</p>
-                                            )}
-                                        </div>
-
-                                        <div className="space-y-2 md:col-span-2">
-                                            <Label htmlFor="bio">Bio</Label>
-                                            <Textarea
-                                                id="bio"
-                                                value={profileData.bio}
-                                                onChange={(e) => setProfileData('bio', e.target.value)}
-                                                placeholder="Tell us about yourself..."
-                                                rows={4}
-                                                className={profileErrors.bio ? 'border-red-500' : ''}
-                                            />
-                                            {profileErrors.bio && (
-                                                <p className="text-sm text-red-500">{profileErrors.bio}</p>
+                                            {profileErrors.contactno && (
+                                                <p className="text-sm text-red-500">{profileErrors.contactno}</p>
                                             )}
                                         </div>
                                     </div>
@@ -241,12 +207,12 @@ export default function DoctorSettings({ user }) {
                                             {profileProcessing ? (
                                                 <>
                                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                                    Saving...
+                                                    Updating...
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Save className="h-4 w-4 mr-2" />
-                                                    Save Changes
+                                                    <User className="h-4 w-4 mr-2" />
+                                                    Update Profile
                                                 </>
                                             )}
                                         </Button>
@@ -367,132 +333,6 @@ export default function DoctorSettings({ user }) {
                     </motion.div>
                 )}
 
-                {/* Notification Settings */}
-                {activeTab === 'notifications' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                    >
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Bell className="h-5 w-5" />
-                                    Notification Preferences
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-medium">Email Notifications</h3>
-                                                <p className="text-sm text-gray-600">Receive notifications via email</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={notificationPrefs.email_notifications}
-                                                    onChange={(e) => setNotificationPrefs(prev => ({
-                                                        ...prev,
-                                                        email_notifications: e.target.checked
-                                                    }))}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-medium">SMS Notifications</h3>
-                                                <p className="text-sm text-gray-600">Receive notifications via SMS</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={notificationPrefs.sms_notifications}
-                                                    onChange={(e) => setNotificationPrefs(prev => ({
-                                                        ...prev,
-                                                        sms_notifications: e.target.checked
-                                                    }))}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-medium">Appointment Reminders</h3>
-                                                <p className="text-sm text-gray-600">Get reminded about upcoming appointments</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={notificationPrefs.appointment_reminders}
-                                                    onChange={(e) => setNotificationPrefs(prev => ({
-                                                        ...prev,
-                                                        appointment_reminders: e.target.checked
-                                                    }))}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-medium">Prescription Updates</h3>
-                                                <p className="text-sm text-gray-600">Get notified about prescription status changes</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={notificationPrefs.prescription_updates}
-                                                    onChange={(e) => setNotificationPrefs(prev => ({
-                                                        ...prev,
-                                                        prescription_updates: e.target.checked
-                                                    }))}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <h3 className="font-medium">System Alerts</h3>
-                                                <p className="text-sm text-gray-600">Receive important system notifications</p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={notificationPrefs.system_alerts}
-                                                    onChange={(e) => setNotificationPrefs(prev => ({
-                                                        ...prev,
-                                                        system_alerts: e.target.checked
-                                                    }))}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <Separator />
-
-                                    <div className="flex justify-end">
-                                        <Button onClick={handleNotificationUpdate} className="bg-blue-600 hover:bg-blue-700">
-                                            <Bell className="h-4 w-4 mr-2" />
-                                            Save Preferences
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-                )}
             </div>
         </AdminLayout>
     );

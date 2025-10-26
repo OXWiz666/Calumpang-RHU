@@ -16,23 +16,33 @@ class HealthProgramsController extends Controller
     // Archive and unarchive methods
     public function index(){
         // Get programs from database
-        $programs = program_schedules::with(['program_type', 'coordinator'])
+        $programs = program_schedules::with(['program_type', 'coordinator', 'registered_participants'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($program) {
+                // Calculate real-time available slots from actual registrations
+                $registeredCount = $program->registered_participants ? $program->registered_participants->count() : 0;
+                $availableSlots = max(0, $program->total_slots - $registeredCount);
+                $participants = $program->total_slots - $availableSlots;
+                
+                // Update the database to keep it in sync
+                if ($program->available_slots !== $availableSlots) {
+                    $program->update(['available_slots' => $availableSlots]);
+                }
+                
                 return [
                     'id' => $program->id,
-                    'name' => $program->program_type->programname,
-                    'description' => $program->program_type->description,
+                    'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                    'description' => $program->program_type ? $program->program_type->description : '',
                     'date' => $program->date,
                     'startTime' => $program->start_time,
                     'endTime' => $program->end_time,
                     'location' => $program->location,
                     'status' => $program->status,
-                    'participants' => $program->total_slots - $program->available_slots,
+                    'participants' => $participants,
                     'coordinator' => $program->coordinator ? 'Dr. ' . $program->coordinator->lastname : 'Unassigned',
                     'coordinatorId' => $program->coordinator_id,
-                    'availableSlots' => $program->available_slots,
+                    'availableSlots' => $availableSlots,
                     'totalSlots' => $program->total_slots,
                     'created_at' => $program->created_at->format('Y-m-d H:i:s'),
                 ];
@@ -48,13 +58,14 @@ class HealthProgramsController extends Controller
             ->get();
             
         // Get statistics for admin overview
-        $activePrograms = program_schedules::where('status', 'Active')->count();
+        $activePrograms = program_schedules::where('status', 'Available')->count();
         $archivedPrograms = program_schedules::where('status', 'Archived')->count();
         
-        // Get today's appointments count
+        // Get today's participants count (participants registered for programs happening today)
         $today = date('Y-m-d');
-        $todayAppointments = DB::table('appointments')
-            ->whereDate('date', $today)
+        $todayParticipants = DB::table('program_participants')
+            ->join('program_schedules', 'program_participants.program_schedule_id', '=', 'program_schedules.id')
+            ->whereDate('program_schedules.date', $today)
             ->count();
             
         // Get total participants across all programs
@@ -65,7 +76,7 @@ class HealthProgramsController extends Controller
             'doctors' => $doctors,
             'activePrograms' => $activePrograms,
             'archivedPrograms' => $archivedPrograms,
-            'todayAppointments' => $todayAppointments,
+            'todayParticipants' => $todayParticipants,
             'totalParticipants' => $totalParticipants
         ]);
     }
@@ -75,23 +86,33 @@ class HealthProgramsController extends Controller
      */
     public function fetch(){
         // Get programs from database
-        $programs = program_schedules::with(['program_type', 'coordinator'])
+        $programs = program_schedules::with(['program_type', 'coordinator', 'registered_participants'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($program) {
+                // Calculate real-time available slots from actual registrations
+                $registeredCount = $program->registered_participants ? $program->registered_participants->count() : 0;
+                $availableSlots = max(0, $program->total_slots - $registeredCount);
+                $participants = $program->total_slots - $availableSlots;
+                
+                // Update the database to keep it in sync
+                if ($program->available_slots !== $availableSlots) {
+                    $program->update(['available_slots' => $availableSlots]);
+                }
+                
                 return [
                     'id' => $program->id,
-                    'name' => $program->program_type->programname,
-                    'description' => $program->program_type->description,
+                    'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                    'description' => $program->program_type ? $program->program_type->description : '',
                     'date' => $program->date,
                     'startTime' => $program->start_time,
                     'endTime' => $program->end_time,
                     'location' => $program->location,
                     'status' => $program->status,
-                    'participants' => $program->total_slots - $program->available_slots,
+                    'participants' => $participants,
                     'coordinator' => $program->coordinator ? 'Dr. ' . $program->coordinator->lastname : 'Unassigned',
                     'coordinatorId' => $program->coordinator_id,
-                    'availableSlots' => $program->available_slots,
+                    'availableSlots' => $availableSlots,
                     'totalSlots' => $program->total_slots,
                     'created_at' => $program->created_at->format('Y-m-d H:i:s'),
                 ];
@@ -105,27 +126,37 @@ class HealthProgramsController extends Controller
     }
 
     public function CreateProgram(Request $request){
-        $request->validate([
-            'programname' => "required|min:3",
-            'description' => "required|min:3",
-            'date' => "required|date",
-            'starttime' => "required",
-            'endtime' => "required",
-            'location' => "required",
-            'slots' => "required|integer",
-            'coordinatorid' => "required|exists:users,id",
-            'status' => "required|in:Available,Full,Cancelled",
-        ]);
-
-        try{
+        // Log the request data for debugging
+        \Log::info('CreateProgram request data:', $request->all());
+        
+        try {
+            $request->validate([
+                'programname' => "required|min:3",
+                'description' => "required|min:3",
+                'date' => "required|date",
+                'starttime' => "required",
+                'endtime' => "required",
+                'location' => "required",
+                'slots' => "required|integer",
+                'coordinatorid' => "required|exists:users,id",
+                'status' => "required|in:Available,Full,Cancelled",
+            ]);
+            
+            \Log::info('Validation passed');
+            
             // Begin a database transaction
             DB::beginTransaction();
             
             // First, create or find the program type
             $programType = program_types::firstOrCreate(
                 ['programname' => $request->programname],
-                ['description' => $request->description]
+                [
+                    'description' => $request->description,
+                    'service_id' => null // Health programs don't need to be linked to a specific service
+                ]
             );
+            
+            \Log::info('Program type created/found:', ['id' => $programType->id, 'name' => $programType->programname]);
             
             // Then create the program schedule
             $programSchedule = new program_schedules();
@@ -140,40 +171,88 @@ class HealthProgramsController extends Controller
             $programSchedule->status = $request->status;
             $programSchedule->save();
             
+            \Log::info('Program schedule saved:', ['id' => $programSchedule->id]);
+            
             // Commit the transaction
             DB::commit();
             
-            // Get updated programs list
-            $programs = program_schedules::with(['program_type', 'coordinator'])
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($program) {
-                    return [
-                        'id' => $program->id,
-                        'name' => $program->program_type->programname,
-                        'description' => $program->program_type->description,
-                        'date' => $program->date,
-                        'startTime' => $program->start_time,
-                        'endTime' => $program->end_time,
-                        'location' => $program->location,
-                        'status' => $program->status,
-                        'participants' => $program->total_slots - $program->available_slots,
-                        'coordinator' => $program->coordinator ? 'Dr. ' . $program->coordinator->lastname : 'Unassigned',
-                        'coordinatorId' => $program->coordinator_id,
-                        'availableSlots' => $program->available_slots,
-                        'totalSlots' => $program->total_slots,
-                        'created_at' => $program->created_at->format('Y-m-d H:i:s'),
-                    ];
-                })
-                ->toArray();
+            \Log::info('Transaction committed successfully');
             
-            return redirect()->back()->with([
-                'success' => 'Health program created successfully',
-                'programs' => $programs
+            return redirect()->route('admin.programs')->with([
+                'success' => 'Health program created successfully'
+            ]);
+        }
+        catch(\Illuminate\Validation\ValidationException $e){
+            DB::rollBack();
+            \Log::error('Validation error:', $e->errors());
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+        catch(\Exception $er){
+            DB::rollBack();
+            \Log::error('Error creating program:', ['message' => $er->getMessage(), 'trace' => $er->getTraceAsString()]);
+            return redirect()->back()->with('error', 'Failed to create health program: ' . $er->getMessage());
+        }
+    }
+
+    public function updateProgram(Request $request, $programId){
+        $request->validate([
+            'programname' => "required|min:3",
+            'description' => "required|min:3",
+            'date' => "required|date|after_or_equal:today",
+            'starttime' => "required",
+            'endtime' => "required",
+            'location' => "required",
+            'slots' => "required|integer",
+            'coordinatorid' => "required|exists:users,id",
+            'status' => "required|in:Available,Full,Cancelled,Active,Completed,Upcoming,Archived",
+        ]);
+
+        try{
+            // Begin a database transaction
+            DB::beginTransaction();
+            
+            // Find the program schedule
+            $programSchedule = program_schedules::findOrFail($programId);
+            
+            // Update or create the program type
+            $programType = program_types::firstOrCreate(
+                ['programname' => $request->programname],
+                ['description' => $request->description]
+            );
+            
+            // Update the program type description if it exists
+            if ($programType->description !== $request->description) {
+                $programType->description = $request->description;
+                $programType->save();
+            }
+            
+            // Calculate new available slots based on current registrations
+            $currentRegistrations = $programSchedule->registered_participants()->count();
+            $newTotalSlots = $request->slots;
+            $newAvailableSlots = max(0, $newTotalSlots - $currentRegistrations);
+            
+            // Update the program schedule
+            $programSchedule->program_type_id = $programType->id;
+            $programSchedule->date = $request->date;
+            $programSchedule->start_time = $request->starttime;
+            $programSchedule->end_time = $request->endtime;
+            $programSchedule->location = $request->location;
+            $programSchedule->total_slots = $newTotalSlots;
+            $programSchedule->available_slots = $newAvailableSlots;
+            $programSchedule->coordinator_id = $request->coordinatorid;
+            $programSchedule->status = $request->status;
+            $programSchedule->save();
+            
+            // Commit the transaction
+            DB::commit();
+            
+            return redirect()->route('admin.programs')->with([
+                'success' => 'Health program updated successfully'
             ]);
         }
         catch(\Exception $er){
-            return redirect()->back()->with('error', 'Failed to create health program: ' . $er->getMessage());
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Failed to update health program: ' . $er->getMessage());
         }
     }
     
@@ -201,8 +280,8 @@ class HealthProgramsController extends Controller
                 ->map(function ($program) {
                     return [
                         'id' => $program->id,
-                        'name' => $program->program_type->programname,
-                        'description' => $program->program_type->description,
+                        'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                        'description' => $program->program_type ? $program->program_type->description : '',
                         'date' => $program->date,
                         'startTime' => $program->start_time,
                         'endTime' => $program->end_time,
@@ -255,8 +334,8 @@ class HealthProgramsController extends Controller
                 ->map(function ($program) {
                     return [
                         'id' => $program->id,
-                        'name' => $program->program_type->programname,
-                        'description' => $program->program_type->description,
+                        'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                        'description' => $program->program_type ? $program->program_type->description : '',
                         'date' => $program->date,
                         'startTime' => $program->start_time,
                         'endTime' => $program->end_time,
@@ -324,7 +403,7 @@ class HealthProgramsController extends Controller
             return response()->json([
                 'program' => [
                     'id' => $program->id,
-                    'name' => $program->program_type->programname,
+                    'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
                     'date' => $program->date,
                     'location' => $program->location,
                 ],

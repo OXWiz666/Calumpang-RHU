@@ -48,8 +48,8 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
         {
             id: 'sample_1',
             type: 'appointment',
-            title: 'New Appointment',
-            description: 'John Doe scheduled General Checkup',
+            title: 'New Appointment Scheduled',
+            description: 'Maria Santos scheduled General Consultation for October 30, 2025 at 9:00 AM',
             timestamp: new Date(),
             icon: 'Calendar',
             status: 'pending',
@@ -64,7 +64,7 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
             id: 'sample_2',
             type: 'inventory',
             title: 'Stock Movement',
-            description: 'Staff Member added 50 units of Paracetamol',
+            description: 'Dr. Juan Dela Cruz added 50 units of Paracetamol 500mg to inventory',
             timestamp: new Date(Date.now() - 300000),
             icon: 'Package',
             status: 'completed',
@@ -78,8 +78,8 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
         {
             id: 'sample_3',
             type: 'user',
-            title: 'New User Registration',
-            description: 'Jane Smith registered as Doctor',
+            title: 'New Staff Registration',
+            description: 'Dr. Ana Garcia registered as Doctor with license number MD-2025-001',
             timestamp: new Date(Date.now() - 600000),
             icon: 'User',
             status: 'completed',
@@ -89,6 +89,36 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
             action_text: 'View Staff',
             badge_text: 'New',
             time_ago: '10 minutes ago'
+        },
+        {
+            id: 'sample_4',
+            type: 'prescription',
+            title: 'Prescription Dispensed',
+            description: 'Prescription #RX-000123 for Patient Carlos Reyes has been dispensed',
+            timestamp: new Date(Date.now() - 900000),
+            icon: 'Pill',
+            status: 'completed',
+            color: 'green',
+            priority: 'medium',
+            action_url: '/admin/prescriptions',
+            action_text: 'View Prescription',
+            badge_text: 'Dispensed',
+            time_ago: '15 minutes ago'
+        },
+        {
+            id: 'sample_5',
+            type: 'appointment',
+            title: 'Appointment Completed',
+            description: 'General Consultation for Patient Roberto Cruz has been completed',
+            timestamp: new Date(Date.now() - 1200000),
+            icon: 'Calendar',
+            status: 'completed',
+            color: 'emerald',
+            priority: 'low',
+            action_url: '/admin/appointments',
+            action_text: 'View Details',
+            badge_text: 'Completed',
+            time_ago: '20 minutes ago'
         }
     ];
 
@@ -100,8 +130,17 @@ export default function Dashboard({ totalPatients, patientGrowthPercentage, dash
         console.log('Activities State:', activities);
         if (!recentActivities || recentActivities.length === 0) {
             console.log('Using sample data for testing');
+        } else {
+            console.log('Using real backend data');
         }
     }, [recentActivities, activities]);
+
+    // Update activities when recentActivities changes
+    useEffect(() => {
+        if (recentActivities && recentActivities.length > 0) {
+            setActivities(recentActivities);
+        }
+    }, [recentActivities]);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [currentTime, setCurrentTime] = useState(new Date());

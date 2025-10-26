@@ -13,6 +13,10 @@ import UpdateStocksModal from "./UpdateStocksModal";
 import SuccessModal from "./SuccessModal";
 import DispenseStockModal from "./DispenseStockModal";
 import BatchDisposalModal from "./BatchDisposalModal";
+import BulkDispenseModal from "./BulkDispenseModal";
+import BulkUpdateModal from "./BulkUpdateModal";
+// import StockAlertNotifier from "@/components/StockAlertNotifier";
+// import useStockAlerts from "@/hooks/useStockAlerts";
 import {
     Package,
     Plus,
@@ -88,6 +92,32 @@ export default function PharmacistInventory({ categories = [], allCategories = [
     const [showDisposalModal, setShowDisposalModal] = useState(false);
     const [disposalMode, setDisposalMode] = useState('single'); // 'single' | 'multi'
     const [showUpdateStocksModal, setShowUpdateStocksModal] = useState(false);
+    const [showBulkDispenseModal, setShowBulkDispenseModal] = useState(false);
+    const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+
+    // Stock Alert System - temporarily disabled to fix errors
+    // const {
+    //     alerts,
+    //     isLoading: alertsLoading,
+    //     error: alertsError,
+    //     lastChecked,
+    //     soundEnabled,
+    //     getAlertSummary,
+    //     getAlertsByLevel,
+    //     hasNewAlerts,
+    //     toggleSound,
+    //     refresh: refreshAlerts,
+    // } = useStockAlerts(30000); // Check every 30 seconds
+
+    // const [showStockAlerts, setShowStockAlerts] = useState(false);
+    // const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
+
+    // // Show stock alerts when there are new critical alerts
+    // useEffect(() => {
+    //     if (hasNewAlerts() && getAlertSummary().critical > 0) {
+    //         setShowStockAlerts(true);
+    //     }
+    // }, [alerts, hasNewAlerts, getAlertSummary]);
 
     // Helper function to determine overall item status based on batches
     // Cache bust: 2024-01-20
@@ -107,13 +137,17 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             return 'expiring_soon';
         }
         
-        if (hasExpiringSoon) return 'expiring_soon';
+        if (hasExpiringSoon) {
+            // Even if expiring soon, still mark as in_stock since it has quantity
+            return 'in_stock';
+        }
         return 'in_stock';
     };
 
     // Helper function to determine item status
     const getItemStatus = (item) => {
-        const quantity = item.stock?.stocks || 0;
+        // Use totalQuantity from processed items, fallback to stock?.stocks for raw items
+        const quantity = item.totalQuantity ?? item.stock?.stocks ?? 0;
         const minStock = item.minimum_stock || 10;
         
         if (quantity === 0) return 'out_of_stock';
@@ -240,8 +274,8 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             onSuccess: () => {
                 setSuccessMessage(successMessage);
                 setShowSuccessModal(true);
-                // Refresh the page to update the data
-                window.location.reload();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
             onError: () => {
                 setSuccessMessage(errorMessage);
@@ -258,8 +292,8 @@ export default function PharmacistInventory({ categories = [], allCategories = [
             onSuccess: () => {
                 setSuccessMessage(successMessage);
                 setShowSuccessModal(true);
-                // Refresh the page to update the data
-                window.location.reload();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
             onError: () => {
                 setSuccessMessage(errorMessage);
@@ -268,16 +302,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
         });
     };
 
-    const handleDispenseItem = (item) => {
-        setSelectedItem(item);
-        setShowDispenseModal(true);
-    };
 
-    const handleDisposeItem = (item, mode = 'single') => {
-        setSelectedItem(item);
-        setDisposalMode(mode);
-        setShowDisposalModal(true);
-    };
 
     const handleUpdateStocks = (item, batchItem = null) => {
         // If batchItem is provided, use its ID and details, otherwise use the main item
@@ -310,6 +335,7 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                     categoryIcon: getCategoryIcon(item.category),
                     categoryId: item.category_id,
                     manufacturer: item.manufacturer || 'N/A',
+                    supplier: item.supplier || 'Not Set',
                     description: item.description || '',
                     unit: item.unit_type || 'pieces',
                     minimumStock: item.minimum_stock || 10,
@@ -346,17 +372,25 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                 batch.batchNumber && batch.batchNumber !== 'N/A' && batch.batchNumber !== 'new_batch'
             );
             
-            const totalQuantity = validBatches.reduce((sum, batch) => sum + batch.quantity, 0);
-            // Get the expiry date from the first valid batch or use the main item's expiry date
-            const itemExpiryDate = validBatches[0]?.expiryDate || item.expiryDate;
-            const overallStatus = getOverallItemStatus(validBatches, item.minimumStock, itemExpiryDate);
+            // Filter out expired batches from quantity calculation
+            const nonExpiredBatches = validBatches.filter(batch => {
+                if (!batch.expiryDate || batch.expiryDate === 'N/A') return true; // Include batches without expiry date
+                return !isExpired(batch.expiryDate);
+            });
+            
+            const totalQuantity = nonExpiredBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+            // Get the expiry date from the first non-expired batch or use the main item's expiry date
+            const itemExpiryDate = nonExpiredBatches[0]?.expiryDate || validBatches[0]?.expiryDate || item.expiryDate;
+            const overallStatus = getOverallItemStatus(nonExpiredBatches, item.minimumStock, itemExpiryDate);
             
             return {
                 ...item,
-                batches: validBatches, // Use only valid batches
+                batches: validBatches, // Keep all valid batches for display (including expired)
                 totalQuantity,
                 status: overallStatus,
-                batchCount: validBatches.length
+                batchCount: nonExpiredBatches.length, // Count only non-expired batches
+                minimum_stock: item.minimumStock, // Add minimum_stock for ViewItemModal
+                maximum_stock: item.maximumStock // Add maximum_stock for ViewItemModal
             };
         });
     };
@@ -531,6 +565,19 @@ export default function PharmacistInventory({ categories = [], allCategories = [
 
     return (
         <AdminLayout header="Inventory Management">
+            {/* Stock Alert Notifier - temporarily disabled */}
+            {/* <StockAlertNotifier
+                alerts={alerts}
+                isVisible={showStockAlerts}
+                onClose={() => setShowStockAlerts(false)}
+                onDismissAll={() => {
+                    setDismissedAlerts(new Set(alerts.map(alert => alert.id)));
+                    setShowStockAlerts(false);
+                }}
+                soundEnabled={soundEnabled}
+                onToggleSound={toggleSound}
+            /> */}
+            
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -544,6 +591,27 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         <p className="text-gray-600">Manage your pharmacy inventory efficiently</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        {/* Stock Alert Indicator - temporarily disabled */}
+                        {/* {getAlertSummary().hasAlerts && (
+                            <Button 
+                                variant="outline" 
+                                className={`flex items-center gap-2 ${
+                                    getAlertSummary().critical > 0 
+                                        ? 'border-red-500 text-red-600 hover:bg-red-50' 
+                                        : 'border-yellow-500 text-yellow-600 hover:bg-yellow-50'
+                                }`}
+                                onClick={() => setShowStockAlerts(true)}
+                            >
+                                <AlertTriangle className="h-4 w-4" />
+                                Stock Alerts ({getAlertSummary().total})
+                                {getAlertSummary().critical > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">
+                                        {getAlertSummary().critical} Critical
+                                    </span>
+                                )}
+                            </Button>
+                        )} */}
+                        
                         <Button 
                             variant="outline" 
                             className="flex items-center gap-2"
@@ -567,6 +635,38 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                         >
                             <Plus className="h-4 w-4" />
                             Add Item
+                        </Button>
+                        
+                        {/* Bulk Action Buttons */}
+                        <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2 text-green-600 hover:text-green-700 border-green-200 hover:border-green-300 bg-green-50 hover:bg-green-100"
+                            onClick={() => setShowBulkDispenseModal(true)}
+                        >
+                            <ShoppingCart className="h-4 w-4" />
+                            Bulk Dispense
+                        </Button>
+                        
+                        <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2 text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300 bg-blue-50 hover:bg-blue-100"
+                            onClick={() => setShowBulkUpdateModal(true)}
+                        >
+                            <TrendingUp className="h-4 w-4" />
+                            Bulk Update
+                        </Button>
+                        
+                        <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 bg-red-50 hover:bg-red-100"
+                            onClick={() => {
+                                setDisposalMode('multi');
+                                setSelectedItem({ id: 'bulk', name: 'Multiple Items' });
+                                setShowDisposalModal(true);
+                            }}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            Batch Disposal
                         </Button>
                     </div>
                 </div>
@@ -781,20 +881,10 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                                     <Edit className="h-4 w-4 mr-2" />
                                                                     Edit Item
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
-                                                                    <ShoppingCart className="h-4 w-4 mr-2" />
-                                                                    Dispense Stock
-                                                                </DropdownMenuItem>
                                                                 <DropdownMenuItem onClick={() => handleUpdateStocks(item)}>
                                                                     <TrendingUp className="h-4 w-4 mr-2" />
                                                                     Update Stocks
                                                                 </DropdownMenuItem>
-                                                                {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
-                                                                    <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
-                                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                                        Dispose Batch
-                                                                    </DropdownMenuItem>
-                                                                )}
                                                                 <DropdownMenuItem 
                                                                     className="text-orange-600"
                                                                     onClick={() => handleArchiveItem(item)}
@@ -856,11 +946,86 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                             </div>
                                             
                                             <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-600">Supplier</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    {item.supplier}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-600">Stock Levels</span>
+                                                <span className="font-semibold text-gray-900">
+                                                    Min: {item.minimumStock} • Max: {item.maximumStock}
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <Badge className={getStatusColor(item.status, item.isArchived)}>
                                                         {getStatusText(item.status, item.isArchived)}
                                                     </Badge>
                                                 </div>
+                                            </div>
+                                            
+                                            {/* Action Buttons for Grid View */}
+                                            <div className="flex items-center gap-2 pt-3 border-t">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleViewDetails(item)}
+                                                    title="View Details"
+                                                    className="text-gray-600 hover:text-gray-700 border-gray-200 hover:border-gray-300"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                
+                                                {!item.isArchived && (
+                                                    <>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleUpdateStocks(item)}
+                                                            title="Update Stocks"
+                                                            className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300 bg-blue-50 hover:bg-blue-100"
+                                                        >
+                                                            <TrendingUp className="h-4 w-4" />
+                                                        </Button>
+                                                        
+                                                    </>
+                                                )}
+                                                
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        {item.isArchived ? (
+                                                            <DropdownMenuItem
+                                                                className="text-green-600"
+                                                                onClick={() => handleUnarchiveItem(item)}
+                                                            >
+                                                                <ArchiveRestore className="h-4 w-4 mr-2" />
+                                                                Unarchive
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <>
+                                                                <DropdownMenuItem onClick={() => handleEditItem(item)}>
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Edit Item
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    className="text-orange-600"
+                                                                    onClick={() => handleArchiveItem(item)}
+                                                                >
+                                                                    <Archive className="h-4 w-4 mr-2" />
+                                                                    Archive
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -927,6 +1092,9 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                                     </p>
                                                                     <p className="text-sm text-gray-500">
                                                                         {item.manufacturer} • {item.unit}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-400">
+                                                                        Supplier: {item.supplier} • Min: {item.minimumStock} • Max: {item.maximumStock}
                                                                     </p>
                                                                 </div>
                                                             </div>
@@ -1016,66 +1184,41 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                         </td>
                                                         <td className="py-4 px-4">
                                             <div className="flex items-center gap-2">
+                                                {/* Primary Action Buttons - Always Visible */}
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => handleViewDetails(item)}
                                                     title="View Details"
+                                                    className="text-gray-600 hover:text-gray-700 border-gray-200 hover:border-gray-300"
                                                 >
                                                     <Eye className="h-4 w-4" />
                                                 </Button>
+                                                
                                                 {!item.isArchived && (
                                                     <>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleEditItem(item)}
-                                                            title="Edit Item"
-                                                        >
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleDispenseItem(item)}
-                                                            title="Dispense Stock"
-                                                            className="text-green-600 hover:text-green-700 border-green-200 hover:border-green-300"
-                                                        >
-                                                            <ShoppingCart className="h-4 w-4" />
-                                                        </Button>
+                                                        {/* Main Action Buttons */}
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
                                                             onClick={() => handleUpdateStocks(item)}
                                                             title="Update Stocks"
-                                                            className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
+                                                            className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300 bg-blue-50 hover:bg-blue-100"
                                                         >
                                                             <TrendingUp className="h-4 w-4" />
                                                         </Button>
-                                                        {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDisposeItem(item)}
-                                                                title="Dispose Batch"
-                                                                className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
+                                                        
                                                     </>
                                                 )}
+                                                
+                                                {/* More Actions Dropdown - Secondary Actions Only */}
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm">
+                                                        <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700">
                                                             <MoreVertical className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleViewDetails(item)}>
-                                                            <Eye className="h-4 w-4 mr-2" />
-                                                            View Details
-                                                        </DropdownMenuItem>
                                                         {item.isArchived ? (
                                                             <DropdownMenuItem
                                                                 className="text-green-600"
@@ -1090,20 +1233,6 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                                                                     <Edit className="h-4 w-4 mr-2" />
                                                                     Edit Item
                                                                 </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleDispenseItem(item)}>
-                                                                    <ShoppingCart className="h-4 w-4 mr-2" />
-                                                                    Dispense Stock
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={() => handleUpdateStocks(item)}>
-                                                                    <TrendingUp className="h-4 w-4 mr-2" />
-                                                                    Update Stocks
-                                                                </DropdownMenuItem>
-                                                                {item.batches.some(batch => isExpired(batch.expiryDate) || isExpiringSoon(batch.expiryDate)) && (
-                                                                    <DropdownMenuItem onClick={() => handleDisposeItem(item)}>
-                                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                                        Dispose Batch
-                                                                    </DropdownMenuItem>
-                                                                )}
                                                                 <DropdownMenuItem
                                                                     className="text-orange-600"
                                                                     onClick={() => handleArchiveItem(item)}
@@ -1270,6 +1399,18 @@ export default function PharmacistInventory({ categories = [], allCategories = [
                     open={showUpdateStocksModal}
                     onClose={() => setShowUpdateStocksModal(false)}
                     item={selectedItem}
+                />
+
+                <BulkDispenseModal
+                    open={showBulkDispenseModal}
+                    onClose={() => setShowBulkDispenseModal(false)}
+                    inventoryItems={inventoryItems}
+                />
+
+                <BulkUpdateModal
+                    open={showBulkUpdateModal}
+                    onClose={() => setShowBulkUpdateModal(false)}
+                    inventoryItems={inventoryItems}
                 />
             </motion.div>
         </AdminLayout>

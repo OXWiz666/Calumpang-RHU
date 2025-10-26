@@ -168,8 +168,16 @@ export default function Pharmacists({ pharmacists = [] }) {
     };
 
     const handleEditSuccess = (updatedPharmacist) => {
-        // Refresh the page or update the pharmacist in the list
-        window.location.reload();
+        console.log('Edit success callback triggered:', updatedPharmacist);
+        // Show success toast
+        showToast(
+            "Success!",
+            "Pharmacist information updated successfully!",
+            "success",
+            "update"
+        );
+        // Use Inertia reload to refresh the data
+        router.reload({ only: ['pharmacists'] });
     };
 
     const handleSubmit = (e) => {

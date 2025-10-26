@@ -34,11 +34,19 @@ class VerificationController extends Controller
 
         $method = $request->method;
         $code = $this->generateVerificationCode();
-        $identifier = $method === 'email' ? $request->email : $request->phone;
+        $identifier = $method === 'email' ? $request->email : $this->formatPhoneNumber($request->phone);
         
         // Store code in cache for 10 minutes
         $cacheKey = "verification_code_{$method}_{$identifier}";
         Cache::put($cacheKey, $code, 600); // 10 minutes
+        
+        \Log::info('Cache key generated:', [
+            'method' => $method,
+            'original_phone' => $request->phone,
+            'formatted_phone' => $identifier,
+            'cacheKey' => $cacheKey,
+            'code' => $code
+        ]);
 
         try {
             $sendSuccess = false;
@@ -118,12 +126,15 @@ class VerificationController extends Controller
         }
 
         $method = $request->method;
-        $identifier = $method === 'email' ? $request->email : $request->phone;
+        $identifier = $method === 'email' ? $request->email : $this->formatPhoneNumber($request->phone);
         $cacheKey = "verification_code_{$method}_{$identifier}";
         
         $storedCode = Cache::get($cacheKey);
         
         \Log::info('Verification attempt:', [
+            'method' => $method,
+            'original_phone' => $request->phone,
+            'formatted_phone' => $identifier,
             'cacheKey' => $cacheKey,
             'storedCode' => $storedCode,
             'submittedCode' => $request->code,
@@ -167,13 +178,13 @@ class VerificationController extends Controller
     public function testSMS($phone)
     {
         $code = $this->generateVerificationCode();
-        $success = $this->sendSMSCode($phone, "Test SMS: Your Rural Health Unit Calumpang verification code is: {$code}. Valid for 10 minutes.");
+        $success = $this->sendSMSCode($phone, "Test SMS: Calumpang Rural Health Unit Appointment verification code is {$code}. Valid for 5 minutes.");
         
         return response()->json([
             'success' => $success,
             'phone' => $phone,
             'code' => $code,
-            'message' => $success ? 'SMS sent successfully' : 'SMS failed to send'
+            'message' => $success ? 'SMS sent successfully via IPROG' : 'SMS failed to send'
         ]);
     }
 
@@ -250,297 +261,54 @@ class VerificationController extends Controller
     }
 
     /**
-     * Send verification code via SMS
-     * Supports multiple SMS providers: Twilio, Nexmo, and direct HTTP API
+     * Send verification code via SMS using IPROG SMS API
      */
     private function sendSMSCode($phone, $code)
     {
-        $message = "Your Rural Health Unit Calumpang verification code is: {$code}. Valid for 10 minutes.";
+        $message = "Calumpang Rural Health Unit Appointment: Your verification code is {$code}. Valid for 5 minutes.";
         
-        // Try different SMS methods in order of preference
-        $success = false;
+        $smsService = new \App\Services\SMSService();
+        $result = $smsService->sendSMS($phone, $message);
         
-        // Method 1: Try Twilio (if configured)
-        if (env('TWILIO_SID') && env('TWILIO_TOKEN') && env('TWILIO_FROM')) {
-            $success = $this->sendViaTwilio($phone, $message);
-        }
-        
-        // Method 2: Try Nexmo/Vonage (if configured)
-        if (!$success && env('NEXMO_API_KEY') && env('NEXMO_API_SECRET')) {
-            $success = $this->sendViaNexmo($phone, $message);
-        }
-        
-        // Method 3: Try generic HTTP API (if configured)
-        if (!$success && env('SMS_API_URL') && env('SMS_API_KEY')) {
-            $success = $this->sendViaGenericAPI($phone, $message);
-        }
-        
-        // Method 4: Email-to-SMS disabled to prevent "Address not found" errors
-        // This method was causing emails to be sent to phone numbers
-        // if (!$success) {
-        //     $success = $this->sendViaEmailToSMS($phone, $message);
-        // }
-        
-        // Method 5: Try free SMS API (TextBelt or similar)
-        if (!$success) {
-            $success = $this->sendViaFreeSMSAPI($phone, $message);
-        }
-        
-        // Method 6: Fallback to logging (for development)
-        if (!$success) {
-            \Log::info("SMS Verification Code for {$phone}: {$code}");
-            \Log::info("SMS not sent - no SMS provider configured. Add SMS credentials to .env file.");
-            \Log::info("To enable SMS, add one of these to your .env file:");
-            \Log::info("For Twilio: TWILIO_SID=your_sid, TWILIO_TOKEN=your_token, TWILIO_FROM=your_number");
-            \Log::info("For Nexmo: NEXMO_API_KEY=your_key, NEXMO_API_SECRET=your_secret, NEXMO_FROM=SEHI");
-            \Log::info("For Generic API: SMS_API_URL=your_url, SMS_API_KEY=your_key");
-            
-            // For development, we'll simulate success but log the code
-            $success = true;
-        }
-        
-        return $success;
-    }
-    
-    /**
-     * Send SMS via Twilio
-     */
-    private function sendViaTwilio($phone, $message)
-    {
-        try {
-            $accountSid = env('TWILIO_SID');
-            $authToken = env('TWILIO_TOKEN');
-            $fromNumber = env('TWILIO_FROM');
-            
-            $url = "https://api.twilio.com/2010-04-01/Accounts/{$accountSid}/Messages.json";
-            
-            $data = [
-                'From' => $fromNumber,
-                'To' => $phone,
-                'Body' => $message
-            ];
-            
-            $response = $this->makeHttpRequest($url, $data, $accountSid . ':' . $authToken);
-            
-            if ($response && isset($response['status']) && $response['status'] !== 'failed') {
-                \Log::info("SMS sent via Twilio to {$phone}");
-                return true;
-            }
-            
-            \Log::error("Twilio SMS failed", ['response' => $response]);
-            return false;
-            
-        } catch (\Exception $e) {
-            \Log::error("Twilio SMS error: " . $e->getMessage());
+        if ($result['success']) {
+            \Log::info("Verification SMS sent successfully via IPROG to {$phone}");
+            return true;
+        } else {
+            \Log::error("Failed to send verification SMS via IPROG to {$phone}: " . $result['message']);
             return false;
         }
-    }
-    
-    /**
-     * Send SMS via Nexmo/Vonage
-     */
-    private function sendViaNexmo($phone, $message)
-    {
-        try {
-            $apiKey = env('NEXMO_API_KEY');
-            $apiSecret = env('NEXMO_API_SECRET');
-            $fromNumber = env('NEXMO_FROM', 'SEHI');
-            
-            $url = 'https://rest.nexmo.com/sms/json';
-            
-            $data = [
-                'api_key' => $apiKey,
-                'api_secret' => $apiSecret,
-                'to' => $phone,
-                'from' => $fromNumber,
-                'text' => $message
-            ];
-            
-            $response = $this->makeHttpRequest($url, $data);
-            
-            if ($response && isset($response['messages'][0]['status']) && $response['messages'][0]['status'] === '0') {
-                \Log::info("SMS sent via Nexmo to {$phone}");
-                return true;
-            }
-            
-            \Log::error("Nexmo SMS failed", ['response' => $response]);
-            return false;
-            
-        } catch (\Exception $e) {
-            \Log::error("Nexmo SMS error: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Send SMS via Generic HTTP API
-     */
-    private function sendViaGenericAPI($phone, $message)
-    {
-        try {
-            $apiUrl = env('SMS_API_URL');
-            $apiKey = env('SMS_API_KEY');
-            
-            $data = [
-                'to' => $phone,
-                'message' => $message,
-                'api_key' => $apiKey
-            ];
-            
-            $response = $this->makeHttpRequest($apiUrl, $data);
-            
-            if ($response && (isset($response['success']) || isset($response['status']))) {
-                \Log::info("SMS sent via Generic API to {$phone}");
-                return true;
-            }
-            
-            \Log::error("Generic API SMS failed", ['response' => $response]);
-            return false;
-            
-        } catch (\Exception $e) {
-            \Log::error("Generic API SMS error: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Send SMS via Email-to-SMS gateway (free option for testing)
-     * This works with carriers that support email-to-SMS
-     */
-    private function sendViaEmailToSMS($phone, $message)
-    {
-        try {
-            // Format phone number for email-to-SMS
-            $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
-            
-            // For Philippines numbers, try common email-to-SMS formats
-            if (strpos($cleanPhone, '63') === 0) {
-                // Remove country code and add 0
-                $localNumber = '0' . substr($cleanPhone, 2);
-                
-                // Try different carrier email formats
-                $carriers = [
-                    'globe' => $localNumber . '@globe.com.ph',
-                    'smart' => $localNumber . '@smart.com.ph',
-                    'sun' => $localNumber . '@sun.com.ph',
-                    'tm' => $localNumber . '@tm.com.ph'
-                ];
-                
-                foreach ($carriers as $carrier => $email) {
-                    try {
-                        Mail::raw($message, function ($mail) use ($email) {
-                            $mail->to($email)
-                                 ->subject('Rural Health Unit Calumpang SMS Verification Code');
-                        });
-                        
-                        \Log::info("SMS sent via Email-to-SMS ({$carrier}) to {$phone} via {$email}");
-                        return true;
-                        
-                    } catch (\Exception $e) {
-                        \Log::debug("Email-to-SMS failed for {$carrier}: " . $e->getMessage());
-                        continue;
-                    }
-                }
-            }
-            
-            // For other countries, try generic format
-            $email = $cleanPhone . '@txt.att.net'; // AT&T format
-            
-            try {
-                Mail::raw($message, function ($mail) use ($email) {
-                    $mail->to($email)
-                         ->subject('Rural Health Unit Calumpang SMS Verification Code');
-                });
-                
-                \Log::info("SMS sent via Email-to-SMS to {$phone} via {$email}");
-                return true;
-                
-            } catch (\Exception $e) {
-                \Log::debug("Email-to-SMS failed: " . $e->getMessage());
-            }
-            
-            return false;
-            
-        } catch (\Exception $e) {
-            \Log::error("Email-to-SMS error: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Send SMS via free SMS API (TextBelt or similar)
-     */
-    private function sendViaFreeSMSAPI($phone, $message)
-    {
-        try {
-            // Try TextBelt (free tier: 1 SMS per day)
-            $url = 'https://textbelt.com/text';
-            $data = [
-                'phone' => $phone,
-                'message' => $message,
-                'key' => 'textbelt' // Free key
-            ];
-            
-            $response = $this->makeHttpRequest($url, $data);
-            
-            if ($response && isset($response['success']) && $response['success'] === true) {
-                \Log::info("SMS sent via TextBelt to {$phone}");
-                return true;
-            }
-            
-            \Log::debug("TextBelt SMS failed", ['response' => $response]);
-            
-            // Try another free service if available
-            // You can add more free SMS APIs here
-            
-            return false;
-            
-        } catch (\Exception $e) {
-            \Log::error("Free SMS API error: " . $e->getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Make HTTP request for SMS APIs
-     */
-    private function makeHttpRequest($url, $data, $auth = null)
-    {
-        $ch = curl_init();
-        
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        
-        if ($auth) {
-            curl_setopt($ch, CURLOPT_USERPWD, $auth);
-        }
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($response === false || $httpCode >= 400) {
-            return false;
-        }
-        
-        return json_decode($response, true);
     }
 
     /**
-     * Check if SMS was actually sent (not just logged)
+     * Format phone number to include country code if not present
      */
-    private function wasActuallySent($method, $identifier)
+    private function formatPhoneNumber($phoneNumber)
     {
-        if ($method !== 'sms') {
-            return true; // Email is handled separately
+        // Remove any non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phoneNumber);
+        
+        // If phone number starts with 0, replace with 63 (Philippines country code)
+        if (strpos($phone, '0') === 0) {
+            $phone = '63' . substr($phone, 1);
         }
         
-        // Check if any SMS provider was configured and used
-        return env('TWILIO_SID') || env('NEXMO_API_KEY') || env('SMS_API_URL');
+        // If phone number doesn't start with country code, add 63
+        if (!str_starts_with($phone, '63') && !str_starts_with($phone, '+63')) {
+            $phone = '63' . $phone;
+        }
+        
+        // Ensure the phone number is exactly 12 digits (63 + 10 digits)
+        if (strlen($phone) === 12) {
+            return $phone;
+        }
+        
+        // If it's 11 digits, it might be missing the leading 6
+        if (strlen($phone) === 11 && str_starts_with($phone, '3')) {
+            return '6' . $phone;
+        }
+        
+        // fallback
+        return $phone;
     }
 
     /**

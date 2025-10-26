@@ -384,7 +384,10 @@ Calumpang Rural Health Unit
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify({
+                    ...data,
+                    date: data.date // Date is already in YYYY-MM-DD format from the form
+                })
             });
 
             const result = await response.json();
@@ -396,7 +399,7 @@ Calumpang Rural Health Unit
                     priorityNumber: result.priority_number,
                     servicename: result.appointment_data.service_name,
                     subservicename: result.appointment_data.subservice_name,
-                    date: new Date(result.appointment_data.date),
+                    date: result.appointment_data.date,
                     time: result.appointment_data.time,
                     firstname: result.appointment_data.firstname,
                     lastname: result.appointment_data.lastname,
@@ -455,7 +458,7 @@ Calumpang Rural Health Unit
                                 <div>
                                     <h3 className="text-lg font-semibold text-green-900">Welcome Back!</h3>
                                     <p className="text-sm text-green-700">
-                                        Your information has been automatically filled from your previous appointment. You can modify any details if needed.
+                                        Your information has been automatically filled from your previous appointment.
                                     </p>
                                 </div>
                             </div>
@@ -696,6 +699,20 @@ Calumpang Rural Health Unit
                                                             <p className="text-sm font-medium text-purple-700">Appointment Time</p>
                                                             <p className="text-lg font-semibold text-purple-900">
                                                                 {formatTime(displayData.time)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                                                        <div className="w-8 h-8 bg-indigo-200 rounded-full flex items-center justify-center">
+                                                            <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                                                            </svg>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-indigo-700">Reference Number</p>
+                                                            <p className="text-lg font-semibold text-indigo-900">
+                                                                {displayData.reference_number || "N/A"}
                                                             </p>
                                                         </div>
                                                     </div>

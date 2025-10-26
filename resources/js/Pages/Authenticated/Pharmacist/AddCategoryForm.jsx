@@ -10,7 +10,7 @@ import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { 
     Tag, 
@@ -46,6 +46,8 @@ const AddCategoryForm = ({ open, onClose }) => {
         post(route("pharmacist.inventory.category.add"), {
             onSuccess: () => {
                 onClose();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
         });
     };
