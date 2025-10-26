@@ -169,11 +169,11 @@ class AppointmentEmailService
                 }
                 .content { padding: 40px; }
                 .official-banner {
-                    background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%);
-                    border: 2px solid #1e40af;
+                    background: #1e3a8a;
+                    border: 2px solid #dc2626;
                     border-radius: 8px;
                     padding: 25px;
-                    margin-bottom: 30px;
+                    margin-bottom: 35px;
                     text-align: center;
                     box-shadow: 0 4px 12px rgba(30, 58, 138, 0.3);
                 }
@@ -194,11 +194,11 @@ class AppointmentEmailService
                 }
                 .appointment-details { 
                     background: #ffffff; 
-                    border: 1px solid #e2e8f0; 
+                    border: 2px solid #1e40af; 
                     border-radius: 8px; 
-                    padding: 30px; 
-                    margin: 20px 0; 
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    padding: 35px; 
+                    margin: 35px 0; 
+                    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.1);
                 }
                 .details-grid {
                     display: grid;
@@ -207,18 +207,19 @@ class AppointmentEmailService
                     margin-top: 20px;
                 }
                 .detail-section { 
-                    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+                    background: #f1f5f9; 
                     border-radius: 8px; 
-                    padding: 25px; 
+                    padding: 30px; 
                     border: 2px solid #1e40af;
                     box-shadow: 0 4px 12px rgba(30, 64, 175, 0.1);
+                    margin-bottom: 20px;
                 }
                 .detail-section h4 {
-                    background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%);
+                    background: #1e3a8a;
                     color: white;
                     font-size: 16px;
-                    margin: -25px -25px 20px -25px;
-                    padding: 15px 25px;
+                    margin: -30px -30px 25px -30px;
+                    padding: 18px 30px;
                     font-weight: 700;
                     text-transform: uppercase;
                     letter-spacing: 0.5px;
@@ -230,37 +231,40 @@ class AppointmentEmailService
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 8px 0;
+                    padding: 12px 0;
                     border-bottom: 1px solid #e2e8f0;
+                    gap: 20px;
                 }
                 .detail-item:last-child {
                     border-bottom: none;
                 }
                 .detail-label { 
-                    font-weight: 600; 
-                    color: #475569; 
+                    font-weight: 700; 
+                    color: #1e3a8a; 
                     font-size: 14px; 
                     text-transform: uppercase;
-                    letter-spacing: 0.3px;
-                    min-width: 120px;
+                    letter-spacing: 0.5px;
+                    min-width: 140px;
                 }
                 .detail-value { 
                     color: #1e293b; 
-                    font-size: 14px; 
-                    font-weight: 500;
+                    font-size: 15px; 
+                    font-weight: 600;
                     text-align: right;
                     flex: 1;
+                    word-break: break-all;
                 }
                 .priority-section {
-                    background: linear-gradient(90deg, #1e3a8a 0%, #0f172a 100%);
+                    background: #1e3a8a;
                     color: white;
-                    padding: 25px;
+                    padding: 30px;
                     border-radius: 8px;
                     text-align: center;
-                    margin: 20px 0;
+                    margin: 35px 0;
                     box-shadow: 0 6px 20px rgba(30, 58, 138, 0.3);
                     position: relative;
                     overflow: hidden;
+                    border: 2px solid #1e40af;
                 }
                 .priority-section::before {
                     content: '';
@@ -465,6 +469,10 @@ class AppointmentEmailService
                                 <div class='detail-item'>
                                     <span class='detail-label'>Time</span>
                                     <span class='detail-value'>{$appointmentTime}</span>
+                                </div>
+                                <div class='detail-item'>
+                                    <span class='detail-label'>Reference Number</span>
+                                    <span class='detail-value'>" . (isset($data['appointment_id']) ? $data['appointment_id'] : 'N/A') . "</span>
                                 </div>
                             </div>
                         </div>

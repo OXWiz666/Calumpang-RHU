@@ -9,8 +9,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Mail\ProgramRegistrationMail;
+use App\Services\SMSService;
 
 class ProgramParticipantController extends Controller
 {
@@ -104,13 +107,75 @@ class ProgramParticipantController extends Controller
             ]);
         });
 
-        return back()->with([
+        // Send email and SMS notifications
+        try {
+            // Get program details for notifications
+            $program = program_schedules::with('program_type')->find($validated['program_id']);
+            $programData = [
+                'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                'date' => $program->date,
+                'startTime' => $program->start_time,
+                'endTime' => $program->end_time,
+                'location' => $program->location,
+            ];
+
+            // Send email notification
+            Mail::to($participant->email)->send(new ProgramRegistrationMail(
+                $participant->toArray(),
+                $programData,
+                $participant->registration_id
+            ));
+
+            // Send SMS notification
+            $smsMessage = "RHU Calumpang: Registration successful for {$programData['name']} on {$programData['date']}. Registration ID: {$participant->registration_id}. Please bring this ID for verification.";
+            
+            $smsService = new SMSService();
+            $smsService->sendSMS($participant->contact_number, $smsMessage);
+
+            \Log::info('Program registration notifications sent', [
+                'participant_id' => $participant->id,
+                'registration_id' => $participant->registration_id,
+                'email' => $participant->email,
+                'contact_number' => $participant->contact_number
+            ]);
+
+        } catch (\Exception $notificationError) {
+            \Log::error('Failed to send program registration notifications', [
+                'participant_id' => $participant->id,
+                'registration_id' => $participant->registration_id,
+                'error' => $notificationError->getMessage()
+            ]);
+            // Don't fail the registration if notifications fail
+        }
+
+        \Log::info('Program registration completed', [
+            'participant_id' => $participant->id,
+            'registration_id' => $participant->registration_id,
+            'email' => $participant->email
+        ]);
+
+        \Log::info('About to return redirect with registration_id', [
+            'registration_id' => $participant->registration_id
+        ]);
+
+        // Store data in session for Inertia middleware to access
+        session()->flash('registration_id', $participant->registration_id);
+        session()->flash('participant_data', $participant->toArray());
+        session()->flash('flash', [
+            'icon' => 'success',
+            'message' => 'Successfully registered to the program. Check your email and SMS for confirmation details.',
+            'title' => 'Success!'
+        ]);
+
+        // Use Inertia redirect with explicit data
+        return redirect()->back()->with([
             'flash' => [
                 'icon' => 'success',
-                'message' => 'Successfully registered to the program',
+                'message' => 'Successfully registered to the program. Check your email and SMS for confirmation details.',
                 'title' => 'Success!'
             ],
-            'registration_id' => $participant->registration_id
+            'registration_id' => $participant->registration_id,
+            'participant_data' => $participant->toArray()
         ]);
 
     } catch (\Exception $e) {
@@ -171,24 +236,33 @@ class ProgramParticipantController extends Controller
     {
         // Get all program schedules with their related program types and coordinators
         // Don't filter by status to ensure we get all programs
-        $programs = program_schedules::with(['program_type', 'coordinator'])
+        $programs = program_schedules::with(['program_type', 'coordinator', 'registered_participants'])
             ->orderBy('date', 'asc')
             ->get()
             ->map(function ($program) {
+                // Calculate real-time available slots from actual registrations
+                $registeredCount = $program->registered_participants->count();
+                $availableSlots = max(0, $program->total_slots - $registeredCount);
+                
+                // Update the database to keep it in sync
+                if ($program->available_slots !== $availableSlots) {
+                    $program->update(['available_slots' => $availableSlots]);
+                }
+                
                 // Format the program data for the frontend
                 return [
                     'id' => $program->id,
-                    'name' => $program->program_type->programname,
-                    'description' => $program->program_type->description,
+                    'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                    'description' => $program->program_type ? $program->program_type->description : '',
                     'date' => $program->date,
                     'startTime' => $program->start_time,
                     'endTime' => $program->end_time,
                     'location' => $program->location,
                     'totalSlots' => $program->total_slots,
-                    'availableSlots' => $program->available_slots,
+                    'availableSlots' => $availableSlots,
                     'coordinator' => $program->coordinator ? $program->coordinator->name : null,
                     'status' => $program->status ?: 'Active', // Default to 'Active' if status is null
-                    'programType' => $program->program_type->programname,
+                    'programType' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
                 ];
             });
 
@@ -202,7 +276,7 @@ class ProgramParticipantController extends Controller
                     $program = $registration->program_schedule;
                     return [
                         'id' => $program->id,
-                        'name' => $program->program_type->programname,
+                        'name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
                         'date' => $program->date,
                         'time' => $program->start_time . ' - ' . $program->end_time,
                         'location' => $program->location,
@@ -241,5 +315,59 @@ class ProgramParticipantController extends Controller
             'emailExists' => $emailExists,
             'contactNumberExists' => $contactNumberExists
         ]);
+    }
+
+    /**
+     * Get participant history by registration ID
+     */
+    public function getParticipantHistory($registrationId)
+    {
+        try {
+            // Find the participant by registration ID
+            $participant = program_participants::where('registration_id', $registrationId)->first();
+            
+            if (!$participant) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Registration ID not found'
+                ], 404);
+            }
+
+            // Get all programs this participant has registered for
+            $programs = program_participants::where('email', $participant->email)
+                ->orWhere('contact_number', $participant->contact_number)
+                ->with(['program_schedule.program_type'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($registration) {
+                    $program = $registration->program_schedule;
+                    return [
+                        'program_name' => $program->program_type ? $program->program_type->programname : 'Unnamed Program',
+                        'date' => $program->date,
+                        'time' => $program->start_time . ' - ' . $program->end_time,
+                        'location' => $program->location,
+                        'status' => $registration->status,
+                        'registration_id' => $registration->registration_id,
+                        'registered_at' => $registration->created_at->format('Y-m-d H:i:s'),
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'participant' => [
+                    'first_name' => $participant->first_name,
+                    'last_name' => $participant->last_name,
+                    'email' => $participant->email,
+                    'contact_number' => $participant->contact_number,
+                ],
+                'programs' => $programs
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching participant history: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

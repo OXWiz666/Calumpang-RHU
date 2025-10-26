@@ -27,11 +27,20 @@ class StaffController extends Controller
         $admins = User::where('roleID','7')->get();
         $doctors = User::where('roleID','1')->get();
         $pharmacists = User::where('roleID','6')->get();
+        
+        // Count doctors with doctor_details records (same as doctors() method)
+        $doctorsWithDetails = User::where('roleID','1')
+            ->whereHas('doctor_details')
+            ->count();
+        
+        // Calculate total staff count correctly by adding all role counts
+        $totalStaff = $admins->count() + $doctorsWithDetails + $pharmacists->count();
+        
         return Inertia::render("Authenticated/Admin/Staff/Overview",[
-            'staffcount' => $staff->count(),
+            'staffcount' => $totalStaff,
             'admincount' => $admins->count(),
             'pharmacistcount' => $pharmacists->count(),
-            'doctorscount' => $doctors->count(),
+            'doctorscount' => $doctorsWithDetails, // Use count that matches doctors() method
         ]);
     }
     public function admins(){
@@ -320,10 +329,10 @@ class StaffController extends Controller
     public function updateAdmin(Request $request, $id)
     {
         $request->validate([
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'contactno' => 'required|string|max:20',
+            'firstname' => 'nullable|string|max:255',
+            'lastname' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $id,
+            'contactno' => 'nullable|string|max:20',
             'status' => 'required|in:active,inactive,suspended',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
@@ -347,12 +356,22 @@ class StaffController extends Controller
             ];
 
             $updateData = [
-                'firstname' => $request->firstname,
-                'lastname' => $request->lastname,
-                'email' => $request->email,
-                'contactno' => $request->contactno,
                 'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
             ];
+            
+            // Only update fields that are provided
+            if ($request->filled('firstname')) {
+                $updateData['firstname'] = $request->firstname;
+            }
+            if ($request->filled('lastname')) {
+                $updateData['lastname'] = $request->lastname;
+            }
+            if ($request->filled('email')) {
+                $updateData['email'] = $request->email;
+            }
+            if ($request->filled('contactno')) {
+                $updateData['contactno'] = $request->contactno;
+            }
 
             // Only update password if provided
             if ($request->filled('password')) {
@@ -410,14 +429,30 @@ class StaffController extends Controller
     // Update Doctor
     public function updateDoctor(Request $request, $id)
     {
-        $request->validate([
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'contactno' => 'required|string|max:20',
-            'status' => 'required|in:active,inactive,suspended',
-            'password' => 'nullable|string|min:8|confirmed',
+        \Log::info('Update Doctor Request', [
+            'id' => $id,
+            'data' => $request->all()
         ]);
+
+        try {
+            $request->validate([
+                'firstname' => 'nullable|string|max:255',
+                'lastname' => 'nullable|string|max:255',
+                'email' => 'nullable|email|unique:users,email,' . $id,
+                'contactno' => 'nullable|string|max:20',
+                'license_number' => 'nullable|string|max:255',
+                'status' => 'required|in:active,inactive,suspended',
+                'role_id' => 'nullable|integer',
+                'password' => 'nullable|string|min:8',
+                'password_confirmation' => 'nullable|string|same:password',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation failed', [
+                'errors' => $e->errors(),
+                'data' => $request->all()
+            ]);
+            throw $e;
+        }
 
         try {
             DB::beginTransaction();
@@ -439,14 +474,26 @@ class StaffController extends Controller
                 'suspended' => 3
             ];
 
-            // Update user details
-            $updateData = [
-                'firstname' => $request->firstname,
-                'lastname' => $request->lastname,
-                'email' => $request->email,
-                'contactno' => $request->contactno,
-                'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
-            ];
+            // Update user details - only update fields that are provided
+            $updateData = [];
+            
+            if ($request->filled('firstname')) {
+                $updateData['firstname'] = $request->firstname;
+            }
+            if ($request->filled('lastname')) {
+                $updateData['lastname'] = $request->lastname;
+            }
+            if ($request->filled('email')) {
+                $updateData['email'] = $request->email;
+            }
+            if ($request->filled('contactno')) {
+                $updateData['contactno'] = $request->contactno;
+            }
+            if ($request->filled('license_number')) {
+                $updateData['license_number'] = $request->license_number;
+            }
+            
+            $updateData['status'] = $statusMap[$request->status] ?? 1; // Default to active if invalid status
 
             // Only update password if provided
             if ($request->filled('password')) {
@@ -466,10 +513,21 @@ class StaffController extends Controller
 
             DB::commit();
 
+            \Log::info('Doctor updated successfully', [
+                'doctor_id' => $doctor->id,
+                'updated_data' => $updateData,
+                'doctor_after_update' => $doctor->fresh()->toArray()
+            ]);
+
             return redirect()->back()->with('success', 'Doctor updated successfully');
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Update Doctor Error', [
+                'id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect()->back()->with('error', 'Failed to update doctor: ' . $e->getMessage());
         }
     }
@@ -505,10 +563,10 @@ class StaffController extends Controller
     public function updatePharmacist(Request $request, $id)
     {
         $request->validate([
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'contactno' => 'required|string|max:20',
+            'firstname' => 'nullable|string|max:255',
+            'lastname' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email,' . $id,
+            'contactno' => 'nullable|string|max:20',
             'status' => 'required|in:active,inactive,suspended',
             'password' => 'nullable|string|min:8|confirmed',
         ]);
@@ -532,12 +590,22 @@ class StaffController extends Controller
             ];
 
             $updateData = [
-                'firstname' => $request->firstname,
-                'lastname' => $request->lastname,
-                'email' => $request->email,
-                'contactno' => $request->contactno,
                 'status' => $statusMap[$request->status] ?? 1, // Default to active if invalid status
             ];
+            
+            // Only update fields that are provided
+            if ($request->filled('firstname')) {
+                $updateData['firstname'] = $request->firstname;
+            }
+            if ($request->filled('lastname')) {
+                $updateData['lastname'] = $request->lastname;
+            }
+            if ($request->filled('email')) {
+                $updateData['email'] = $request->email;
+            }
+            if ($request->filled('contactno')) {
+                $updateData['contactno'] = $request->contactno;
+            }
 
             // Only update password if provided
             if ($request->filled('password')) {

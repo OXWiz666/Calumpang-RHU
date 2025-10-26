@@ -108,18 +108,19 @@ export default function StaffLayout({ children }) {
             password: "",
             confirmPassword: "",
             gender: "",
+            gender_other: "", // For "Other" sex specification
             birth: "",
             role: "", // Will be set based on selection
-            specialization: "", // For doctors
+            license_number: "", // Medical license number for doctors
         });
 
-    // Track if Doctor role is selected
-    const [isDoctorSelected, setIsDoctorSelected] = useState(false);
+    // Track if "Other" sex is selected
+    const [isOtherSexSelected, setIsOtherSexSelected] = useState(false);
 
-    // Update isDoctorSelected when role changes
+    // Update isOtherSexSelected when gender changes
     useEffect(() => {
-        setIsDoctorSelected(data.role === "1");
-    }, [data.role]);
+        setIsOtherSexSelected(data.gender === "O");
+    }, [data.gender]);
 
     const OpenModal = (e) => {
         setIsModalOpen(true);
@@ -340,8 +341,8 @@ export default function StaffLayout({ children }) {
                 {children}
             </motion.div>
             <Modal2 isOpen={isModalOpen} onClose={CloseModal}>
-                {Object.keys(errors).length > 0 && (
-                    <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
+                        {Object.keys(errors).length > 0 && (
+                    <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md mb-4">
                         <div className="flex items-center">
                             <div className="flex-shrink-0">
                                 <svg
@@ -358,11 +359,12 @@ export default function StaffLayout({ children }) {
                                 </svg>
                             </div>
                             <div className="ml-3">
-                                <ul className="text-sm text-red-600">
+                                <ul className="text-sm text-red-600 space-y-1">
                                     {Object.entries(errors).map(
-                                        ([key, error]) => (
-                                            <li key={key}>{error}</li>
-                                        )
+                                        ([key, error]) => {
+                                            const errorMessage = Array.isArray(error) ? error[0] : error;
+                                            return <li key={key}>{errorMessage}</li>;
+                                        }
                                     )}
                                 </ul>
                             </div>
@@ -435,7 +437,7 @@ export default function StaffLayout({ children }) {
                                     type="text"
                                     id="middlename"
                                     name="middlename"
-                                    placeholder="ex. Juan"
+                                    placeholder="ex. Juan (Optional)"
                                     className="pl-10 block w-full rounded-lg border-gray-300 bg-gray-50 py-3 text-gray-900 focus:ring-2 focus:ring-black focus:border-transparent"
                                     value={data.middlename}
                                     onChange={(e) =>
@@ -618,7 +620,7 @@ export default function StaffLayout({ children }) {
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
-                                Gender
+                                Sex
                             </label>
                             <div className="mt-1 relative rounded-md shadow-sm">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -645,10 +647,11 @@ export default function StaffLayout({ children }) {
                                     }
                                 >
                                     <option value="" disabled hidden>
-                                        Select Gender
+                                        Select Sex
                                     </option>
                                     <option value="M">Male</option>
                                     <option value="F">Female</option>
+                                    <option value="O">Other</option>
                                 </select>
                                 {/* Dropdown arrow icon */}
                                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -756,10 +759,6 @@ export default function StaffLayout({ children }) {
                                 value={data.role}
                                 onValueChange={(value) => {
                                     setData("role", value);
-                                    // Reset specialization when changing roles to non-Doctor
-                                    if (value !== "1") {
-                                        setData("specialization", "");
-                                    }
                                 }}
                             >
                                 <SelectTrigger className="w-full text-gray-900 bg-white">
@@ -773,27 +772,66 @@ export default function StaffLayout({ children }) {
                             </Select>
                         </div>
 
-                        {/* Specialization - Only shown for Doctor role */}
-                        {isDoctorSelected && (
+                        {/* Medical License Number - Only show for doctors */}
+                        {data.role === "1" && (
                             <div>
                                 <label
-                                    htmlFor="specialization"
+                                    htmlFor="license_number"
                                     className="block text-sm font-medium text-gray-700"
                                 >
-                                    Specialization
+                                    Medical License Number *
                                 </label>
-                                <Select
-                                    id="specialization"
-                                    value={data.specialization}
-                                    onValueChange={(value) => setData("specialization", value)}
+                                <div className="mt-1 relative rounded-md shadow-sm">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg
+                                            className="h-5 w-5 text-gray-400"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 20 20"
+                                            fill="currentColor"
+                                        >
+                                            <path
+                                                fillRule="evenodd"
+                                                d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4zm2 6a2 2 0 114 0 2 2 0 01-4 0zm8 0a2 2 0 114 0 2 2 0 01-4 0z"
+                                                clipRule="evenodd"
+                                            />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="license_number"
+                                        name="license_number"
+                                        placeholder="Enter medical license number"
+                                        className="pl-10 block w-full rounded-lg border-gray-300 bg-gray-50 py-3 text-gray-900 focus:ring-2 focus:ring-black focus:border-transparent"
+                                        value={data.license_number}
+                                        onChange={(e) =>
+                                            setData("license_number", e.target.value)
+                                        }
+                                        required={data.role === "1"}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Other Sex Specification - Only shown when "Other" is selected */}
+                        {isOtherSexSelected && (
+                            <div>
+                                <label
+                                    htmlFor="gender_other"
+                                    className="block text-sm font-medium text-gray-700"
                                 >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select Specialization" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="General Medicine">General Medicine</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                    Please specify your sex:
+                                </label>
+                                <input
+                                    type="text"
+                                    id="gender_other"
+                                    name="gender_other"
+                                    placeholder="Please specify your sex"
+                                    className="mt-1 block w-full rounded-lg border-gray-300 bg-gray-50 py-3 text-gray-900 focus:ring-2 focus:ring-black focus:border-transparent"
+                                    value={data.gender_other}
+                                    onChange={(e) =>
+                                        setData("gender_other", e.target.value)
+                                    }
+                                />
                             </div>
                         )}
 

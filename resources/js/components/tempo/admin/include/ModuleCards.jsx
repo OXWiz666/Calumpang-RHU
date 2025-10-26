@@ -153,20 +153,6 @@ const ModuleCards = ({ modules, dashboardData = {} }) => {
                 label: "Staff" 
             }
         },
-        {
-            title: "System Settings",
-            description: "Configure system parameters, user roles, and application settings",
-            icon: <Settings className="h-6 w-6" />,
-            href: "/settings",
-            gradientFrom: "from-gray-50",
-            gradientTo: "to-gray-100",
-            iconBg: "bg-gray-500",
-            iconColor: "text-white",
-            stats: { 
-                value: `${dashboardData.systemHealth || 98}%`, 
-                label: "Health" 
-            }
-        },
     ];
 
     const displayModules = modules || defaultModules;

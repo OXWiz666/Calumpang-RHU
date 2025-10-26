@@ -197,13 +197,20 @@ class InventoryReportsController extends Controller
         ];
 
         $reportData = $this->getStockMovementData($startDate, $endDate, $filters);
+        
+        \Log::info('Expiry/Stock Movements Report', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'data_count' => count($reportData),
+            'sample_data' => isset($reportData[0]) ? $reportData[0] : 'no data'
+        ]);
 
         if ($format === 'pdf') {
-            return $this->generatePDFReport($reportData, 'expiry_report', $startDate, $endDate);
+            return $this->generatePDFReport($reportData, 'stock_movements', $startDate, $endDate);
         } elseif ($format === 'excel') {
-            return $this->generateExcelReport($reportData, 'expiry_report', $startDate, $endDate);
+            return $this->generateExcelReport($reportData, 'stock_movements', $startDate, $endDate);
         } elseif ($format === 'csv') {
-            return $this->generateCSVReport($reportData, 'expiry_report', $startDate, $endDate);
+            return $this->generateCSVReport($reportData, 'stock_movements', $startDate, $endDate);
         } else {
             return response()->json([
                 'success' => true,
@@ -220,13 +227,13 @@ class InventoryReportsController extends Controller
     {
         $format = $request->get('format', 'json');
         $startDate = $request->get('start_date', now()->startOfMonth());
-        $endDate = $request->get('end_date', now()->endOfMonth());
+        $endDate = $request->get('end_date', now()->endOfDay()); // Include today's date
         
         if (is_string($startDate)) {
-            $startDate = Carbon::parse($startDate);
+            $startDate = Carbon::parse($startDate)->startOfDay();
         }
         if (is_string($endDate)) {
-            $endDate = Carbon::parse($endDate);
+            $endDate = Carbon::parse($endDate)->endOfDay();
         }
 
         $filters = [
@@ -235,6 +242,13 @@ class InventoryReportsController extends Controller
         ];
 
         $reportData = $this->getDispensingReportData($startDate, $endDate, $filters);
+        
+        \Log::info('Dispensing Report', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'data_count' => count($reportData),
+            'sample_data' => isset($reportData[0]) ? $reportData[0] : 'no data'
+        ]);
 
         if ($format === 'pdf') {
             return $this->generatePDFReport($reportData, 'dispensing_report', $startDate, $endDate);
@@ -273,6 +287,13 @@ class InventoryReportsController extends Controller
         ];
 
         $reportData = $this->getDisposalReportData($startDate, $endDate, $filters);
+        
+        \Log::info('Disposal Report', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'data_count' => count($reportData),
+            'sample_data' => isset($reportData[0]) ? $reportData[0] : 'no data'
+        ]);
 
         if ($format === 'pdf') {
             return $this->generatePDFReport($reportData, 'disposal_report', $startDate, $endDate);
@@ -310,6 +331,13 @@ class InventoryReportsController extends Controller
         ];
 
         $reportData = $this->getExpiredBatchesData($startDate, $endDate, $filters);
+        
+        \Log::info('Expired Batches Report', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'data_count' => count($reportData),
+            'sample_data' => isset($reportData[0]) ? $reportData[0] : 'no data'
+        ]);
 
         if ($format === 'pdf') {
             return $this->generatePDFReport($reportData, 'expired_batches', $startDate, $endDate);
@@ -382,7 +410,7 @@ class InventoryReportsController extends Controller
             case 'inventory_summary':
                 return $this->getInventorySummaryData($startDate, $endDate, $filters);
             case 'expiry_report':
-                return $this->getExpiryReportData($startDate, $endDate, $filters);
+                return $this->getStockMovementData($startDate, $endDate, $filters);
             case 'dispensing_report':
                 return $this->getDispensingReportData($startDate, $endDate, $filters);
             case 'low_stock_alert':
@@ -469,7 +497,18 @@ class InventoryReportsController extends Controller
     private function generatePDFReport($data, $category, $startDate, $endDate)
     {
         $title = 'RURAL HEALTH UNIT CALUMPANG';
-        $subtitle = strtoupper(str_replace('_', ' ', $category)) . ' REPORT';
+        
+        // Map category to proper display title
+        $categoryTitles = [
+            'inventory_summary' => 'INVENTORY SUMMARY',
+            'stock_movements' => 'STOCK MOVEMENTS',
+            'expiry_report' => 'EXPIRY',
+            'dispensing_report' => 'DISPENSING',
+            'disposal_report' => 'DISPOSAL',
+            'expired_batches' => 'EXPIRED BATCHES'
+        ];
+        
+        $subtitle = ($categoryTitles[$category] ?? strtoupper(str_replace('_', ' ', $category))) . ' REPORT';
         $filename = "report_{$category}_" . $startDate->format('Y-m-d') . "_to_" . $endDate->format('Y-m-d') . ".pdf";
         
         // Generate HTML using React-like approach
@@ -698,8 +737,6 @@ class InventoryReportsController extends Controller
                 'quantity' => $stock,
                 'unit' => $item->unit_type ?? 'units',
                 'status' => $status,
-                'priority' => $priority,
-                'days_until_expiry' => $daysUntilExpiry,
                 'manufacturer' => $item->manufacturer ?? 'N/A',
                 'batch_number' => $item->batch_number ?? 'N/A',
                 'expiry_date' => $item->expiry_date ? Carbon::parse($item->expiry_date)->format('Y-m-d') : 'N/A',
@@ -747,7 +784,6 @@ class InventoryReportsController extends Controller
                 'Current Stock' => $stock,
                 'Unit Type' => $item->unit_type ?? 'pieces',
                 'Expiry Date' => $expiryDate->format('Y-m-d'),
-                'Days Until Expiry' => $daysUntilExpiry,
                 'Status' => $status,
                 'Manufacturer' => $item->manufacturer ?? 'N/A',
                 'Storage Location' => $item->storage_location ?? 'N/A',
@@ -757,39 +793,70 @@ class InventoryReportsController extends Controller
 
     private function getDispensingReportData($startDate, $endDate, $filters)
     {
+        // Ensure dates include full day range
+        $startDateParsed = Carbon::parse($startDate)->startOfDay();
+        $endDateParsed = Carbon::parse($endDate)->endOfDay();
+        
+        \Log::info('Dispensing report data query', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'start_date_parsed' => $startDateParsed->toDateTimeString(),
+            'end_date_parsed' => $endDateParsed->toDateTimeString(),
+            'start_timestamp' => $startDateParsed->timestamp,
+            'end_timestamp' => $endDateParsed->timestamp
+        ]);
+        
         $movements = istock_movements::with(['inventory', 'staff'])
             ->where('type', 'Outgoing')
-            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereBetween('created_at', [$startDateParsed, $endDateParsed])
             ->get();
+        
+        \Log::info('Dispensing report movements found', [
+            'count' => $movements->count(),
+            'movements' => $movements->map(function($m) {
+                return [
+                    'id' => $m->id,
+                    'inventory_name' => $m->inventory_name,
+                    'quantity' => $m->quantity,
+                    'type' => $m->type,
+                    'created_at' => $m->created_at
+                ];
+            })->toArray()
+        ]);
 
         $groupedMovements = $movements->groupBy('inventory_id');
 
         return $groupedMovements->map(function ($movementGroup) {
-            $inventory = $movementGroup->first()->inventory;
-            $itemName = $inventory ? $inventory->name : 'Unknown Item';
+            $firstMovement = $movementGroup->first();
+            
+            // Get inventory - try relationship first, then fallback to inventory_name
+            $inventory = $firstMovement->inventory;
+            $inventoryName = $inventory ? $inventory->name : ($firstMovement->inventory_name ?? 'Unknown Item');
+            
             $totalQuantity = $movementGroup->sum('quantity');
             $dispenseCount = $movementGroup->count();
-            $firstMovement = $movementGroup->sortBy('created_at')->first();
-            $lastMovement = $movementGroup->sortByDesc('created_at')->first();
+            
+            $sortedByDate = $movementGroup->sortBy('created_at');
+            $firstMovementByDate = $sortedByDate->first();
+            $lastMovement = $sortedByDate->last();
 
             return [
-                'Item Name' => $itemName,
-                'Category' => $inventory && $inventory->category ? $inventory->category->name : 'N/A',
+                'Item Name' => $inventoryName,
+                'Category' => $inventory && $inventory->category ? $inventory->category->name : 'Uncategorized',
                 'Total Dispensed' => $totalQuantity,
                 'Dispense Count' => $dispenseCount,
-                'Average per Dispense' => round($totalQuantity / $dispenseCount, 2),
-                'First Dispensed' => $firstMovement ? Carbon::parse($firstMovement->created_at)->format('M d, Y') : 'N/A',
+                'First Dispensed' => $firstMovementByDate ? Carbon::parse($firstMovementByDate->created_at)->format('M d, Y') : 'N/A',
                 'Last Dispensed' => $lastMovement ? Carbon::parse($lastMovement->created_at)->format('M d, Y') : 'N/A',
                 'Unit Type' => $inventory ? $inventory->unit_type ?? 'pieces' : 'pieces',
                 'Most Recent Staff' => $lastMovement->staff ? 
                     $lastMovement->staff->firstname . ' ' . $lastMovement->staff->lastname : 'N/A',
-                // Additional fields for frontend display
                 'Manufacturer' => $inventory ? $inventory->manufacturer ?? 'N/A' : 'N/A',
                 'Patient Name' => $lastMovement->patient_name ?? 'N/A',
-                'Prescription Number' => $lastMovement->prescription_number ?? '-',
                 'Batch Number' => $lastMovement->batch_number ?? 'N/A',
                 'Reason' => $lastMovement->reason ?? 'Dispensed',
             ];
+        })->filter(function($item) {
+            return !empty($item['Item Name']) && $item['Item Name'] !== 'Unknown Item';
         })->sortByDesc('Total Dispensed')->values()->toArray();
     }
 
@@ -830,10 +897,14 @@ class InventoryReportsController extends Controller
 
     private function getDisposalReportData($startDate, $endDate, $filters)
     {
+        // Parse dates to ensure proper formatting
+        $startDateParsed = is_string($startDate) ? Carbon::parse($startDate)->startOfDay() : $startDate->startOfDay();
+        $endDateParsed = is_string($endDate) ? Carbon::parse($endDate)->endOfDay() : $endDate->endOfDay();
+        
         // Get all disposal movements from istock_movements table
         $query = istock_movements::with(['inventory.category', 'staff'])
             ->where('type', 'Disposal')
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereBetween('created_at', [$startDateParsed, $endDateParsed]);
 
         if (isset($filters['category_id']) && $filters['category_id']) {
             $query->whereHas('inventory', function($q) use ($filters) {
@@ -856,7 +927,6 @@ class InventoryReportsController extends Controller
                 'Reason' => $movement->reason ?? 'N/A',
                 'Disposed By' => $staff ? $staff->firstname . ' ' . $staff->lastname : 'Unknown Staff',
                 'Manufacturer' => $inventory ? $inventory->manufacturer ?? 'N/A' : 'N/A',
-                'Expiry Date' => $movement->expiry_date ? Carbon::parse($movement->expiry_date)->format('M d, Y') : 'N/A',
                 'Notes' => $movement->notes ?? 'N/A'
             ];
         })->toArray();
@@ -864,9 +934,19 @@ class InventoryReportsController extends Controller
 
     private function getStockMovementData($startDate, $endDate, $filters)
     {
+        // Parse dates to ensure proper formatting
+        $startDateParsed = is_string($startDate) ? Carbon::parse($startDate)->startOfDay() : $startDate->startOfDay();
+        $endDateParsed = is_string($endDate) ? Carbon::parse($endDate)->endOfDay() : $endDate->endOfDay();
+        
+        \Log::info('Stock Movement Query', [
+            'start_date' => $startDateParsed->toDateTimeString(),
+            'end_date' => $endDateParsed->toDateTimeString(),
+            'category_id' => $filters['category_id'] ?? null
+        ]);
+        
         // Get all stock movements from istock_movements table
         $query = istock_movements::with(['inventory.category', 'staff'])
-            ->whereBetween('created_at', [$startDate, $endDate]);
+            ->whereBetween('created_at', [$startDateParsed, $endDateParsed]);
 
         if (isset($filters['category_id']) && $filters['category_id']) {
             $query->whereHas('inventory', function($q) use ($filters) {
@@ -875,6 +955,11 @@ class InventoryReportsController extends Controller
         }
 
         $stockMovements = $query->orderBy('created_at', 'desc')->get();
+        
+        \Log::info('Stock Movement Results', [
+            'total_movements' => $stockMovements->count(),
+            'sample_ids' => $stockMovements->take(3)->pluck('id')->toArray()
+        ]);
 
         return $stockMovements->map(function ($movement) {
             $inventory = $movement->inventory;
@@ -913,8 +998,9 @@ class InventoryReportsController extends Controller
 
         return $inventoryItems->map(function ($item) {
             $totalStock = $item->istocks->sum('stocks');
-                    $expiryDate = Carbon::parse($item->expiry_date);
-            $daysExpired = (int) now()->diffInDays($expiryDate);
+            $expiryDate = Carbon::parse($item->expiry_date);
+            // Calculate days expired - how many days have passed since expiry
+            $daysExpired = abs((int) $expiryDate->diffInDays(now(), false));
 
             return [
                 'Item Name' => $item->name,
@@ -928,7 +1014,7 @@ class InventoryReportsController extends Controller
                 'Manufacturer' => $item->manufacturer ?? 'N/A',
                 'Storage Location' => $item->storage_location ?? 'N/A',
             ];
-        })->sortBy('Days Expired')->values()->toArray();
+        })->sortByDesc('Days Expired')->values()->toArray();
     }
 
     private function getCustomOfficialReportData($startDate, $endDate, $filters, $customFields)
@@ -1242,37 +1328,44 @@ class InventoryReportsController extends Controller
     {
         $columns = [
             'inventory_summary' => [
-                'Item Name' => 'Item Name',
+                'Name' => 'Name',
                 'Category' => 'Category',
-                'Current Stock' => 'Current Stock',
+                'Quantity' => 'Quantity',
+                'Unit' => 'Unit',
                 'Status' => 'Status',
-                'Priority' => 'Priority',
-                'Days Until Expiry' => 'Days Until Expiry',
                 'Manufacturer' => 'Manufacturer',
+                'Batch number' => 'Batch number',
+                'Expiry date' => 'Expiry date',
+                'Description' => 'Description',
+                'Storage location' => 'Storage location',
             ],
             'expiry_report' => [
+                'Movement ID' => 'Movement ID',
                 'Item Name' => 'Item Name',
                 'Category' => 'Category',
+                'Movement Type' => 'Movement Type',
+                'Quantity' => 'Quantity',
                 'Batch Number' => 'Batch Number',
-                'Current Stock' => 'Current Stock',
-                'Unit Type' => 'Unit Type',
-                'Expiry Date' => 'Expiry Date',
-                'Days Until Expiry' => 'Days Until Expiry',
-                'Status' => 'Status',
+                'Movement Date' => 'Movement Date',
+                'Staff Member' => 'Staff Member',
+                'Reason' => 'Reason',
                 'Manufacturer' => 'Manufacturer',
-                'Storage Location' => 'Storage Location',
+                'Expiry Date' => 'Expiry Date',
+                'Notes' => 'Notes'
             ],
             'dispensing_report' => [
             'Item Name' => 'Item Name',
-            'Generic Name' => 'Generic Name',
             'Category' => 'Category',
             'Total Dispensed' => 'Total Dispensed',
             'Dispense Count' => 'Dispense Count',
-                'Average per Dispense' => 'Average per Dispense',
             'First Dispensed' => 'First Dispensed',
             'Last Dispensed' => 'Last Dispensed',
             'Unit Type' => 'Unit Type',
             'Most Recent Staff' => 'Most Recent Staff',
+            'Manufacturer' => 'Manufacturer',
+            'Patient Name' => 'Patient Name',
+            'Batch Number' => 'Batch Number',
+            'Reason' => 'Reason',
             ],
             'low_stock_alert' => [
                 'Item Name' => 'Item Name',
@@ -1283,7 +1376,6 @@ class InventoryReportsController extends Controller
                 'Reason' => 'Reason',
                 'Disposed By' => 'Disposed By',
                 'Manufacturer' => 'Manufacturer',
-                'Expiry Date' => 'Expiry Date',
                 'Notes' => 'Notes'
             ],
             'expired_batches' => [
@@ -1293,7 +1385,6 @@ class InventoryReportsController extends Controller
                 'Current Stock' => 'Current Stock',
                 'Unit Type' => 'Unit Type',
                 'Expiry Date' => 'Expiry Date',
-                'Days Expired' => 'Days Expired',
                 'Status' => 'Status',
                 'Manufacturer' => 'Manufacturer',
                 'Storage Location' => 'Storage Location',

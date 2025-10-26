@@ -10,14 +10,16 @@ import {
 import Sidebar from "./Sidebar";
 import InputLabel from "@/components/InputLabel";
 import { Input } from "@/components/tempo/components/ui/input";
+import { Button } from "@/components/tempo/components/ui/button";
 import { router, useForm, usePage } from "@inertiajs/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import PrintErrors from "@/components/PrintErrors";
 
 // import "bootstrap/dist/css/bootstrap.min.css";
 export default function Settings({}) {
   const { user } = usePage().props.auth;
+  
   const { data, setData, recentlySuccessful, processing, errors, post } =
     useForm({
       firstname: user?.firstname,
@@ -33,14 +35,14 @@ export default function Settings({}) {
 
   const saveChanges = (e) => {
     e.preventDefault();
+    
     post(route("admin.settings.update"), {
-      onFinish: () => {
-        router.reload({
-          only: ["flash"],
-        });
+      onSuccess: () => {
+        // Reload auth data using Inertia
+        router.reload({ only: ['auth'] });
       },
       onError: (er) => {
-        console.log("errror:", er);
+        console.log("error:", er);
       },
     });
   };
@@ -52,7 +54,8 @@ export default function Settings({}) {
       description="These are your account information."
     >
       <PrintErrors errors={errors} />
-      <div className="grid grid-cols-1  md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+      
+      <div className="grid grid-cols-1  md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
           <InputLabel value="First Name" />
           <Input

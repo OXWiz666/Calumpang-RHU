@@ -28,20 +28,38 @@ import {
     Shield,
     Target,
     Sparkles,
+    Volume2,
+    VolumeX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/tempo/components/ui/card";
 import { Badge } from "@/components/tempo/components/ui/badge";
+import { Button } from "@/components/tempo/components/ui/button";
+import StockAlertPanel from "@/Components/StockAlertPanel";
+import useStockAlerts from "@/hooks/useStockAlerts";
 
 export default function PharmacistDashboard({ 
     stats = {}, 
     trendChanges = {},
     categoryBreakdown = [], 
     systemAlerts = [], 
-    recentActivities = [] 
+    recentActivities = [],
+    inventoryItems = []
 }) {
     const { auth } = usePage().props;
     const user = auth.user;
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [showAlertPanel, setShowAlertPanel] = useState(false);
+    
+    // Stock alert system
+    const {
+        alerts,
+        isAudioEnabled,
+        checkMultipleItems,
+        toggleAudio,
+        getStockLevelStatus,
+        getStockLevelColor,
+        getStockLevelIcon
+    } = useStockAlerts();
     
     // Real-time clock effect
     useEffect(() => {
@@ -51,6 +69,25 @@ export default function PharmacistDashboard({
 
         return () => clearInterval(timer);
     }, []);
+
+    // Stock monitoring effect
+    useEffect(() => {
+        if (inventoryItems && inventoryItems.length > 0) {
+            // Check all inventory items for stock levels
+            checkMultipleItems(inventoryItems);
+        }
+    }, [inventoryItems, checkMultipleItems]);
+
+    // Auto-check stock levels every 5 minutes
+    useEffect(() => {
+        const stockCheckInterval = setInterval(() => {
+            if (inventoryItems && inventoryItems.length > 0) {
+                checkMultipleItems(inventoryItems);
+            }
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => clearInterval(stockCheckInterval);
+    }, [inventoryItems, checkMultipleItems]);
     
     // Add custom scrollbar styles
     React.useEffect(() => {
@@ -127,6 +164,8 @@ export default function PharmacistDashboard({
                 return <Package className="h-4 w-4 text-green-600" />;
             case "Outgoing":
                 return <TrendingDown className="h-4 w-4 text-red-600" />;
+            case "Dispense":
+                return <CheckCircle className="h-4 w-4 text-green-600" />;
             default:
                 return <Activity className="h-4 w-4 text-gray-600" />;
         }
@@ -138,6 +177,8 @@ export default function PharmacistDashboard({
                 return "bg-green-50 border-green-200";
             case "Outgoing":
                 return "bg-red-50 border-red-200";
+            case "Dispense":
+                return "bg-green-50 border-green-200";
             default:
                 return "bg-gray-50 border-gray-200";
         }
@@ -179,27 +220,59 @@ export default function PharmacistDashboard({
                         </div>
                         
                         <div className="hidden md:block text-right">
-                            <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="h-4 w-4 text-blue-100" />
-                                    <p className="text-blue-100 text-sm font-medium">Current Date & Time</p>
+                            <div className="flex items-center gap-4">
+                                {/* Stock Alert Button */}
+                                <div className="relative">
+                                    <Button
+                                        onClick={() => setShowAlertPanel(true)}
+                                        className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all duration-300"
+                                    >
+                                        <Bell className="h-4 w-4 mr-2" />
+                                        Stock Alerts
+                                        {alerts.length > 0 && (
+                                            <Badge className="ml-2 bg-red-500 text-white text-xs">
+                                                {alerts.length}
+                                            </Badge>
+                                        )}
+                                    </Button>
+                                    {alerts.length > 0 && (
+                                        <div className="absolute -top-2 -right-2 h-4 w-4 bg-red-500 rounded-full animate-pulse"></div>
+                                    )}
                                 </div>
-                                <p className="text-white text-lg font-bold">
-                                    {currentTime.toLocaleDateString("en-US", {
-                                        weekday: "long",
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                    })}
-                                </p>
-                                <p className="text-blue-100 text-sm font-semibold">
-                                    {currentTime.toLocaleTimeString("en-US", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                        second: "2-digit",
-                                        hour12: true,
-                                    })}
-                                </p>
+                                
+                                {/* Audio Toggle */}
+                                <Button
+                                    onClick={toggleAudio}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20"
+                                >
+                                    {isAudioEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                                </Button>
+                                
+                                {/* Time Display */}
+                                <div className="rounded-xl bg-white/10 backdrop-blur-sm p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Clock className="h-4 w-4 text-blue-100" />
+                                        <p className="text-blue-100 text-sm font-medium">Current Date & Time</p>
+                                    </div>
+                                    <p className="text-white text-lg font-bold">
+                                        {currentTime.toLocaleDateString("en-US", {
+                                            weekday: "long",
+                                            year: "numeric",
+                                            month: "long",
+                                            day: "numeric",
+                                        })}
+                                    </p>
+                                    <p className="text-blue-100 text-sm font-semibold">
+                                        {currentTime.toLocaleTimeString("en-US", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                            second: "2-digit",
+                                            hour12: true,
+                                        })}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -319,10 +392,28 @@ export default function PharmacistDashboard({
                                                             <span className="text-sm text-gray-600 font-medium">
                                                                 Quantity: {activity.quantity}
                                                             </span>
-                                                            <Badge className="text-xs bg-gray-100 text-gray-700">
+                                                            <Badge className={`text-xs ${
+                                                                activity.type === 'Dispense' 
+                                                                    ? 'bg-green-100 text-green-700' 
+                                                                    : activity.type === 'Incoming'
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-red-100 text-red-700'
+                                                            }`}>
                                                                 {activity.type}
                                                             </Badge>
                                                         </div>
+                                                        {activity.type === 'Dispense' && activity.patient_name && (
+                                                            <div className="mt-1">
+                                                                <span className="text-xs text-gray-500">
+                                                                    Patient: {activity.patient_name}
+                                                                </span>
+                                                                {activity.prescription_number && (
+                                                                    <span className="text-xs text-gray-500 ml-2">
+                                                                        RX: {activity.prescription_number}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
@@ -513,6 +604,12 @@ export default function PharmacistDashboard({
                     </motion.div>
                 </div>
             </motion.div>
+            
+            {/* Stock Alert Panel */}
+            <StockAlertPanel 
+                isOpen={showAlertPanel} 
+                onClose={() => setShowAlertPanel(false)} 
+            />
         </AdminLayout>
     );
 }

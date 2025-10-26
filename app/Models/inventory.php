@@ -18,6 +18,9 @@ class inventory extends Model
         "category_id",
         "stock_id",
         "status",
+        "supplier",
+        "minimum_stock",
+        "maximum_stock",
         "created_at",
         "updated_at"
     ];

@@ -13,12 +13,16 @@ import {
     Pill,
     Clock,
     CheckCircle,
-    XCircle
+    XCircle,
+    ChevronLeft,
+    ChevronRight
 } from 'lucide-react';
 
 export default function DoctorPrescriptions({ prescriptions }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(5);
 
     const filteredPrescriptions = prescriptions.filter(prescription => {
         const patientName = prescription.patient_name || '';
@@ -30,6 +34,21 @@ export default function DoctorPrescriptions({ prescriptions }) {
         const matchesStatus = statusFilter === 'all' || prescription.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
+
+    // Pagination logic
+    const totalPages = Math.ceil(filteredPrescriptions.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedPrescriptions = filteredPrescriptions.slice(startIndex, endIndex);
+
+    // Reset to first page when filters change
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     const getStatusBadge = (status) => {
         switch (status) {
@@ -111,7 +130,7 @@ export default function DoctorPrescriptions({ prescriptions }) {
                             </CardContent>
                         </Card>
                     ) : (
-                        filteredPrescriptions.map((prescription) => (
+                        paginatedPrescriptions.map((prescription) => (
                             <Card key={prescription.id} className="hover:shadow-md transition-shadow">
                                 <CardContent className="p-6">
                                     <div className="flex items-center justify-between">
@@ -157,6 +176,56 @@ export default function DoctorPrescriptions({ prescriptions }) {
                                 </CardContent>
                             </Card>
                         ))
+                    )}
+
+                    {/* Pagination */}
+                    {filteredPrescriptions.length > itemsPerPage && (
+                        <div className="flex items-center justify-between pt-6 border-t">
+                            <div className="text-sm text-gray-600">
+                                Showing {startIndex + 1} to {Math.min(endIndex, filteredPrescriptions.length)} of {filteredPrescriptions.length} prescriptions
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    disabled={currentPage === 1}
+                                    className="flex items-center gap-1"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Previous
+                                </Button>
+                                
+                                <div className="flex items-center gap-1">
+                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                        <Button
+                                            key={page}
+                                            variant={currentPage === page ? "default" : "outline"}
+                                            size="sm"
+                                            onClick={() => handlePageChange(page)}
+                                            className={`w-8 h-8 p-0 ${
+                                                currentPage === page 
+                                                    ? "bg-blue-600 text-white" 
+                                                    : "hover:bg-gray-50"
+                                            }`}
+                                        >
+                                            {page}
+                                        </Button>
+                                    ))}
+                                </div>
+                                
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    disabled={currentPage === totalPages}
+                                    className="flex items-center gap-1"
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
                     )}
                 </div>
 

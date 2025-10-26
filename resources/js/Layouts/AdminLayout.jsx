@@ -103,10 +103,12 @@ export default function AdminLayout({ header, children, tools }) {
                         <div className="flex items-center gap-2">
                             <Avatar>
                                 <AvatarImage
-                                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin"
-                                    alt="Admin"
+                                    src={usePage().props.auth.user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${usePage().props.auth.user?.firstname}`}
+                                    alt={usePage().props.auth.user?.firstname}
                                 />
-                                <AvatarFallback>AD</AvatarFallback>
+                                <AvatarFallback>
+                                    {usePage().props.auth.user?.firstname?.[0]}{usePage().props.auth.user?.lastname?.[0]}
+                                </AvatarFallback>
                             </Avatar>
                             <div className="hidden md:block">
                                 <p className="text-sm font-medium text-gray-900">

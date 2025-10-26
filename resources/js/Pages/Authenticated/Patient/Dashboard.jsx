@@ -1,7 +1,6 @@
 import HeroSection from "@/components/tempo/components/landing/HeroSection";
 import ServiceSection from "@/components/tempo/components/landing/ServicesSection";
 import BenefitSection from "@/components/tempo/components/landing/BenefitsSection";
-import TestimonialsSection from "@/components/tempo/components/landing/TestimonialsSection";
 import StatisticsSection from "@/components/tempo/components/landing/StatisticsSection";
 import ContactSection from "@/Pages/Landing/contacts";
 import { usePage } from "@inertiajs/react";
@@ -16,10 +15,6 @@ export default function Dashboard() {
             <ServiceSection />
             <StatisticsSection />
             <BenefitSection />
-            <TestimonialsSection
-                title="What Our Community Says"
-                subtitle="Hear from residents who have experienced our digital healthcare services"
-            />
             <ContactSection />
         </LandingLayout>
     );

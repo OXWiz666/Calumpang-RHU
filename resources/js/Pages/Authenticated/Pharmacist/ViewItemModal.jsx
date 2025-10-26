@@ -137,6 +137,24 @@ const ViewItemModal = ({ open, onClose, item }) => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    <Tag className="h-4 w-4 text-gray-400" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Minimum Stock Level</p>
+                                        <p className="font-medium text-gray-900">
+                                            {item.minimum_stock !== null && item.minimum_stock !== undefined ? item.minimum_stock : 'Not Set'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <Tag className="h-4 w-4 text-gray-400" />
+                                    <div>
+                                        <p className="text-sm text-gray-500">Maximum Stock Level</p>
+                                        <p className="font-medium text-gray-900">
+                                            {item.maximum_stock !== null && item.maximum_stock !== undefined ? item.maximum_stock : 'Not Set'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
                                     <Calendar className="h-4 w-4 text-gray-400" />
                                     <div>
                                         <p className="text-sm text-gray-500">Earliest Expiry</p>

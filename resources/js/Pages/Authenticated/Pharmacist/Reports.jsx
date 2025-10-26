@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import AdminLayout from "@/Layouts/AdminLayout";
 import {
@@ -70,6 +70,10 @@ export default function PharmacistReports({
     const [currentPage, setCurrentPage] = useState(1);
     const [reportsPerPage] = useState(5);
     
+    // Pagination for Detailed Report data
+    const [currentDataPage, setCurrentDataPage] = useState(1);
+    const [dataPerPage] = useState(10);
+    
     // Enhanced report features
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [selectedStatus, setSelectedStatus] = useState("all");
@@ -110,6 +114,110 @@ export default function PharmacistReports({
             setCurrentPage(currentPage + 1);
         }
     };
+    
+    // Sorting function for report items
+    const sortReportItems = (items) => {
+        if (!items || items.length === 0) return items;
+        
+        const sortedItems = [...items];
+        
+        sortedItems.sort((a, b) => {
+            let aValue = null;
+            let bValue = null;
+            
+            switch (sortBy) {
+                case 'name':
+                case 'id':
+                    aValue = sortBy === 'id' ? (a.id || 0) : (a.name || '').toLowerCase();
+                    bValue = sortBy === 'id' ? (b.id || 0) : (b.name || '').toLowerCase();
+                    break;
+                case 'category':
+                    aValue = (a.category || '').toLowerCase();
+                    bValue = (b.category || '').toLowerCase();
+                    break;
+                case 'quantity':
+                case 'totalDispensed':
+                case 'quantityDisposed':
+                    aValue = parseFloat(a.quantity || a.totalDispensed || a.quantityDisposed || 0);
+                    bValue = parseFloat(b.quantity || b.totalDispensed || b.quantityDisposed || 0);
+                    break;
+                case 'unit':
+                    aValue = (a.unit || '').toLowerCase();
+                    bValue = (b.unit || '').toLowerCase();
+                    break;
+                case 'batchNumber':
+                    aValue = (a.batchNumber || '').toLowerCase();
+                    bValue = (b.batchNumber || '').toLowerCase();
+                    break;
+                case 'expiryDate':
+                    aValue = a.expiryDate ? new Date(a.expiryDate) : new Date(0);
+                    bValue = b.expiryDate ? new Date(b.expiryDate) : new Date(0);
+                    break;
+                case 'status':
+                    aValue = (a.status || getItemStatus(a) || '').toLowerCase();
+                    bValue = (b.status || getItemStatus(b) || '').toLowerCase();
+                    break;
+                case 'manufacturer':
+                    aValue = (a.manufacturer || '').toLowerCase();
+                    bValue = (b.manufacturer || '').toLowerCase();
+                    break;
+                case 'description':
+                    aValue = (a.description || '').toLowerCase();
+                    bValue = (b.description || '').toLowerCase();
+                    break;
+                case 'storageLocation':
+                    aValue = (a.storageLocation || '').toLowerCase();
+                    bValue = (b.storageLocation || '').toLowerCase();
+                    break;
+                case 'dispenseCount':
+                    aValue = parseFloat(a.dispenseCount || 0);
+                    bValue = parseFloat(b.dispenseCount || 0);
+                    break;
+                case 'movementType':
+                    aValue = (a.movementType || '').toLowerCase();
+                    bValue = (b.movementType || '').toLowerCase();
+                    break;
+                case 'movementDate':
+                case 'disposalDate':
+                    aValue = a.movementDate || a.disposalDate ? new Date(a.movementDate || a.disposalDate) : new Date(0);
+                    bValue = b.movementDate || b.disposalDate ? new Date(b.movementDate || b.disposalDate) : new Date(0);
+                    break;
+                case 'staffMember':
+                case 'disposedBy':
+                    aValue = (a.staffMember || a.disposedBy || '').toLowerCase();
+                    bValue = (b.staffMember || b.disposedBy || '').toLowerCase();
+                    break;
+                case 'reason':
+                    aValue = (a.reason || '').toLowerCase();
+                    bValue = (b.reason || '').toLowerCase();
+                    break;
+                case 'notes':
+                    aValue = (a.notes || '').toLowerCase();
+                    bValue = (b.notes || '').toLowerCase();
+                    break;
+                default:
+                    aValue = a[sortBy] || '';
+                    bValue = b[sortBy] || '';
+            }
+            
+            if (typeof aValue === 'string') {
+                if (sortOrder === 'asc') {
+                    return aValue.localeCompare(bValue);
+                } else {
+                    return bValue.localeCompare(aValue);
+                }
+            } else {
+                if (sortOrder === 'asc') {
+                    return aValue - bValue;
+                } else {
+                    return bValue - aValue;
+                }
+            }
+        });
+        
+        return sortedItems;
+    };
+    
     const [sortBy, setSortBy] = useState("name");
     const [sortOrder, setSortOrder] = useState("asc");
     const [reportLimit, setReportLimit] = useState(100);
@@ -150,6 +258,15 @@ export default function PharmacistReports({
         }
     }, []);
 
+    // Clear localStorage on mount to ensure fresh state after data truncation
+    React.useEffect(() => {
+        // Clear localStorage for reports if inventory is empty
+        if (inventoryItems.length === 0) {
+            localStorage.removeItem('pharmacist_reports_history');
+            setRecentReports([]);
+        }
+    }, [inventoryItems.length]);
+
     // Load dashboard analytics
     const loadDashboardAnalytics = async () => {
         setIsLoadingAnalytics(true);
@@ -177,6 +294,11 @@ export default function PharmacistReports({
             setIsLoadingAnalytics(false);
         }
     };
+
+    // Reset to first page when sorting changes
+    React.useEffect(() => {
+        setCurrentDataPage(1);
+    }, [sortBy, sortOrder]);
 
     // Load analytics on component mount only if not already loaded
     React.useEffect(() => {
@@ -364,18 +486,6 @@ export default function PharmacistReports({
             official: true,
             category: "Quality Control"
         },
-        {
-            id: "custom_report",
-            title: "Custom Official Report",
-            description: "Create comprehensive reports by selecting specific report types and criteria",
-            icon: FileText,
-            color: "text-indigo-600",
-            bgColor: "bg-indigo-50",
-            borderColor: "border-indigo-200",
-            hoverColor: "hover:border-indigo-400",
-            official: true,
-            category: "Custom Reports"
-        },
     ];
 
 
@@ -407,8 +517,7 @@ export default function PharmacistReports({
             expiryDate: item.expiry_date || 'N/A',
             storageLocation: item.storage_location || 'N/A',
             status: item.status || 'Active',
-            priority: item.priority || 'Low',
-            daysUntilExpiry: item.days_until_expiry,
+            description: item.description || 'N/A',
             createdAt: item.created_at,
             updatedAt: item.updated_at
         }));
@@ -438,7 +547,12 @@ export default function PharmacistReports({
         try {
             if (!dateString || dateString === 'N/A') return 'N/A';
             const date = new Date(dateString);
-            return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString();
+            if (isNaN(date.getTime())) return 'N/A';
+            // Format as MM/DD/YYYY for consistency
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${month}/${day}/${year}`;
         } catch (error) {
             return 'N/A';
         }
@@ -682,26 +796,21 @@ export default function PharmacistReports({
                 params.append('limit', reportLimit);
             }
             
-            // Add date range
+            // Add date range - SET TO ALL TIME TO SHOW ALL DATA
             const endDate = new Date();
-            const startDate = new Date();
-            switch (dateRange) {
-                case '7d':
-                    startDate.setDate(endDate.getDate() - 7);
-                    break;
-                case '30d':
-                    startDate.setDate(endDate.getDate() - 30);
-                    break;
-                case '90d':
-                    startDate.setDate(endDate.getDate() - 90);
-                    break;
-                case '1y':
-                    startDate.setFullYear(endDate.getFullYear() - 1);
-                    break;
-            }
+            const startDate = new Date('2020-01-01'); // Start from beginning to get all data
             
-            params.append('start_date', startDate.toISOString().split('T')[0]);
-            params.append('end_date', endDate.toISOString().split('T')[0]);
+            console.log('🎯 USING ALL-TIME DATE RANGE - v2025-10-27-05:45:', { startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+            
+            // Format dates with time to include full day range - USE TOMORROW TO INCLUDE TODAY
+            const tomorrow = new Date(endDate);
+            tomorrow.setDate(tomorrow.getDate() + 1); // Add one day to ensure today is included
+            
+            const startDateStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+            const endDateStr = tomorrow.toISOString().split('T')[0] + ' 23:59:59';
+            
+            params.append('start_date', startDateStr);
+            params.append('end_date', endDateStr);
             
             // Determine the correct endpoint based on report type
             let endpoint = '/pharmacist/inventory-reports/summary';
@@ -725,6 +834,9 @@ export default function PharmacistReports({
                     endpoint = '/pharmacist/inventory-reports/summary';
             }
             
+            console.log('Fetching from:', `${endpoint}?${params.toString()}`);
+            console.log('Date range params:', { startDateStr, endDateStr });
+            
             const response = await fetch(`${endpoint}?${params.toString()}`, {
                 method: 'GET',
                 headers: {
@@ -737,19 +849,45 @@ export default function PharmacistReports({
             });
             const data = await response.json();
             
+            // Debug logging
+            console.log('Report data received:', {
+                selectedReport,
+                dataKeys: Object.keys(data),
+                itemsCount: Array.isArray(data.items) ? data.items.length : 'not array',
+                dataCount: Array.isArray(data.data) ? data.data.length : 'not array',
+                rawData: data
+            });
+            
             // Process data based on report type
             let processedItems = [];
-            if (selectedReport === 'low_stock_alert') {
-                processedItems = processDisposalData(data.items || data.data || data);
-            } else if (selectedReport === 'dispensing_report') {
-                processedItems = processDispensingData(data.items || data.data || data);
-            } else if (selectedReport === 'expiry_report') {
-                processedItems = processStockMovementData(data.items || data.data || data);
-            } else if (selectedReport === 'expired_batches') {
-                processedItems = processExpiredBatchesData(data.items || data.data || data);
-            } else {
-                processedItems = processInventoryData(data.items || data.data || data);
+            
+            // Get the data array - try multiple possible locations
+            let rawDataArray = [];
+            if (Array.isArray(data.items)) {
+                rawDataArray = data.items;
+            } else if (Array.isArray(data.data)) {
+                rawDataArray = data.data;
+            } else if (Array.isArray(data)) {
+                rawDataArray = data;
             }
+            
+            console.log('Raw data array:', rawDataArray);
+            
+            if (selectedReport === 'low_stock_alert') {
+                processedItems = processDisposalData(rawDataArray);
+            } else if (selectedReport === 'dispensing_report') {
+                processedItems = processDispensingData(rawDataArray);
+            } else if (selectedReport === 'expiry_report') {
+                // For expiry_report, we're getting stock movement data from the backend
+                // Map the data to include additional fields needed for the frontend display
+                processedItems = processStockMovementData(rawDataArray);
+            } else if (selectedReport === 'expired_batches') {
+                processedItems = processExpiredBatchesData(rawDataArray);
+            } else {
+                processedItems = processInventoryData(rawDataArray);
+            }
+            
+            console.log('Processed items:', processedItems);
 
             // Transform the data for display
             const reportData = {
@@ -769,6 +907,7 @@ export default function PharmacistReports({
             };
             
             setGeneratedReport(reportData);
+            setCurrentDataPage(1); // Reset to first page when new report is generated
             
             // Save report to history
             saveReportToHistory(reportData, selectedReport);
@@ -917,39 +1056,6 @@ export default function PharmacistReports({
                 case 'expired_batches':
                     reportUrl = '/pharmacist/inventory-reports/expired-batches?format=pdf';
                     break;
-                case 'custom_report':
-                    // Build custom report URL with selected types
-                    const customParams = new URLSearchParams();
-                    customParams.append('format', 'pdf');
-                    customParams.append('custom_report', 'true');
-                    
-                    if (customReportConfig.includeInventorySummary) {
-                        customParams.append('include_types[]', 'inventory_summary');
-                    }
-                    if (customReportConfig.includeDispensingActivity) {
-                        customParams.append('include_types[]', 'dispensing_report');
-                    }
-                    if (customReportConfig.includeExpiryReport) {
-                        customParams.append('include_types[]', 'expiry_report');
-                    }
-                    if (customReportConfig.includeDisposalReport) {
-                        customParams.append('include_types[]', 'low_stock_alert');
-                    }
-                    if (customReportConfig.includeExpiredBatches) {
-                        customParams.append('include_types[]', 'expired_batches');
-                    }
-                    
-                    if (customReportConfig.customTitle) {
-                        customParams.append('custom_title', customReportConfig.customTitle);
-                    }
-                    if (customReportConfig.customDescription) {
-                        customParams.append('custom_description', customReportConfig.customDescription);
-                    }
-                    customParams.append('include_charts', customReportConfig.includeCharts ? '1' : '0');
-                    customParams.append('include_analytics', customReportConfig.includeAnalytics ? '1' : '0');
-                    
-                    reportUrl = `/pharmacist/inventory-reports/custom?${customParams.toString()}`;
-                    break;
                 default:
                     reportUrl = '/pharmacist/inventory-reports/summary?format=pdf';
             }
@@ -975,26 +1081,20 @@ export default function PharmacistReports({
                 params.append('limit', reportLimit);
             }
             
-            // Add date range
+            // Add date range - SET TO ALL TIME TO SHOW ALL DATA
             const endDate = new Date();
-            const startDate = new Date();
-            switch (dateRange) {
-                case '7d':
-                    startDate.setDate(endDate.getDate() - 7);
-                    break;
-                case '30d':
-                    startDate.setDate(endDate.getDate() - 30);
-                    break;
-                case '90d':
-                    startDate.setDate(endDate.getDate() - 90);
-                    break;
-                case '1y':
-                    startDate.setFullYear(endDate.getFullYear() - 1);
-                    break;
-            }
+            const startDate = new Date('2020-01-01'); // Start from beginning to get all data
             
-            params.append('start_date', startDate.toISOString().split('T')[0]);
-            params.append('end_date', endDate.toISOString().split('T')[0]);
+            // Use tomorrow to ensure today is included in the range
+            const tomorrow = new Date(endDate);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // Format dates with time to include full day range
+            const startDateStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+            const endDateStr = tomorrow.toISOString().split('T')[0] + ' 23:59:59';
+            
+            params.append('start_date', startDateStr);
+            params.append('end_date', endDateStr);
             
             const fullUrl = `${reportUrl}${params.toString() ? '&' + params.toString() : ''}`;
             
@@ -1041,39 +1141,6 @@ export default function PharmacistReports({
                 case 'expired_batches':
                     reportUrl = '/pharmacist/inventory-reports/expired-batches?format=excel';
                     break;
-                case 'custom_report':
-                    // Build custom report URL with selected types
-                    const customExcelParams = new URLSearchParams();
-                    customExcelParams.append('format', 'excel');
-                    customExcelParams.append('custom_report', 'true');
-                    
-                    if (customReportConfig.includeInventorySummary) {
-                        customExcelParams.append('include_types[]', 'inventory_summary');
-                    }
-                    if (customReportConfig.includeDispensingActivity) {
-                        customExcelParams.append('include_types[]', 'dispensing_report');
-                    }
-                    if (customReportConfig.includeExpiryReport) {
-                        customExcelParams.append('include_types[]', 'expiry_report');
-                    }
-                    if (customReportConfig.includeDisposalReport) {
-                        customExcelParams.append('include_types[]', 'low_stock_alert');
-                    }
-                    if (customReportConfig.includeExpiredBatches) {
-                        customExcelParams.append('include_types[]', 'expired_batches');
-                    }
-                    
-                    if (customReportConfig.customTitle) {
-                        customExcelParams.append('custom_title', customReportConfig.customTitle);
-                    }
-                    if (customReportConfig.customDescription) {
-                        customExcelParams.append('custom_description', customReportConfig.customDescription);
-                    }
-                    customExcelParams.append('include_charts', customReportConfig.includeCharts ? '1' : '0');
-                    customExcelParams.append('include_analytics', customReportConfig.includeAnalytics ? '1' : '0');
-                    
-                    reportUrl = `/pharmacist/inventory-reports/custom?${customExcelParams.toString()}`;
-                    break;
                 default:
                     reportUrl = '/pharmacist/inventory-reports/summary?format=excel';
             }
@@ -1099,26 +1166,20 @@ export default function PharmacistReports({
                 params.append('limit', reportLimit);
             }
             
-            // Add date range
+            // Add date range - SET TO ALL TIME TO SHOW ALL DATA
             const endDate = new Date();
-            const startDate = new Date();
-            switch (dateRange) {
-                case '7d':
-                    startDate.setDate(endDate.getDate() - 7);
-                    break;
-                case '30d':
-                    startDate.setDate(endDate.getDate() - 30);
-                    break;
-                case '90d':
-                    startDate.setDate(endDate.getDate() - 90);
-                    break;
-                case '1y':
-                    startDate.setFullYear(endDate.getFullYear() - 1);
-                    break;
-            }
+            const startDate = new Date('2020-01-01'); // Start from beginning to get all data
             
-            params.append('start_date', startDate.toISOString().split('T')[0]);
-            params.append('end_date', endDate.toISOString().split('T')[0]);
+            // Use tomorrow to ensure today is included in the range
+            const tomorrow = new Date(endDate);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // Format dates with time to include full day range
+            const startDateStr = startDate.toISOString().split('T')[0] + ' 00:00:00';
+            const endDateStr = tomorrow.toISOString().split('T')[0] + ' 23:59:59';
+            
+            params.append('start_date', startDateStr);
+            params.append('end_date', endDateStr);
             
             const fullUrl = `${reportUrl}${params.toString() ? '&' + params.toString() : ''}`;
             
@@ -1150,7 +1211,7 @@ export default function PharmacistReports({
                 transition={{ duration: 0.5 }}
                 className="space-y-6"
             >
-                {/* Professional Government Header */}
+                {/* Header */}
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1195,21 +1256,6 @@ export default function PharmacistReports({
                             </div>
                             
                             <div className="flex flex-col sm:flex-row items-center gap-3">
-                                <Button 
-                                    variant="outline" 
-                                    className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
-                                    onClick={printAllReports}
-                                >
-                                    <Printer className="h-4 w-4 mr-2" />
-                                    Print All Reports
-                        </Button>
-                                <Button 
-                                    className="bg-white text-blue-900 hover:bg-blue-50 font-semibold"
-                                    onClick={openReportsSettings}
-                                >
-                                    <Settings className="h-4 w-4 mr-2" />
-                                    Report Settings
-                                </Button>
                     </div>
                 </div>
                     </div>
@@ -1311,42 +1357,7 @@ export default function PharmacistReports({
                                     </div>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                    <div className="space-y-3">
-                                        <label className="block text-sm font-bold text-blue-900 mb-3">
-                                            <Calendar className="h-4 w-4 inline mr-2" />
-                                            Report Period
-                                        </label>
-                                        <Select value={dateRange} onValueChange={setDateRange}>
-                                            <SelectTrigger className="border-blue-300 focus:border-blue-500 h-12">
-                                                <SelectValue placeholder="Select date range" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="7d">Last 7 days</SelectItem>
-                                                <SelectItem value="30d">Last 30 days</SelectItem>
-                                                <SelectItem value="90d">Last 90 days</SelectItem>
-                                                <SelectItem value="1y">Last year</SelectItem>
-                                                <SelectItem value="custom">Custom range</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    
-                                    <div className="space-y-3">
-                                        <label className="block text-sm font-bold text-blue-900 mb-3">
-                                            <Search className="h-4 w-4 inline mr-2" />
-                                            Search Filter
-                                        </label>
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-3 h-4 w-4 text-blue-400" />
-                                            <Input
-                                                placeholder="Search items..."
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                className="pl-10 border-blue-300 focus:border-blue-500 h-12"
-                                            />
-                                        </div>
-                                    </div>
-                                    
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div className="space-y-2">
                                         <label className="block text-sm font-bold text-blue-900 mb-2">
                                             <FileText className="h-4 w-4 inline mr-2" />
@@ -1371,130 +1382,6 @@ export default function PharmacistReports({
                                     </Button>
                                     </div>
                                 </div>
-
-                                {/* Advanced Filters */}
-                                <div className="mt-6">
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                                        className="mb-4 border-blue-300 text-blue-700 hover:bg-blue-50"
-                                    >
-                                        <Filter className="h-4 w-4 mr-2" />
-                                        {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
-                                    </Button>
-
-                                    {showAdvancedFilters && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200"
-                                        >
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Category
-                                                </label>
-                                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                                                    <SelectTrigger className="border-blue-300">
-                                                        <SelectValue placeholder="All Categories" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Categories</SelectItem>
-                                                        <SelectItem value="medicine">Medicine</SelectItem>
-                                                        <SelectItem value="vaccine">Vaccine</SelectItem>
-                                                        <SelectItem value="supplies">Medical Supplies</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Status
-                                                </label>
-                                                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                                                    <SelectTrigger className="border-blue-300">
-                                                        <SelectValue placeholder="All Statuses" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Statuses</SelectItem>
-                                                        <SelectItem value="active">Active</SelectItem>
-                                                        <SelectItem value="low_stock">Low Stock Items</SelectItem>
-                                                        <SelectItem value="out_of_stock">Out of Stock Items</SelectItem>
-                                                        <SelectItem value="expired">Expired Items</SelectItem>
-                                                        <SelectItem value="expiring_soon">Expiring Soon Items</SelectItem>
-                                                        <SelectItem value="critical_expiry">Critical Expiry</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Priority
-                                                </label>
-                                                <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-                                                    <SelectTrigger className="border-blue-300">
-                                                        <SelectValue placeholder="All Priorities" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Priorities</SelectItem>
-                                                        <SelectItem value="high">High Priority</SelectItem>
-                                                        <SelectItem value="medium">Medium Priority</SelectItem>
-                                                        <SelectItem value="low">Low Priority</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Sort By
-                                                </label>
-                                                <Select value={sortBy} onValueChange={setSortBy}>
-                                                    <SelectTrigger className="border-blue-300">
-                                                        <SelectValue placeholder="Sort by" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="name">Name</SelectItem>
-                                                        <SelectItem value="category">Category</SelectItem>
-                                                        <SelectItem value="stock">Stock Level</SelectItem>
-                                                        <SelectItem value="expiry">Expiry Date</SelectItem>
-                                                        <SelectItem value="status">Status</SelectItem>
-                                                        <SelectItem value="priority">Priority</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Sort Order
-                                                </label>
-                                                <Select value={sortOrder} onValueChange={setSortOrder}>
-                                                    <SelectTrigger className="border-blue-300">
-                                                        <SelectValue placeholder="Sort order" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="asc">Ascending</SelectItem>
-                                                        <SelectItem value="desc">Descending</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-bold text-blue-900">
-                                                    Limit Results
-                                                </label>
-                                                <Input
-                                                    type="number"
-                                                    placeholder="100"
-                                                    value={reportLimit}
-                                                    onChange={(e) => setReportLimit(parseInt(e.target.value) || 100)}
-                                                    className="border-blue-300"
-                                                    min="1"
-                                                    max="1000"
-                                                />
-                                            </div>
-                                        </motion.div>
-                                    )}
-                                </div>
                                 
                                 <div className="mt-4 p-4 bg-blue-100 rounded-lg border border-blue-200">
                                     <div className="flex items-center gap-2 text-blue-800">
@@ -1509,168 +1396,6 @@ export default function PharmacistReports({
                     </CardContent>
                 </Card>
                 </motion.div>
-
-                {/* Custom Report Configuration */}
-                {selectedReport === 'custom_report' && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="mt-6"
-                    >
-                        <Card className="border-indigo-200 bg-indigo-50">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-3 text-indigo-900">
-                                    <FileText className="h-6 w-6" />
-                                    Custom Report Configuration
-                                </CardTitle>
-                                <p className="text-indigo-700 text-sm">
-                                    Select which report types to include in your custom report
-                                </p>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                {/* Report Type Selection */}
-                                <div className="space-y-4">
-                                    <h4 className="text-lg font-semibold text-indigo-900">Select Report Types</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id="inventory-summary"
-                                                checked={customReportConfig.includeInventorySummary}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    includeInventorySummary: e.target.checked
-                                                }))}
-                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="inventory-summary" className="text-sm font-medium text-indigo-900">
-                                                Inventory Summary Report
-                                            </label>
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id="dispensing-activity"
-                                                checked={customReportConfig.includeDispensingActivity}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    includeDispensingActivity: e.target.checked
-                                                }))}
-                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="dispensing-activity" className="text-sm font-medium text-indigo-900">
-                                                Dispensing Activity Report
-                                            </label>
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id="expiry-report"
-                                                checked={customReportConfig.includeExpiryReport}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    includeExpiryReport: e.target.checked
-                                                }))}
-                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="expiry-report" className="text-sm font-medium text-indigo-900">
-                                                Stock Movement Reports
-                                            </label>
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id="disposal-report"
-                                                checked={customReportConfig.includeDisposalReport}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    includeDisposalReport: e.target.checked
-                                                }))}
-                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="disposal-report" className="text-sm font-medium text-indigo-900">
-                                                Disposal Report
-                                            </label>
-                                        </div>
-                                        
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id="expired-batches"
-                                                checked={customReportConfig.includeExpiredBatches}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    includeExpiredBatches: e.target.checked
-                                                }))}
-                                                className="h-4 w-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                                            />
-                                            <label htmlFor="expired-batches" className="text-sm font-medium text-indigo-900">
-                                                Expired Batches Report
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Custom Report Details */}
-                                <div className="space-y-4">
-                                    <h4 className="text-lg font-semibold text-indigo-900">Report Details</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-indigo-900">
-                                                Custom Report Title
-                                            </label>
-                                            <Input
-                                                value={customReportConfig.customTitle}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    customTitle: e.target.value
-                                                }))}
-                                                placeholder="Enter custom report title"
-                                                className="border-indigo-300 focus:border-indigo-500"
-                                            />
-                                        </div>
-                                        
-                                        <div className="space-y-2">
-                                            <label className="block text-sm font-medium text-indigo-900">
-                                                Report Description
-                                            </label>
-                                            <Input
-                                                value={customReportConfig.customDescription}
-                                                onChange={(e) => setCustomReportConfig(prev => ({
-                                                    ...prev,
-                                                    customDescription: e.target.value
-                                                }))}
-                                                placeholder="Enter report description"
-                                                className="border-indigo-300 focus:border-indigo-500"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-
-                                {/* Generate Custom Report Button */}
-                                <div className="pt-4 border-t border-indigo-200">
-                                    <Button
-                                        onClick={generateCustomReport}
-                                        disabled={!customReportConfig.includeInventorySummary && 
-                                                !customReportConfig.includeDispensingActivity && 
-                                                !customReportConfig.includeExpiryReport && 
-                                                !customReportConfig.includeDisposalReport && 
-                                                !customReportConfig.includeExpiredBatches}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3"
-                                    >
-                                        <FileText className="h-4 w-4 mr-2" />
-                                        Generate Custom Report
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </motion.div>
-                )}
 
                 {/* Generated Report Display */}
                 {generatedReport && (
@@ -1802,6 +1527,8 @@ export default function PharmacistReports({
                                 {/* Report Items Table */}
                                 <div className="space-y-4">
                                     <div className="bg-gray-50 border-l-4 border-gray-500 p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div>
                                         <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center">
                                             <FileText className="h-5 w-5 mr-2" />
                                             Detailed Inventory Report
@@ -1809,6 +1536,77 @@ export default function PharmacistReports({
                                         <p className="text-gray-600 text-sm">
                                             Complete listing of all inventory items ({generatedReport.items.length} items)
                                         </p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-sm font-medium text-gray-700">Sort by:</label>
+                                                    <Select value={sortBy} onValueChange={setSortBy}>
+                                                        <SelectTrigger className="w-[180px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {selectedReport === 'dispensing_report' ? (
+                                                                <>
+                                                                    <SelectItem value="name">Item Name</SelectItem>
+                                                                    <SelectItem value="category">Category</SelectItem>
+                                                                    <SelectItem value="totalDispensed">Total Dispensed</SelectItem>
+                                                                    <SelectItem value="dispenseCount">Dispense Count</SelectItem>
+                                                                    <SelectItem value="batchNumber">Batch Number</SelectItem>
+                                                                </>
+                                                            ) : selectedReport === 'expiry_report' ? (
+                                                                <>
+                                                                    <SelectItem value="id">Movement ID</SelectItem>
+                                                                    <SelectItem value="name">Item Name</SelectItem>
+                                                                    <SelectItem value="category">Category</SelectItem>
+                                                                    <SelectItem value="movementType">Movement Type</SelectItem>
+                                                                    <SelectItem value="quantity">Quantity</SelectItem>
+                                                                    <SelectItem value="batchNumber">Batch Number</SelectItem>
+                                                                    <SelectItem value="movementDate">Movement Date</SelectItem>
+                                                                    <SelectItem value="staffMember">Staff Member</SelectItem>
+                                                                    <SelectItem value="reason">Reason</SelectItem>
+                                                                    <SelectItem value="notes">Notes</SelectItem>
+                                                                </>
+                                                            ) : selectedReport === 'low_stock_alert' ? (
+                                                                <>
+                                                                    <SelectItem value="name">Item Name</SelectItem>
+                                                                    <SelectItem value="category">Category</SelectItem>
+                                                                    <SelectItem value="batchNumber">Batch Number</SelectItem>
+                                                                    <SelectItem value="quantityDisposed">Quantity Disposed</SelectItem>
+                                                                    <SelectItem value="disposalDate">Disposal Date</SelectItem>
+                                                                    <SelectItem value="reason">Reason</SelectItem>
+                                                                    <SelectItem value="disposedBy">Disposed By</SelectItem>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <SelectItem value="name">Name</SelectItem>
+                                                                    <SelectItem value="category">Category</SelectItem>
+                                                                    <SelectItem value="quantity">Quantity</SelectItem>
+                                                                    <SelectItem value="unit">Unit</SelectItem>
+                                                                    <SelectItem value="status">Status</SelectItem>
+                                                                    <SelectItem value="manufacturer">Manufacturer</SelectItem>
+                                                                    <SelectItem value="batchNumber">Batch Number</SelectItem>
+                                                                    <SelectItem value="expiryDate">Expiry Date</SelectItem>
+                                                                    <SelectItem value="description">Description</SelectItem>
+                                                                    <SelectItem value="storageLocation">Storage Location</SelectItem>
+                                                                </>
+                                                            )}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-sm font-medium text-gray-700">Order:</label>
+                                                    <Select value={sortOrder} onValueChange={setSortOrder}>
+                                                        <SelectTrigger className="w-[120px]">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="asc">Ascending</SelectItem>
+                                                            <SelectItem value="desc">Descending</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     
                                     {generatedReport.items.length > 0 ? (
@@ -1819,69 +1617,184 @@ export default function PharmacistReports({
                                                         {selectedReport === 'dispensing_report' ? (
                                                             <>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Item Name</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Dispense Mode</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Category</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Total Dispensed</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Dispense Count</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">First Dispensed</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Last Dispensed</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Unit Type</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Staff Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Manufacturer</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Patient Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Reason</th>
+                                                            </>
+                                                        ) : selectedReport === 'expiry_report' ? (
+                                                            <>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Movement ID</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Item Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Category</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Movement Type</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Prescription #</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Dispensed By</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Movement Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Staff Member</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Reason</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Manufacturer</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Expiry Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Notes</th>
                                                             </>
-                                                        ) : (
+                                                        ) : selectedReport === 'low_stock_alert' ? (
                                                             <>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Item Name</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Category</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Expiry Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity Disposed</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Disposal Date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Reason</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Disposed By</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Manufacturer</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Notes</th>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Category</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Quantity</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Unit</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Status</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Manufacturer</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch number</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Expiry date</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Description</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Storage location</th>
                                                             </>
                                                         )}
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {generatedReport.items.map((item, index) => {
+                                                    {sortReportItems(generatedReport.items)
+                                                        .slice((currentDataPage - 1) * dataPerPage, currentDataPage * dataPerPage)
+                                                        .map((item, index) => {
                                                         if (selectedReport === 'dispensing_report') {
                                                             return (
                                                                 <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                                                     <td className="py-4 px-6">
-                                                                        <div>
                                                                             <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
-                                                                            <p className="text-xs text-gray-500 mt-1">{item.manufacturer}</p>
-                                                                        </div>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <div>
-                                                                            <p className="font-medium text-gray-900 text-sm">{item.dispenseMode}</p>
-                                                                            <p className="text-xs text-gray-500 mt-1">{item.patientName}</p>
-                                                                        </div>
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            {item.category}
+                                                                        </span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <div className="flex items-center">
-                                                                            <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
-                                                                            <span className="text-xs text-gray-500 ml-2 bg-gray-100 px-2 py-1 rounded">{item.unit}</span>
-                                                                        </div>
+                                                                        <p className="font-bold text-lg text-gray-900">{item.totalDispensed || item.quantity}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.dispenseCount}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.firstDispensed || 'N/A'}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.lastDispensed || item.date || 'N/A'}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{item.unit}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.staffName || item.dispensedBy}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.manufacturer}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.patientName}</p>
                                                                     </td>
                                                                     <td className="py-4 px-6">
                                                                         <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <span className="font-mono text-sm bg-blue-100 px-2 py-1 rounded text-blue-800">{item.prescriptionNumber}</span>
+                                                                        <p className="text-sm text-gray-700">{item.reason}</p>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        } else if (selectedReport === 'expiry_report') {
+                                                            return (
+                                                                <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.id || 'N/A'}</span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <div>
-                                                                            <p className="font-medium text-gray-900 text-sm">{item.staffName}</p>
-                                                                            <p className="text-xs text-gray-500 mt-1">{item.reason}</p>
-                                                                        </div>
+                                                                        <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <div className="text-sm">
-                                                                            <p className="font-medium text-gray-900">
-                                                                                {formatDate(item.dispensedAt)}
-                                                                            </p>
-                                                                            <p className="text-xs text-gray-500">
-                                                                                {formatTime(item.dispensedAt)}
-                                                                            </p>
-                                                                        </div>
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            {item.category}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                                                                            {item.movementType || 'N/A'}
+                                                                        </Badge>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                            <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.movementDate}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.staffMember}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.reason}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.manufacturer}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.expiryDate}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.notes}</p>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        } else if (selectedReport === 'low_stock_alert') {
+                                                            return (
+                                                                <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            {item.category}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-bold text-lg text-gray-900">{item.quantityDisposed}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.disposalDate}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.reason}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="font-medium text-gray-900 text-sm">{item.disposedBy}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.manufacturer}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.notes}</p>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -1905,10 +1818,7 @@ export default function PharmacistReports({
                                                             return (
                                                                 <tr key={item.id} className={`border-b hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                                                     <td className="py-4 px-6">
-                                                                        <div>
                                                                             <p className="font-semibold text-gray-900 text-sm">{item.name}</p>
-                                                                            <p className="text-xs text-gray-500 mt-1">{item.manufacturer}</p>
-                                                                        </div>
                                                                     </td>
                                                                     <td className="py-4 px-6">
                                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -1916,38 +1826,34 @@ export default function PharmacistReports({
                                                                         </span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <div className="flex items-center">
-                                                                            <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
-                                                                            <span className="text-xs text-gray-500 ml-2 bg-gray-100 px-2 py-1 rounded">{item.unit}</span>
-                                                                        </div>
+                                                                        <span className="font-bold text-lg text-gray-900">{item.quantity || 0}</span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
-                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber}</span>
-                                                                    </td>
-                                                                    <td className="py-4 px-6">
-                                                                        {item.expiryDate !== 'N/A' ? (
-                                                                            <div className="text-sm">
-                                                                                <span className={`font-medium ${
-                                                                                isExpired(item.expiryDate) ? 'text-red-600' :
-                                                                                isExpiringSoon(item.expiryDate) ? 'text-orange-600' :
-                                                                                'text-gray-600'
-                                                                            }`}>
-                                                                                {new Date(item.expiryDate).toLocaleDateString()}
-                                                                            </span>
-                                                                                <p className="text-xs text-gray-500 mt-1">
-                                                                                    {isExpired(item.expiryDate) ? 'Expired' :
-                                                                                     isExpiringSoon(item.expiryDate) ? 'Expiring Soon Items' :
-                                                                                     'Valid'}
-                                                                                </p>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-gray-400 text-sm">N/A</span>
-                                                                        )}
+                                                                        <span className="text-sm text-gray-700">{item.unit || 'N/A'}</span>
                                                                     </td>
                                                                     <td className="py-4 px-6">
                                                                         <Badge className={`${statusColors[status]} border`}>
                                                                             {statusText[status]}
                                                                         </Badge>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.manufacturer || 'N/A'}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded text-gray-800">{item.batchNumber || 'N/A'}</span>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        {item.expiryDate !== 'N/A' ? (
+                                                                            <p className="font-medium text-gray-900 text-sm">{formatDate(item.expiryDate)}</p>
+                                                                        ) : (
+                                                                            <span className="text-gray-400 text-sm">N/A</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.description || 'N/A'}</p>
+                                                                    </td>
+                                                                    <td className="py-4 px-6">
+                                                                        <p className="text-sm text-gray-700">{item.storageLocation || 'N/A'}</p>
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -1955,6 +1861,38 @@ export default function PharmacistReports({
                                                     })}
                                                 </tbody>
                                             </table>
+                                            
+                                            {/* Pagination Controls */}
+                                            {generatedReport.items.length > dataPerPage && (
+                                                <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                                                    <div className="text-sm text-gray-700">
+                                                        Showing {(currentDataPage - 1) * dataPerPage + 1} to {Math.min(currentDataPage * dataPerPage, generatedReport.items.length)} of {generatedReport.items.length} items
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setCurrentDataPage(Math.max(1, currentDataPage - 1))}
+                                                            disabled={currentDataPage === 1}
+                                                        >
+                                                            <ChevronLeft className="h-4 w-4" />
+                                                            Previous
+                                                        </Button>
+                                                        <span className="text-sm text-gray-700 px-4">
+                                                            Page {currentDataPage} of {Math.ceil(generatedReport.items.length / dataPerPage)}
+                                                        </span>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setCurrentDataPage(Math.min(Math.ceil(generatedReport.items.length / dataPerPage), currentDataPage + 1))}
+                                                            disabled={currentDataPage >= Math.ceil(generatedReport.items.length / dataPerPage)}
+                                                        >
+                                                            Next
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
@@ -2169,135 +2107,6 @@ export default function PharmacistReports({
                     </motion.div>
                 </div>
 
-                {/* Expired Batches Summary */}
-                {(expiredBatchesCount > 0 || expiringSoonBatchesCount > 0) && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.7 }}
-                        className="space-y-6"
-                    >
-                        {/* Expired Batches Alert */}
-                        {expiredBatchesCount > 0 && (
-                            <Card className="border-red-200 bg-red-50">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 text-red-800">
-                                        <XCircle className="h-5 w-5" />
-                                        Expired Batches Alert
-                                        <Badge className="bg-red-100 text-red-800 border-red-200">
-                                            {expiredBatchesCount} batches
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                        <div className="text-center p-4 bg-white rounded-lg border border-red-200">
-                                            <p className="text-sm text-red-600">Total Expired Batches</p>
-                                            <p className="text-2xl font-bold text-red-800">{expiredBatchesCount}</p>
-                                        </div>
-                                        <div className="text-center p-4 bg-white rounded-lg border border-red-200">
-                                            <p className="text-sm text-red-600">Action Required</p>
-                                            <p className="text-2xl font-bold text-red-800">Dispose</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm text-red-700">
-                                            These batches have expired and should be disposed of immediately.
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <Button 
-                                                variant="outline" 
-                                                className="border-red-300 text-red-700 hover:bg-red-100"
-                                                onClick={() => setShowExpiredBatches(!showExpiredBatches)}
-                                            >
-                                                {showExpiredBatches ? 'Hide Details' : 'View Details'}
-                                            </Button>
-                                            <Button 
-                                                variant="destructive" 
-                                                className="bg-red-600 hover:bg-red-700"
-                                                onClick={handleBulkDispose}
-                                            >
-                                                <Trash2 className="h-4 w-4 mr-1" />
-                                                Dispose All
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    
-                                    {showExpiredBatches && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="mt-4 space-y-2 max-h-96 overflow-y-auto"
-                                        >
-                                            {expiredBatches.map((batch, index) => (
-                                                <div key={batch.id} className="p-3 bg-white rounded-lg border border-red-200">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <h4 className="font-medium text-gray-900">{batch.name}</h4>
-                                                                <Badge className="bg-red-100 text-red-800 border-red-200 text-xs">
-                                                                    EXPIRED
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-gray-600">
-                                                                <span>Batch: {batch.batch_number}</span>
-                                                                <span>Qty: {batch.quantity} {batch.unit}</span>
-                                                                <span>Expired: {new Date(batch.expiry_date).toLocaleDateString()}</span>
-                                                                <span>Days: {batch.days_expired} ago</span>
-                                                            </div>
-                                                        </div>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="sm" 
-                                                            className="border-red-300 text-red-700 hover:bg-red-100"
-                                                            onClick={() => handleDisposeBatch(batch)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-1" />
-                                                            Dispose
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </motion.div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Expiring Soon Alert */}
-                        {expiringSoonBatchesCount > 0 && (
-                            <Card className="border-amber-200 bg-amber-50">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 text-amber-800">
-                                        <AlertCircle className="h-5 w-5" />
-                                        Expiring Soon Items Alert
-                                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                                            {expiringSoonBatchesCount} batches
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                        <div className="text-center p-4 bg-white rounded-lg border border-amber-200">
-                                            <p className="text-sm text-amber-600">Expiring Soon Items</p>
-                                            <p className="text-2xl font-bold text-amber-800">{expiringSoonBatchesCount}</p>
-                                        </div>
-                                        <div className="text-center p-4 bg-white rounded-lg border border-amber-200">
-                                            <p className="text-sm text-amber-600">Action Required</p>
-                                            <p className="text-2xl font-bold text-amber-800">Use First</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <p className="text-sm text-amber-700">
-                                        These batches are expiring within 30 days and should be prioritized for use.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        )}
-                    </motion.div>
-                )}
             </motion.div>
 
             {/* Batch Disposal Modal */}

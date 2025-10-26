@@ -5,49 +5,79 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Yajra\Address\HasAddress;
 
 class Patient extends Model
 {
-    use HasFactory, SoftDeletes, HasAddress;
+    use HasFactory, SoftDeletes;
     
     protected $fillable = [
-        'first_name',
-        'last_name',
-        'middle_name',
+        'patient_id',
+        'user_id',
+        'firstname',
+        'lastname',
+        'middlename',
+        'suffix',
+        'email',
+        'phone',
         'date_of_birth',
         'gender',
-        'address',
-        'contact_number',
-        'email',
-        'emergency_contact_name',
-        'emergency_contact_number',
-        'blood_type',
-        'allergies',
-        'medical_conditions'
+        'civil_status',
+        'nationality',
+        'religion',
+        'country',
+        'region',
+        'province',
+        'city',
+        'barangay',
+        'street',
+        'zip_code',
+        'profile_picture',
+        'status'
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
-        'allergies' => 'array',
-        'medical_conditions' => 'array'
     ];
+
+    // Generate unique patient ID
+    public static function generatePatientId($firstname, $lastname)
+    {
+        do {
+            $patientId = 'PAT_' . strtoupper(substr($firstname, 0, 3)) . '_' . 
+                        strtoupper(substr($lastname, 0, 3)) . '_' . 
+                        date('Ymd');
+        } while (self::where('patient_id', $patientId)->exists());
+        
+        return $patientId;
+    }
+
+    // Boot method to auto-generate patient ID
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($patient) {
+            if (empty($patient->patient_id)) {
+                $patient->patient_id = self::generatePatientId($patient->firstname, $patient->lastname);
+            }
+        });
+    }
 
     // Accessor for full name
     public function getFullNameAttribute()
     {
-        return "{$this->first_name} " . ($this->middle_name ? substr($this->middle_name, 0, 1) . ". " : "") . "{$this->last_name}";
+        return trim($this->firstname . ' ' . $this->lastname);
     }
 
     // Relationships
-    public function appointments()
+    public function user()
     {
-        return $this->hasMany(Appointment::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function queues()
+    public function appointments()
     {
-        return $this->hasMany(Queue::class);
+        return $this->hasMany(appointments::class, 'patient_id');
     }
 
     public function medicalRecords()
@@ -63,15 +93,15 @@ class Patient extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->whereNull('deleted_at');
+        return $query->where('status', 'active');
     }
 
     public function scopeSearchByName($query, $search)
     {
         return $query->where(function($q) use ($search) {
-            $q->where('first_name', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('middle_name', 'like', "%{$search}%");
+            $q->where('firstname', 'like', "%{$search}%")
+              ->orWhere('lastname', 'like', "%{$search}%")
+              ->orWhere('middlename', 'like', "%{$search}%");
         });
     }
 } 

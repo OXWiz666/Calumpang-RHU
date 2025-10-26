@@ -14,7 +14,8 @@ import {
     XCircle,
     FileText,
     Phone,
-    Mail
+    Mail,
+    Printer
 } from 'lucide-react';
 
 export default function ViewPrescription({ prescription }) {
@@ -31,23 +32,253 @@ export default function ViewPrescription({ prescription }) {
         }
     };
 
+    const handlePrint = () => {
+        const printWindow = window.open('', '_blank');
+        const printContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Prescription - ${prescription.prescription_number}</title>
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 0.5in;
+                    }
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        font-size: 11pt;
+                        line-height: 1.5;
+                        margin: 0;
+                        padding: 0;
+                        background: #fff;
+                        color: #333;
+                    }
+                    .prescription-header {
+                        text-align: center;
+                        margin-bottom: 20px;
+                        border-bottom: 2px solid #000;
+                        padding-bottom: 10px;
+                    }
+                    .doctor-name {
+                        font-weight: bold;
+                        font-size: 14pt;
+                        text-transform: uppercase;
+                        margin-bottom: 5px;
+                    }
+                    .clinic-info {
+                        font-size: 11pt;
+                        margin-bottom: 3px;
+                    }
+                    .patient-info {
+                        display: flex;
+                        justify-content: space-between;
+                        margin: 20px 0;
+                        border-bottom: 1px solid #000;
+                        padding-bottom: 10px;
+                    }
+                    .patient-left {
+                        flex: 1;
+                    }
+                    .patient-right {
+                        flex: 1;
+                        margin-left: 20px;
+                    }
+                    .patient-field {
+                        display: flex;
+                        margin-bottom: 8px;
+                    }
+                    .patient-label {
+                        font-weight: bold;
+                        width: 80px;
+                        margin-right: 10px;
+                    }
+                    .patient-value {
+                        border-bottom: 1px solid #000;
+                        flex: 1;
+                        padding-bottom: 2px;
+                        font-style: italic;
+                    }
+                    .prescription-content {
+                        padding: 25px;
+                        background: #fff;
+                        min-height: 250px;
+                    }
+                    .rx-symbol {
+                        font-size: 32pt;
+                        font-weight: 900;
+                        margin-right: 20px;
+                        display: inline-block;
+                        vertical-align: top;
+                        color:rgb(0, 0, 0);
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+                        font-family: 'Georgia', serif;
+                    }
+                    .medicine-item {
+                        margin-bottom: 15px;
+                        display: flex;
+                        align-items: flex-start;
+                    }
+                    .medicine-details {
+                        flex: 1;
+                    }
+                    .medicine-name {
+                        font-weight: bold;
+                        font-style: italic;
+                        margin-bottom: 3px;
+                    }
+                    .medicine-instructions {
+                        font-style: italic;
+                        margin-top: 5px;
+                    }
+                    .medicine-quantity {
+                        font-weight: bold;
+                        margin-left: 10px;
+                    }
+                    .doctor-signature {
+                        margin-top: 50px;
+                        text-align: right;
+                        padding: 20px;
+                        background: #f8fafc;
+                        border-top: 2px solid #e5e7eb;
+                    }
+                    .signature-line {
+                        border-bottom: 2px solid rgb(0, 0, 0);
+                        width: 250px;
+                        margin: 25px 0 10px auto;
+                        height: 2px;
+                    }
+                    .doctor-credentials {
+                        text-align: right;
+                        font-size: 11pt;
+                        margin-top: 8px;
+                    }
+                    .doctor-credentials strong {
+                        color: rgb(0, 0, 0);
+                        font-size: 12pt;
+                    }
+                    .license-info {
+                        font-size: 9pt;
+                        margin-top: 8px;
+                        color: #6b7280;
+                        line-height: 1.4;
+                    }
+                    .prescription-date {
+                        text-align: right;
+                        margin-bottom: 20px;
+                        font-size: 10pt;
+                        color: #6b7280;
+                        font-weight: 500;
+                    }
+                    @media print {
+                        body { margin: 0; padding: 0; }
+                        .no-print { display: none; }
+                        .prescription-container { box-shadow: none; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="prescription-header">
+                        <div class="doctor-name">${prescription.doctor.name}</div>
+                        <div class="clinic-info">Calumpang Rural Health Unit</div>
+                        <div class="clinic-info">Calumpang, General Santos City</div>
+                        <div class="clinic-info">Tel No: (083) 554-0146</div>
+                    </div>
+
+                    <div class="patient-info">
+                        <div class="patient-left">
+                            <div class="patient-field">
+                                <span class="patient-label">Name:</span>
+                                <span class="patient-value">${prescription.patient.name}</span>
+                            </div>
+                            <div class="patient-field">
+                                <span class="patient-label">Address:</span>
+                                <span class="patient-value">${prescription.patient.address || 'N/A'}</span>
+                            </div>
+                            <div class="patient-field">
+                                <span class="patient-label">Date:</span>
+                                <span class="patient-value">${prescription.prescription_date}</span>
+                            </div>
+                        </div>
+                        <div class="patient-right">
+                            <div class="patient-field">
+                                <span class="patient-label">Sex:</span>
+                                <span class="patient-value">${prescription.patient.gender || 'N/A'}</span>
+                            </div>
+                            <div class="patient-field">
+                                <span class="patient-label">Age:</span>
+                                <span class="patient-value">${prescription.patient.age || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="prescription-content">
+                        <div class="prescription-date">Prescription #${prescription.prescription_number}</div>
+                        <div class="rx-symbol">Rx</div>
+                        <div style="display: inline-block; width: calc(100% - 80px);">
+                            ${prescription.medicines.map(medicine => `
+                                <div class="medicine-item">
+                                    <div class="medicine-details">
+                                        <div class="medicine-name">
+                                            ${medicine.medicine.name} ${medicine.medicine.generic_name ? `(${medicine.medicine.generic_name})` : ''}
+                                        </div>
+                                        <div class="medicine-instructions">
+                                            ${medicine.frequency} ${medicine.duration} ${medicine.instructions ? `- ${medicine.instructions}` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="medicine-quantity">${medicine.quantity}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="doctor-signature">
+                        <div class="signature-line"></div>
+                        <div class="doctor-credentials">
+                            <strong>Dr. ${prescription.doctor.name}</strong><br>
+                            <div class="license-info">
+                                Lic. No: ${prescription.doctor.license_number || 'N/A'}
+                            </div>
+                        </div>
+                    </div>
+            </body>
+            </html>
+        `;
+        
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
+    };
+
     return (
         <AdminLayout header="Prescription Details">
             <Head title={`Prescription ${prescription.prescription_number}`} />
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link href={route('doctor.prescriptions')}>
-                        <Button variant="outline" size="sm" className="flex items-center gap-2">
-                            <ArrowLeft className="h-4 w-4" />
-                            Back to Prescriptions
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{prescription.prescription_number}</h1>
-                        <p className="text-gray-600">Prescription Details</p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Link href={route('doctor.prescriptions')}>
+                            <Button variant="outline" size="sm" className="flex items-center gap-2">
+                                <ArrowLeft className="h-4 w-4" />
+                                Back to Prescriptions
+                            </Button>
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">{prescription.prescription_number}</h1>
+                            <p className="text-gray-600">Prescription Details</p>
+                        </div>
                     </div>
+                    {prescription.status === 'dispensed' && (
+                        <Button 
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                        >
+                            <Printer className="h-4 w-4" />
+                            Print Prescription
+                        </Button>
+                    )}
                 </div>
 
                 {/* Prescription Info */}
@@ -184,11 +415,7 @@ export default function ViewPrescription({ prescription }) {
                                                     )}
                                                 </div>
                                                 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                                                    <div>
-                                                        <p className="text-gray-600">Dosage</p>
-                                                        <p className="font-medium">{medicine.dosage}</p>
-                                                    </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                                     <div>
                                                         <p className="text-gray-600">Frequency</p>
                                                         <p className="font-medium">{medicine.frequency}</p>

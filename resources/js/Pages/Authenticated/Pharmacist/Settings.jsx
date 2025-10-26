@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { Head, useForm, router, usePage } from "@inertiajs/react";
 import AdminLayout from "@/Layouts/AdminLayout";
 import {
     User,
     Lock,
-    Bell,
     Shield,
     Mail,
     Phone,
@@ -12,309 +12,339 @@ import {
     Save,
     Eye,
     EyeOff,
+    Upload,
+    X,
+    Settings
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/tempo/components/ui/card";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Badge } from "@/components/tempo/components/ui/badge";
+import { Separator } from "@/components/tempo/components/ui/separator";
+import { toast } from "react-hot-toast";
 
 export default function PharmacistSettings() {
+    const { auth } = usePage().props;
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [activeTab, setActiveTab] = useState('profile');
 
-    // Mock user data
-    const userData = {
-        firstName: "John",
-        lastName: "Doe",
-        email: "john.doe@pharmacy.com",
-        phone: "+1 (555) 123-4567",
-        address: "123 Pharmacy Street, Medical City",
-        role: "Pharmacist",
-        lastLogin: "2024-01-15 10:30 AM",
-        accountStatus: "Active",
+    // Profile form
+    const { data: profileData, setData: setProfileData, post: updateProfile, processing: profileProcessing, errors: profileErrors } = useForm({
+        firstname: auth.user?.firstname || '',
+        middlename: auth.user?.middlename || '',
+        lastname: auth.user?.lastname || '',
+        email: auth.user?.email || '',
+        contactno: auth.user?.contactno || '',
+    });
+
+    // Password form
+    const { data: passwordData, setData: setPasswordData, post: updatePassword, processing: passwordProcessing, errors: passwordErrors, reset: resetPassword } = useForm({
+        current_password: '',
+        password: '',
+        password_confirmation: '',
+    });
+
+    const handleProfileUpdate = (e) => {
+        e.preventDefault();
+        
+        updateProfile(route('pharmacist.settings.profile'), {
+            onSuccess: () => {
+                toast.success('Profile updated successfully!');
+                // Reload auth data using Inertia
+                router.reload({ only: ['auth'] });
+            },
+            onError: () => {
+                toast.error('Failed to update profile.');
+            }
+        });
     };
+
+    const handlePasswordUpdate = (e) => {
+        e.preventDefault();
+        updatePassword(route('pharmacist.settings.password'), {
+            onSuccess: () => {
+                toast.success('Password updated successfully!');
+                resetPassword();
+            },
+            onError: () => {
+                toast.error('Failed to update password. Please check your current password.');
+            }
+        });
+    };
+
+    const tabs = [
+        { id: 'profile', label: 'Profile', icon: <User className="h-4 w-4" /> },
+        { id: 'security', label: 'Security', icon: <Lock className="h-4 w-4" /> },
+    ];
 
     return (
         <AdminLayout header="Settings">
+            <Head title="Pharmacist Settings" />
+            
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
                 className="space-y-6"
             >
-                {/* Profile Overview */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <User className="h-5 w-5" />
-                            Profile Overview
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center gap-6">
-                            <div className="h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center">
-                                <User className="h-10 w-10 text-blue-600" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-gray-900">
-                                    {userData.firstName} {userData.lastName}
-                                </h2>
-                                <p className="text-gray-600 mb-2">{userData.role}</p>
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                    <span>Last login: {userData.lastLogin}</span>
-                                    <Badge className="bg-green-100 text-green-800">
-                                        {userData.accountStatus}
-                                    </Badge>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                {/* Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="flex items-center gap-4"
+                >
+                    <div className="p-3 rounded-xl bg-green-100">
+                        <Settings className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+                        <p className="text-gray-600">Manage your account settings and preferences</p>
+                    </div>
+                </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Personal Information */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <User className="h-5 w-5" />
-                                Personal Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="firstName">First Name</Label>
-                                    <Input
-                                        id="firstName"
-                                        defaultValue={userData.firstName}
-                                        className="mt-1"
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="lastName">Last Name</Label>
-                                    <Input
-                                        id="lastName"
-                                        defaultValue={userData.lastName}
-                                        className="mt-1"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label htmlFor="email">Email Address</Label>
-                                <div className="relative mt-1">
-                                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        defaultValue={userData.email}
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label htmlFor="phone">Phone Number</Label>
-                                <div className="relative mt-1">
-                                    <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="phone"
-                                        defaultValue={userData.phone}
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label htmlFor="address">Address</Label>
-                                <div className="relative mt-1">
-                                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="address"
-                                        defaultValue={userData.address}
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            
-                            <Button className="w-full flex items-center gap-2" style={{ backgroundColor: '#2C3E50' }}>
-                                <Save className="h-4 w-4" />
-                                Save Changes
-                            </Button>
-                        </CardContent>
-                    </Card>
+                {/* Tab Navigation */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit"
+                >
+                    {tabs.map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                                activeTab === tab.id
+                                    ? 'bg-white text-green-600 shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                        </button>
+                    ))}
+                </motion.div>
 
-                    {/* Security Settings */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Shield className="h-5 w-5" />
-                                Security Settings
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label htmlFor="currentPassword">Current Password</Label>
-                                <div className="relative mt-1">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="currentPassword"
-                                        type={showCurrentPassword ? "text" : "password"}
-                                        className="pl-10 pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="absolute right-3 top-3"
-                                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                    >
-                                        {showCurrentPassword ? (
-                                            <EyeOff className="h-4 w-4 text-gray-400" />
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-gray-400" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label htmlFor="newPassword">New Password</Label>
-                                <div className="relative mt-1">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="newPassword"
-                                        type={showNewPassword ? "text" : "password"}
-                                        className="pl-10 pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="absolute right-3 top-3"
-                                        onClick={() => setShowNewPassword(!showNewPassword)}
-                                    >
-                                        {showNewPassword ? (
-                                            <EyeOff className="h-4 w-4 text-gray-400" />
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-gray-400" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                                <div className="relative mt-1">
-                                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="confirmPassword"
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        className="pl-10 pr-10"
-                                    />
-                                    <button
-                                        type="button"
-                                        className="absolute right-3 top-3"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    >
-                                        {showConfirmPassword ? (
-                                            <EyeOff className="h-4 w-4 text-gray-400" />
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-gray-400" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <Button className="w-full flex items-center gap-2" style={{ backgroundColor: '#2C3E50' }}>
-                                <Shield className="h-4 w-4" />
-                                Update Password
-                            </Button>
-                        </CardContent>
-                    </Card>
-                </div>
+                {/* Profile Settings */}
+                {activeTab === 'profile' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                    >
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <User className="h-5 w-5" />
+                                    Profile Settings
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handleProfileUpdate} className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="firstname">First Name</Label>
+                                            <Input
+                                                id="firstname"
+                                                value={profileData.firstname}
+                                                onChange={(e) => setProfileData('firstname', e.target.value)}
+                                                className={profileErrors.firstname ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.firstname && (
+                                                <p className="text-sm text-red-500">{profileErrors.firstname}</p>
+                                            )}
+                                        </div>
 
-                {/* Notification Preferences */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Bell className="h-5 w-5" />
-                            Notification Preferences
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-medium text-gray-900">Low Stock Alerts</h3>
-                                    <p className="text-sm text-gray-500">
-                                        Get notified when inventory items are running low
-                                    </p>
-                                </div>
-                                <Button variant="outline" size="sm">
-                                    Enabled
-                                </Button>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-medium text-gray-900">Expiry Notifications</h3>
-                                    <p className="text-sm text-gray-500">
-                                        Receive alerts for items approaching expiration
-                                    </p>
-                                </div>
-                                <Button variant="outline" size="sm">
-                                    Enabled
-                                </Button>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-medium text-gray-900">Daily Reports</h3>
-                                    <p className="text-sm text-gray-500">
-                                        Get daily summary reports via email
-                                    </p>
-                                </div>
-                                <Button variant="outline" size="sm">
-                                    Disabled
-                                </Button>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-medium text-gray-900">System Updates</h3>
-                                    <p className="text-sm text-gray-500">
-                                        Notifications about system maintenance and updates
-                                    </p>
-                                </div>
-                                <Button variant="outline" size="sm">
-                                    Enabled
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="middlename">Middle Name</Label>
+                                            <Input
+                                                id="middlename"
+                                                value={profileData.middlename}
+                                                onChange={(e) => setProfileData('middlename', e.target.value)}
+                                                className={profileErrors.middlename ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.middlename && (
+                                                <p className="text-sm text-red-500">{profileErrors.middlename}</p>
+                                            )}
+                                        </div>
 
-                {/* Account Actions */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Account Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <Button variant="outline" className="flex items-center gap-2">
-                                <Mail className="h-4 w-4" />
-                                Export Data
-                            </Button>
-                            <Button variant="outline" className="flex items-center gap-2">
-                                <Shield className="h-4 w-4" />
-                                Two-Factor Authentication
-                            </Button>
-                            <Button variant="destructive" className="flex items-center gap-2">
-                                <Lock className="h-4 w-4" />
-                                Deactivate Account
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="lastname">Last Name</Label>
+                                            <Input
+                                                id="lastname"
+                                                value={profileData.lastname}
+                                                onChange={(e) => setProfileData('lastname', e.target.value)}
+                                                className={profileErrors.lastname ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.lastname && (
+                                                <p className="text-sm text-red-500">{profileErrors.lastname}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email">Email</Label>
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                value={profileData.email}
+                                                onChange={(e) => setProfileData('email', e.target.value)}
+                                                className={profileErrors.email ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.email && (
+                                                <p className="text-sm text-red-500">{profileErrors.email}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="contactno">Contact Number</Label>
+                                            <Input
+                                                id="contactno"
+                                                value={profileData.contactno}
+                                                onChange={(e) => setProfileData('contactno', e.target.value)}
+                                                className={profileErrors.contactno ? 'border-red-500' : ''}
+                                            />
+                                            {profileErrors.contactno && (
+                                                <p className="text-sm text-red-500">{profileErrors.contactno}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    <div className="flex justify-end">
+                                        <Button type="submit" disabled={profileProcessing} className="bg-green-600 hover:bg-green-700">
+                                            {profileProcessing ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                    Updating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <User className="h-4 w-4 mr-2" />
+                                                    Update Profile
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
+
+                {/* Security Settings */}
+                {activeTab === 'security' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                    >
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Lock className="h-5 w-5" />
+                                    Security Settings
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <form onSubmit={handlePasswordUpdate} className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="current_password">Current Password</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="current_password"
+                                                    type={showCurrentPassword ? 'text' : 'password'}
+                                                    value={passwordData.current_password}
+                                                    onChange={(e) => setPasswordData('current_password', e.target.value)}
+                                                    className={passwordErrors.current_password ? 'border-red-500' : ''}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                            {passwordErrors.current_password && (
+                                                <p className="text-sm text-red-500">{passwordErrors.current_password}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password">New Password</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="password"
+                                                    type={showNewPassword ? 'text' : 'password'}
+                                                    value={passwordData.password}
+                                                    onChange={(e) => setPasswordData('password', e.target.value)}
+                                                    className={passwordErrors.password ? 'border-red-500' : ''}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNewPassword(!showNewPassword)}
+                                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                            {passwordErrors.password && (
+                                                <p className="text-sm text-red-500">{passwordErrors.password}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password_confirmation">Confirm New Password</Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="password_confirmation"
+                                                    type={showConfirmPassword ? 'text' : 'password'}
+                                                    value={passwordData.password_confirmation}
+                                                    onChange={(e) => setPasswordData('password_confirmation', e.target.value)}
+                                                    className={passwordErrors.password_confirmation ? 'border-red-500' : ''}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                                >
+                                                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                </button>
+                                            </div>
+                                            {passwordErrors.password_confirmation && (
+                                                <p className="text-sm text-red-500">{passwordErrors.password_confirmation}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    <div className="flex justify-end">
+                                        <Button type="submit" disabled={passwordProcessing} className="bg-green-600 hover:bg-green-700">
+                                            {passwordProcessing ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                    Updating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Lock className="h-4 w-4 mr-2" />
+                                                    Update Password
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </CardContent>
+                        </Card>
+                    </motion.div>
+                )}
             </motion.div>
         </AdminLayout>
     );

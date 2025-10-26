@@ -8,10 +8,13 @@ use App\Models\icategory;
 use App\Models\inventory;
 use App\Models\istock_movements;
 use App\Models\istocks;
+use App\Models\Prescription;
+use App\Models\PrescriptionMedicine;
 use App\Services\NotifSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
 
@@ -58,20 +61,30 @@ class PharmacistController extends Controller
         // Get system alerts based on real data
         $systemAlerts = $this->generateSystemAlerts();
         
-        // Get recent activities
+        // Get recent activities including dispense activities
         $recentActivities = istock_movements::with(['inventory', 'staff'])
             ->orderBy('id', 'desc')
             ->limit(5)
             ->get()
             ->map(function($movement) {
+                // Determine if this is a dispense activity
+                $isDispense = $movement->type === 'Outgoing' && 
+                    (str_contains($movement->reason, 'Dispense') || 
+                     str_contains($movement->reason, 'Prescription') ||
+                     !empty($movement->patient_name) ||
+                     !empty($movement->prescription_number));
+                
                 return [
                     'id' => $movement->id,
-                    'type' => $movement->type,
+                    'type' => $isDispense ? 'Dispense' : $movement->type,
                     'item' => $movement->inventory_name,
                     'quantity' => $movement->quantity,
                     'user' => $movement->staff ? $movement->staff->firstname . ' ' . $movement->staff->lastname : 'Unknown',
                     'timestamp' => 'Recently',
-                    'icon' => $movement->type === 'Incoming' ? 'Package' : 'TrendingDown'
+                    'icon' => $isDispense ? 'CheckCircle' : ($movement->type === 'Incoming' ? 'Package' : 'TrendingDown'),
+                    'patient_name' => $movement->patient_name ?? null,
+                    'prescription_number' => $movement->prescription_number ?? null,
+                    'reason' => $movement->reason ?? null
                 ];
             });
 
@@ -83,6 +96,23 @@ class PharmacistController extends Controller
             'monthlyDispensedChange' => 0
         ];
         
+        // Get inventory items for stock monitoring
+        $inventoryItems = inventory::with(['category', 'stock'])
+            ->whereHas('stock')
+            ->get()
+            ->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'stock' => $item->stock,
+                    'minimum_stock' => $item->minimum_stock ?? 0,
+                    'maximum_stock' => $item->maximum_stock ?? 0,
+                    'category' => $item->category,
+                    'expiry_date' => $item->expiry_date,
+                    'batch_number' => $item->batch_number
+                ];
+            });
+
         return Inertia::render('Authenticated/Pharmacist/Dashboard', [
             'stats' => [
                 'totalItems' => $totalItems,
@@ -93,7 +123,8 @@ class PharmacistController extends Controller
             'trendChanges' => $trendChanges,
             'categoryBreakdown' => $categoryBreakdown,
             'systemAlerts' => $systemAlerts,
-            'recentActivities' => $recentActivities
+            'recentActivities' => $recentActivities,
+            'inventoryItems' => $inventoryItems
         ]);
     }
     
@@ -348,6 +379,74 @@ class PharmacistController extends Controller
     }
 
     /**
+     * Update pharmacist profile information
+     */
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'firstname' => 'required|string|max:255',
+            'middlename' => 'nullable|string|max:255',
+            'lastname' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email,' . Auth::id(),
+            'contactno' => 'required|string|max:20',
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        $user = Auth::user();
+        $updateData = [
+            'firstname' => $request->firstname,
+            'middlename' => $request->middlename,
+            'lastname' => $request->lastname,
+            'email' => $request->email,
+            'contactno' => $request->contactno,
+        ];
+
+        // Handle avatar upload
+        if ($request->hasFile('avatar')) {
+            // Delete old avatar if exists
+            if ($user->avatar && \Storage::disk('public')->exists($user->avatar)) {
+                \Storage::disk('public')->delete($user->avatar);
+            }
+            
+            // Store new avatar
+            $avatarPath = $request->file('avatar')->store('avatars', 'public');
+            $updateData['avatar'] = $avatarPath;
+        }
+
+        $user->update($updateData);
+        
+        // Refresh user to get updated avatar_url
+        $user->refresh();
+
+        \Log::info('Pharmacist profile updated', [
+            'user_id' => $user->id,
+            'avatar_path' => $user->avatar,
+            'avatar_url' => $user->avatar_url,
+            'update_data' => $updateData
+        ]);
+
+        return redirect()->back()->with('success', 'Profile updated successfully!');
+    }
+
+    /**
+     * Update pharmacist password
+     */
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required|current_password',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = Auth::user();
+        $user->update([
+            'password' => bcrypt($request->password),
+        ]);
+
+        return redirect()->back()->with('success', 'Password updated successfully!');
+    }
+
+    /**
      * Add a new category
      */
     public function add_category(Request $request)
@@ -463,10 +562,10 @@ class PharmacistController extends Controller
         $request->validate([
             'itemname' => "required",
             'categoryid' => "required|exists:icategory,id",
-            'unit_type' => 'required|min:3',
+            'unit_type' => 'required|min:1',
             'quantity' => "required|min:0",
             'expiry_date' => "required|date|after_or_equal:today",
-            'batch_number' => "required|string|min:3",
+            'batch_number' => "required|string|min:1",
             'manufacturer' => "nullable|string",
             'description' => "nullable|string",
             'minimum_stock' => "nullable|integer|min:0",
@@ -476,6 +575,16 @@ class PharmacistController extends Controller
 
         try {
             DB::beginTransaction();
+
+            // Check if item with same name already exists
+            $existingItem = inventory::where('name', $request->itemname)->first();
+            
+            if ($existingItem) {
+                DB::rollBack();
+                return back()->withErrors([
+                    'itemname' => 'An item with this name already exists in the inventory.'
+                ])->withInput();
+            }
 
             $inventory = inventory::create([
                 'name' => $request->itemname,
@@ -1035,10 +1144,11 @@ public function update_item(Request $request, inventory $inventory)
         ]);
         
         $request->validate([
-            'item_id' => 'required|exists:inventory,id',
+            'item_id' => 'nullable|exists:inventory,id',
             'batches' => 'required|array|min:1',
             'batches.*.batch_number' => 'required|string',
             'batches.*.quantity' => 'required|integer|min:1',
+            'batches.*.item_id' => 'required|exists:inventory,id',
             'disposal_reason' => 'required|string',
             'disposal_method' => 'required|string',
             'disposal_date' => 'required|date',
@@ -1050,18 +1160,16 @@ public function update_item(Request $request, inventory $inventory)
         try {
             DB::beginTransaction();
 
-            // Get the main inventory item to get the name
-            $mainInventory = inventory::findOrFail($request->item_id);
-            
+            // Get the main inventory item (first batch's item)
+            $mainInventory = inventory::findOrFail($request->batches[0]['item_id']);
+
             // Process each batch disposal individually
             foreach ($request->batches as $batch) {
-                // Find the specific inventory record for this batch
-                $batchInventory = inventory::where('name', $mainInventory->name)
-                    ->where('batch_number', $batch['batch_number'])
-                    ->first();
+                // Find the specific inventory record for this batch using item_id
+                $batchInventory = inventory::findOrFail($batch['item_id']);
                 
                 if (!$batchInventory) {
-                    throw new \Exception("Batch {$batch['batch_number']} not found for item {$mainInventory->name}");
+                    throw new \Exception("Batch {$batch['batch_number']} not found for item ID {$batch['item_id']}");
                 }
                 
                 $stock = $batchInventory->stock;
@@ -1115,7 +1223,17 @@ public function update_item(Request $request, inventory $inventory)
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Failed to bulk dispose: ' . $e->getMessage()]);
+            \Log::error('Bulk disposal failed: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'request_data' => $request->all(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withErrors([
+                'error' => 'Failed to bulk dispose: ' . $e->getMessage(),
+                'details' => 'Please check your inputs and try again. If the problem persists, contact support.'
+            ]);
         }
     }
 
@@ -1621,10 +1739,13 @@ public function update_item(Request $request, inventory $inventory)
                 // Only include non-expired batches
                 if (!$isExpired) {
                     $batches[] = [
+                        'id' => $item->id,
+                        'batch_id' => $item->id,
                         'batch_number' => $item->batch_number,
                         'expiry_date' => $item->expiry_date,
                         'available_quantity' => optional($item->stock)->stocks ?? 0,
-                        'location' => $item->storage_location,
+                        'storage_location' => $item->storage_location,
+                        'location' => $item->storage_location, // Keep for backward compatibility
                     ];
                 }
             }
@@ -1681,9 +1802,10 @@ public function update_item(Request $request, inventory $inventory)
     public function get_available_case_ids()
     {
         try {
-            // Get unique case IDs from prescriptions that are not null and not empty
+            // Get unique case IDs from prescriptions that are not null and not empty and are pending
             $caseIds = \App\Models\Prescription::whereNotNull('case_id')
                 ->where('case_id', '!=', '')
+                ->where('status', 'pending')
                 ->distinct()
                 ->pluck('case_id')
                 ->sort()
@@ -1898,6 +2020,7 @@ public function update_item(Request $request, inventory $inventory)
                 'id' => $doctor->id,
                 'name' => $doctor->firstname . ' ' . $doctor->lastname,
                 'email' => $doctor->email,
+                'license_number' => $doctor->license_number ?? 'N/A',
             ],
             'pharmacist' => [
                 'id' => $pharmacist->id,
@@ -1921,5 +2044,632 @@ public function update_item(Request $request, inventory $inventory)
         \Log::info('Dispense Summary Generated', $summary);
 
         return $summary;
+    }
+
+    /**
+     * Handle bulk dispense of multiple items
+     */
+    public function bulk_dispense(Request $request)
+    {
+        \Log::info('Bulk dispense request received', [
+            'user_id' => Auth::id(),
+            'request_data' => $request->all(),
+            'request_method' => $request->method(),
+            'content_type' => $request->header('Content-Type'),
+            'user_agent' => $request->header('User-Agent')
+        ]);
+        
+        // Determine dispense mode based on data provided
+        $isPrescriptionMode = $request->has('prescription_id') && $request->prescription_id;
+        
+        \Log::info('Dispense mode detection', [
+            'has_prescription_id' => $request->has('prescription_id'),
+            'prescription_id_value' => $request->prescription_id,
+            'is_prescription_mode' => $isPrescriptionMode,
+            'all_request_keys' => array_keys($request->all())
+        ]);
+        
+        
+        try {
+            if ($isPrescriptionMode) {
+                // Prescription mode validation
+                $request->validate([
+                    'items' => 'required|array|min:1',
+                    'items.*.item_id' => 'required|exists:inventory,id',
+                    'items.*.quantity' => 'required|integer|min:1',
+                    'patient_name' => 'required|string|max:255',
+                    'case_id' => 'required|string|max:255',
+                    'doctor_name' => 'nullable|string|max:255',
+                    'dispense_date' => 'required|date',
+                    'prescription_id' => 'required|integer',
+                    'patient_id' => 'required|string|max:255',
+                    'doctor_id' => 'nullable|integer',
+                ]);
+                
+                \Log::info('Prescription mode validation passed', [
+                    'patient_name' => $request->patient_name,
+                    'case_id' => $request->case_id,
+                    'prescription_id' => $request->prescription_id,
+                    'patient_id' => $request->patient_id,
+                    'doctor_id' => $request->doctor_id,
+                    'items_count' => count($request->items)
+                ]);
+            } else {
+                // Manual mode validation
+                $request->validate([
+                    'items' => 'required|array|min:1',
+                    'items.*.item_id' => 'required|exists:inventory,id',
+                    'items.*.quantity' => 'required|integer|min:1',
+                    'reason_for_dispensing' => 'required|string|max:500',
+                    'dispense_date' => 'required|date',
+                ]);
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Bulk dispense validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            
+            return back()->withErrors($e->errors());
+        }
+
+        DB::beginTransaction();
+        try {
+            $dispensedItems = [];
+            $errors = [];
+
+            foreach ($request->items as $itemData) {
+                \Log::info('Processing item', [
+                    'item_id' => $itemData['item_id'],
+                    'quantity' => $itemData['quantity'],
+                    'item_data' => $itemData
+                ]);
+                
+                $inventory = inventory::find($itemData['item_id']);
+                if (!$inventory) {
+                    $errors[] = "Item with ID {$itemData['item_id']} not found";
+                    \Log::error('Inventory item not found', [
+                        'item_id' => $itemData['item_id'],
+                        'available_items' => inventory::pluck('id')->toArray()
+                    ]);
+                    continue;
+                }
+                
+                \Log::info('Inventory item found', [
+                    'inventory_id' => $inventory->id,
+                    'inventory_name' => $inventory->name,
+                    'has_stock' => !!$inventory->stock,
+                    'current_stock' => $inventory->stock ? $inventory->stock->stocks : 0
+                ]);
+
+                $currentStock = $inventory->stock ? $inventory->stock->stocks : 0;
+                $requestedQuantity = $itemData['quantity'];
+
+                if ($currentStock < $requestedQuantity) {
+                    $errors[] = "Insufficient stock for {$inventory->name}. Available: {$currentStock}, Requested: {$requestedQuantity}";
+                    continue;
+                }
+
+                // Prescription mode validation: Check if available stock meets prescription requirement
+                if ($isPrescriptionMode && $request->prescription_id) {
+                    $prescription = \App\Models\Prescription::find($request->prescription_id);
+                    if ($prescription) {
+                        $prescriptionMedicine = $prescription->medicines()
+                            ->where('medicine_id', $itemData['item_id'])
+                            ->first();
+                        
+                        if ($prescriptionMedicine) {
+                            $prescriptionQuantity = $prescriptionMedicine->quantity;
+                            if ($currentStock < $prescriptionQuantity) {
+                                $errors[] = "Insufficient stock for prescription requirement: {$inventory->name}. Required: {$prescriptionQuantity}, Available: {$currentStock}";
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                // Update stock
+                $newStock = $currentStock - $requestedQuantity;
+                \Log::info('Updating stock', [
+                    'inventory_id' => $inventory->id,
+                    'current_stock' => $currentStock,
+                    'requested_quantity' => $requestedQuantity,
+                    'new_stock' => $newStock,
+                    'stock_exists' => !!$inventory->stock
+                ]);
+                
+                if (!$inventory->stock) {
+                    $errors[] = "No stock record found for {$inventory->name}";
+                    continue;
+                }
+                
+                $inventory->stock->update(['stocks' => $newStock]);
+
+                // Create stock movement record
+                $notes = "Bulk dispense";
+                if ($isPrescriptionMode) {
+                    // Prescription mode
+                    $notes .= " to {$request->patient_name} (Case: {$request->case_id})";
+                } else {
+                    // Manual mode
+                    $notes .= " - Reason: {$request->reason_for_dispensing}";
+                }
+                
+                try {
+                    // Create stock movement record
+                    $movementData = [
+                        'inventory_id' => $inventory->id,
+                        'type' => 'Outgoing',
+                        'quantity' => $requestedQuantity,
+                        'reason' => 'Bulk Dispense',
+                        'notes' => $notes,
+                        'staff_id' => Auth::id(),
+                        'inventory_name' => $inventory->name,
+                        'stock_id' => $inventory->stock ? $inventory->stock->id : null,
+                        'batch_number' => $itemData['batch_number'] ?? 'N/A',
+                    ];
+                    
+                    // Add prescription-specific fields for prescription mode
+                    if ($isPrescriptionMode) {
+                        $movementData['patient_name'] = $request->patient_name;
+                        $movementData['prescription_number'] = $request->case_id;
+                        $movementData['dispensed_by'] = Auth::user()->firstname . ' ' . Auth::user()->lastname;
+                    } else {
+                        $movementData['patient_name'] = $request->reason_for_dispensing;
+                        $movementData['prescription_number'] = null;
+                        $movementData['dispensed_by'] = Auth::user()->firstname . ' ' . Auth::user()->lastname;
+                    }
+                    
+                    \Log::info('Creating stock movement', [
+                        'movement_data' => $movementData,
+                        'inventory_id' => $inventory->id
+                    ]);
+                    
+                    istock_movements::create($movementData);
+                    
+                    \Log::info('Stock movement created successfully', [
+                        'inventory_id' => $inventory->id,
+                        'quantity' => $requestedQuantity
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Failed to create stock movement', [
+                        'inventory_id' => $inventory->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                        'movement_data' => $movementData ?? 'No data'
+                    ]);
+                    $errors[] = "Failed to create stock movement for {$inventory->name}: " . $e->getMessage();
+                    continue;
+                }
+
+                $dispensedItems[] = [
+                    'item_id' => $inventory->id,
+                    'name' => $inventory->name,
+                    'quantity' => $requestedQuantity,
+                    'batch_number' => $itemData['batch_number'] ?? 'N/A',
+                    'expiry_date' => $itemData['expiry_date'] ?? null,
+                ];
+            }
+
+            if (empty($dispensedItems)) {
+                DB::rollBack();
+                \Log::error('No items were dispensed', [
+                    'errors' => $errors,
+                    'request_items' => $request->items
+                ]);
+                return back()->withErrors(['error' => 'No items were dispensed. ' . implode(' ', $errors)]);
+            }
+
+            // If prescription mode, mark the prescription as dispensed
+            if ($isPrescriptionMode && $request->prescription_id) {
+                $prescription = \App\Models\Prescription::find($request->prescription_id);
+                if ($prescription && $prescription->status === 'pending') {
+                    $prescription->markAsDispensed(Auth::id());
+                    \Log::info('Prescription marked as dispensed', [
+                        'prescription_id' => $prescription->id,
+                        'status' => $prescription->status,
+                        'dispensed_by' => Auth::id()
+                    ]);
+                }
+            }
+
+            // Fire inventory updated event
+            event(new InventoryUpdated('bulk_dispense', [
+                'dispensed_items' => $dispensedItems,
+                'total_quantity' => array_sum(array_column($dispensedItems, 'quantity')),
+                'mode' => $isPrescriptionMode ? 'prescription' : 'manual'
+            ]));
+
+            DB::commit();
+
+            return back()->with('success', 'Bulk dispense completed successfully! ' . count($dispensedItems) . ' items dispensed.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Bulk dispense failed: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'request_data' => $request->all(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withErrors([
+                'error' => 'Failed to complete bulk dispense: ' . $e->getMessage(),
+                'details' => 'Please check your inputs and try again. If the problem persists, contact support.'
+            ]);
+        }
+    }
+
+    /**
+     * Handle bulk update of multiple items
+     */
+    public function bulk_update(Request $request)
+    {
+        $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.item_id' => 'required|exists:inventory,id',
+            'items.*.current_quantity' => 'required|integer|min:0',
+            'items.*.new_quantity' => 'required|integer|min:0',
+            'items.*.update_type' => 'required|in:add,subtract',
+            'items.*.update_amount' => 'required|integer|min:0',
+            'items.*.is_batch_update' => 'nullable|boolean',
+            'items.*.batch_id' => 'nullable|integer',
+            'items.*.batch_number' => 'nullable|string',
+            'update_type' => 'required|in:add,subtract',
+            'update_amount' => 'required|integer|min:0',
+            'update_date' => 'required|date',
+            'minimum_stock' => 'required|integer|min:0',
+            'maximum_stock' => 'required|integer|min:0',
+            'supplier' => 'required|string|max:255',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        \Log::info('Bulk update request received', [
+            'items_count' => count($request->items),
+            'update_type' => $request->update_type,
+            'update_amount' => $request->update_amount,
+            'minimum_stock' => $request->minimum_stock,
+            'maximum_stock' => $request->maximum_stock,
+            'supplier' => $request->supplier,
+            'user_id' => Auth::id(),
+            'request_data' => $request->all()
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $updatedItems = [];
+            $errors = [];
+
+            \Log::info('Starting bulk update', [
+                'items_count' => count($request->items),
+                'items' => $request->items,
+                'user_id' => Auth::id()
+            ]);
+
+            foreach ($request->items as $itemData) {
+                \Log::info('Processing item for bulk update', [
+                    'item_id' => $itemData['item_id'],
+                    'current_quantity' => $itemData['current_quantity'],
+                    'new_quantity' => $itemData['new_quantity'],
+                    'update_type' => $itemData['update_type'],
+                    'is_batch_update' => $itemData['is_batch_update'] ?? false,
+                    'batch_id' => $itemData['batch_id'] ?? null,
+                    'batch_number' => $itemData['batch_number'] ?? null
+                ]);
+
+                $inventory = inventory::find($itemData['item_id']);
+                if (!$inventory) {
+                    $error = "Item with ID {$itemData['item_id']} not found";
+                    $errors[] = $error;
+                    \Log::error('Item not found in bulk update', [
+                        'item_id' => $itemData['item_id'],
+                        'available_items' => inventory::pluck('id')->toArray()
+                    ]);
+                    continue;
+                }
+
+                $currentStock = $inventory->stock ? $inventory->stock->stocks : 0;
+                $newQuantity = $itemData['new_quantity'];
+
+                \Log::info('Item found, checking stock', [
+                    'inventory_id' => $inventory->id,
+                    'inventory_name' => $inventory->name,
+                    'has_stock' => !!$inventory->stock,
+                    'current_stock' => $currentStock,
+                    'new_quantity' => $newQuantity,
+                    'is_batch_update' => $itemData['is_batch_update'] ?? false
+                ]);
+
+                // Handle batch-specific updates
+                if ($itemData['is_batch_update'] ?? false) {
+                    // For batch updates, we need to find the specific batch using batch_id
+                    $batchInventory = null;
+                    
+                    if (isset($itemData['batch_id'])) {
+                        // Use batch_id if provided
+                        $batchInventory = inventory::find($itemData['batch_id']);
+                    } else if (isset($itemData['batch_number'])) {
+                        // Find batch by batch_number and name (since batches are separate inventory records with same name)
+                        $batchInventory = inventory::where('batch_number', $itemData['batch_number'])
+                            ->where('name', $inventory->name)
+                            ->first();
+                    }
+                    
+                    if (!$batchInventory) {
+                        $error = "Batch {$itemData['batch_number']} not found for item {$inventory->name}";
+                        $errors[] = $error;
+                        \Log::error('Batch not found in bulk update', [
+                            'item_id' => $itemData['item_id'],
+                            'batch_id' => $itemData['batch_id'] ?? 'not provided',
+                            'batch_number' => $itemData['batch_number'] ?? 'not provided',
+                            'inventory_name' => $inventory->name,
+                            'available_batches' => inventory::where('name', $inventory->name)->pluck('batch_number', 'id')
+                        ]);
+                        continue;
+                    }
+
+                    // Ensure batch has stock record
+                    if (!$batchInventory->stock) {
+                        \Log::info('Creating stock record for batch', [
+                            'batch_id' => $batchInventory->id,
+                            'batch_number' => $batchInventory->batch_number
+                        ]);
+                        $stock = istocks::create([
+                            'stocks' => 0,
+                            'stockname' => $batchInventory->unit_type ?? 'units',
+                            'inventory_id' => $batchInventory->id,
+                        ]);
+                        $batchInventory->update(['stock_id' => $stock->id]);
+                        $batchInventory->refresh();
+                    }
+
+                    // Update batch stock
+                    \Log::info('Updating stock for batch', [
+                        'batch_id' => $batchInventory->id,
+                        'batch_number' => $batchInventory->batch_number,
+                        'old_stock' => $batchInventory->stock->stocks,
+                        'new_stock' => $newQuantity
+                    ]);
+                    $batchInventory->stock->update(['stocks' => $newQuantity]);
+                    
+                    // Update batch inventory fields
+                    $batchInventory->update([
+                        'minimum_stock' => $request->minimum_stock,
+                        'maximum_stock' => $request->maximum_stock,
+                        'supplier' => $request->supplier,
+                    ]);
+                } else {
+                    // Handle item-level updates (overall stock)
+                    // Ensure stock record exists
+                    if (!$inventory->stock) {
+                        \Log::info('Creating stock record for item', [
+                            'inventory_id' => $inventory->id,
+                            'inventory_name' => $inventory->name
+                        ]);
+                        $stock = istocks::create([
+                            'stocks' => 0,
+                            'stockname' => $inventory->unit_type ?? 'units',
+                            'inventory_id' => $inventory->id,
+                        ]);
+                        $inventory->update(['stock_id' => $stock->id]);
+                        $inventory->refresh();
+                    }
+
+                    // Update stock
+                    \Log::info('Updating stock for item', [
+                        'inventory_id' => $inventory->id,
+                        'old_stock' => $currentStock,
+                        'new_stock' => $newQuantity
+                    ]);
+                    $inventory->stock->update(['stocks' => $newQuantity]);
+                }
+
+                // Update additional fields (now required) - only for item-level updates
+                if (!($itemData['is_batch_update'] ?? false)) {
+                    $inventory->update([
+                        'minimum_stock' => $request->minimum_stock,
+                        'maximum_stock' => $request->maximum_stock,
+                        'supplier' => $request->supplier,
+                    ]);
+                }
+
+                // Create stock movement record
+                $movementType = $newQuantity > $currentStock ? 'Incoming' : 'Outgoing';
+                $quantityChange = abs($newQuantity - $currentStock);
+                
+                if ($quantityChange > 0) {
+                    $notes = "Bulk update: {$itemData['update_type']} {$itemData['update_amount']} units";
+                    if ($request->reason) {
+                        $notes .= " - Reason: {$request->reason}";
+                    }
+                    
+                    // For batch updates, include batch number in the movement
+                    $movementData = [
+                        'inventory_id' => $inventory->id,
+                        'type' => $movementType,
+                        'quantity' => $quantityChange,
+                        'reason' => 'Bulk Update - ' . ucfirst($itemData['update_type']),
+                        'notes' => $notes,
+                        'staff_id' => Auth::id(),
+                        'inventory_name' => $inventory->name,
+                        'stock_id' => $inventory->stock ? $inventory->stock->id : null,
+                        'created_at' => now(),
+                    ];
+                    
+                    // Add batch number for batch-specific updates
+                    if ($itemData['is_batch_update'] ?? false) {
+                        $movementData['batch_number'] = $itemData['batch_number'];
+                        $movementData['notes'] .= " (Batch: {$itemData['batch_number']})";
+                    }
+                    
+                    istock_movements::create($movementData);
+                }
+
+                $updatedItem = [
+                    'item_id' => $inventory->id,
+                    'name' => $inventory->name,
+                    'old_quantity' => $currentStock,
+                    'new_quantity' => $newQuantity,
+                    'change' => $newQuantity - $currentStock,
+                    'update_type' => $itemData['update_type'],
+                ];
+                
+                // Add batch information for batch-specific updates
+                if ($itemData['is_batch_update'] ?? false) {
+                    $updatedItem['batch_number'] = $itemData['batch_number'];
+                    $updatedItem['batch_id'] = $itemData['batch_id'];
+                    $updatedItem['is_batch_update'] = true;
+                }
+                
+                $updatedItems[] = $updatedItem;
+            }
+
+            if (empty($updatedItems)) {
+                DB::rollBack();
+                \Log::error('No items were updated in bulk update', [
+                    'errors' => $errors,
+                    'items_count' => count($request->items)
+                ]);
+                return back()->withErrors(['error' => 'No items were updated. ' . implode(' ', $errors)]);
+            }
+
+            \Log::info('Bulk update completed successfully', [
+                'updated_items_count' => count($updatedItems),
+                'updated_items' => $updatedItems,
+                'errors' => $errors
+            ]);
+
+            // Fire inventory updated event
+            event(new InventoryUpdated('bulk_update', [
+                'updated_items' => $updatedItems,
+                'total_items' => count($updatedItems)
+            ]));
+
+            DB::commit();
+
+            return back()->with('success', 'Bulk update completed successfully! ' . count($updatedItems) . ' items updated.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Bulk update failed: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'request_data' => $request->all(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withErrors([
+                'error' => 'Failed to complete bulk update: ' . $e->getMessage(),
+                'details' => 'Please check your inputs and try again. If the problem persists, contact support.'
+            ]);
+        }
+    }
+
+    public function getPrescriptionByCaseId($caseId)
+    {
+        try {
+            \Log::info('Fetching prescription by CASE ID', ['case_id' => $caseId]);
+
+            // Find prescription by case_id
+            $prescription = Prescription::where('case_id', $caseId)->first();
+
+            if (!$prescription) {
+                \Log::warning('No prescription found for CASE ID', ['case_id' => $caseId]);
+                return response()->json(['error' => 'No prescription found for this CASE ID'], 404);
+            }
+
+            // Get prescription medicines
+            $prescriptionMedicines = \App\Models\PrescriptionMedicine::where('prescription_id', $prescription->id)
+                ->get();
+
+            // Get doctor name
+            $doctorName = 'Unknown Doctor';
+            if ($prescription->doctor_id) {
+                $doctor = \App\Models\User::find($prescription->doctor_id);
+                if ($doctor) {
+                    $doctorName = $doctor->firstname . ' ' . $doctor->lastname;
+                }
+            }
+
+            // Format the response
+            $formattedPrescription = [
+                'id' => $prescription->id,
+                'case_id' => $prescription->case_id,
+                'patient_name' => $prescription->patient_name,
+                'patient_id' => $prescription->patient_id,
+                'doctor_id' => $prescription->doctor_id,
+                'doctor_name' => $doctorName,
+                'status' => $prescription->status,
+                'created_at' => $prescription->created_at,
+                'medicines' => $prescriptionMedicines->map(function ($prescriptionMedicine) {
+                    // Get inventory item information since medicine_id points to inventory table
+                    $inventoryItem = \App\Models\inventory::find($prescriptionMedicine->medicine_id);
+                    
+                    return [
+                        'medicine_id' => $prescriptionMedicine->medicine_id,
+                        'medicine_name' => $inventoryItem ? $inventoryItem->name : 'Unknown Medicine',
+                        'batch_number' => $prescriptionMedicine->batch_number,
+                        'quantity' => $prescriptionMedicine->quantity,
+                        'frequency' => $prescriptionMedicine->frequency,
+                        'duration' => $prescriptionMedicine->duration,
+                        'instructions' => $prescriptionMedicine->instructions,
+                    ];
+                })
+            ];
+
+            \Log::info('Successfully fetched prescription by CASE ID', [
+                'case_id' => $caseId,
+                'prescription_id' => $prescription->id,
+                'medicines_count' => count($formattedPrescription['medicines'])
+            ]);
+
+            return response()->json($formattedPrescription);
+
+        } catch (\Exception $e) {
+            \Log::error('Error fetching prescription by CASE ID: ' . $e->getMessage(), [
+                'case_id' => $caseId,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['error' => 'Failed to fetch prescription'], 500);
+        }
+    }
+
+    /**
+     * Get all available Case IDs for dropdown
+     */
+    public function getAvailableCaseIds()
+    {
+        try {
+            \Log::info('Fetching available Case IDs');
+
+            // Get all unique case IDs from prescriptions that are pending
+            $caseIds = Prescription::whereNotNull('case_id')
+                ->where('case_id', '!=', '')
+                ->where('status', 'pending')
+                ->select('case_id', 'id', 'patient_name', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($prescription) {
+                    return [
+                        'case_id' => $prescription->case_id,
+                        'prescription_id' => $prescription->id,
+                        'patient_name' => $prescription->patient_name,
+                        'created_at' => $prescription->created_at->format('Y-m-d H:i:s'),
+                        'display_text' => $prescription->case_id . ' - ' . $prescription->patient_name
+                    ];
+                });
+
+            \Log::info('Successfully fetched Case IDs', [
+                'count' => $caseIds->count()
+            ]);
+
+            return response()->json($caseIds);
+
+        } catch (\Exception $e) {
+            \Log::error('Error fetching available Case IDs: ' . $e->getMessage(), [
+                'error' => $e->getMessage()
+            ]);
+            return response()->json(['error' => 'Failed to fetch Case IDs'], 500);
+        }
     }
 }

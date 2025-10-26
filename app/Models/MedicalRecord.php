@@ -17,19 +17,25 @@ class MedicalRecord extends Model
         'diagnosis',
         'symptoms',
         'treatment',
+        'treatment_plan',
+        'assessment',
         'notes',
+        'pertinent_findings',
         'vital_signs',
         'lab_results',
         'follow_up_date',
         'record_type', // e.g., 'consultation', 'checkup', 'emergency'
-        'attachments'
+        'attachments',
+        'admin_data', // For storing admin-specific medical record data
+        'status'
     ];
 
     protected $casts = [
         'vital_signs' => 'array',
         'lab_results' => 'array',
         'follow_up_date' => 'date',
-        'attachments' => 'array'
+        'attachments' => 'array',
+        'admin_data' => 'array'
     ];
 
     // Relationships

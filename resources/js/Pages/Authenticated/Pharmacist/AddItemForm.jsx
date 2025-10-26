@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -10,8 +10,9 @@ import { Button } from "@/components/tempo/components/ui/button";
 import { Input } from "@/components/tempo/components/ui/input";
 import { Label } from "@/components/tempo/components/ui/label";
 import { Textarea } from "@/components/tempo/components/ui/textarea";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import { 
     Package, 
     Plus, 
@@ -28,10 +29,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/tempo/components/ui/select";
+import { UNIT_OPTIONS } from "@/constants/unitOptions";
 
 const AddItemForm = ({ open, onClose, categories = [] }) => {
+    const [validationErrors, setValidationErrors] = useState({});
 
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, post, processing, errors, clearErrors } = useForm({
         itemname: "",
         categoryid: "",
         manufacturer: "",
@@ -45,9 +48,79 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
         expiry_date: "",
     });
 
+    // Clear errors when modal opens/closes
+    useEffect(() => {
+        if (open) {
+            clearErrors();
+            setValidationErrors({});
+        }
+    }, [open]);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setData(name, type === 'checkbox' ? checked : value);
+        const newValue = type === 'checkbox' ? checked : value;
+        setData(name, newValue);
+        
+        // Real-time validation for minimum and maximum stock levels
+        if (type === 'number' && (name === 'minimum_stock' || name === 'maximum_stock')) {
+            const numValue = parseInt(value) || 0;
+            const newErrors = { ...validationErrors };
+            
+            // Clear existing errors for both fields when user types
+            delete newErrors.minimum_stock;
+            delete newErrors.maximum_stock;
+            
+            if (numValue < 0) {
+                newErrors[name] = `${name === 'minimum_stock' ? 'Minimum' : 'Maximum'} stock level cannot be negative.`;
+            } else {
+                // Check if minimum > maximum or vice versa
+                const minValue = name === 'minimum_stock' ? numValue : parseInt(data.minimum_stock) || 0;
+                const maxValue = name === 'maximum_stock' ? numValue : parseInt(data.maximum_stock) || 0;
+                
+                if (minValue > 0 && maxValue > 0 && minValue >= maxValue) {
+                    if (name === 'minimum_stock') {
+                        newErrors.minimum_stock = 'Minimum stock level must be less than maximum stock level.';
+                    } else {
+                        newErrors.maximum_stock = 'Maximum stock level must be greater than minimum stock level.';
+                    }
+                }
+            }
+            
+            setValidationErrors(newErrors);
+        }
+        
+        // Real-time validation for quantity against maximum stock level
+        if (type === 'number' && name === 'quantity') {
+            const numValue = parseInt(value) || 0;
+            const maxStock = parseInt(data.maximum_stock) || 0;
+            const newErrors = { ...validationErrors };
+            
+            // Clear existing quantity error
+            delete newErrors.quantity;
+            
+            if (numValue < 0) {
+                newErrors.quantity = 'Quantity cannot be negative.';
+            } else if (maxStock > 0 && numValue > maxStock) {
+                newErrors.quantity = `Quantity cannot exceed maximum stock level of ${maxStock}`;
+            }
+            
+            setValidationErrors(newErrors);
+        }
+        
+        // If maximum stock changes, re-validate quantity
+        if (type === 'number' && name === 'maximum_stock') {
+            const numValue = parseInt(value) || 0;
+            const quantity = parseInt(data.quantity) || 0;
+            const newErrors = { ...validationErrors };
+            
+            if (numValue > 0 && quantity > numValue) {
+                newErrors.quantity = `Quantity cannot exceed maximum stock level of ${numValue}`;
+            } else {
+                delete newErrors.quantity;
+            }
+            
+            setValidationErrors(newErrors);
+        }
     };
 
     const handleSelectChange = (name, value) => {
@@ -80,36 +153,52 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
         if (new Date(data.expiry_date) <= new Date()) {
             return;
         }
-        if (data.minimum_stock < 0) {
+        // Check for client-side validation errors
+        if (Object.keys(validationErrors).length > 0) {
+            toast.error('Please fix the validation errors before submitting.');
             return;
         }
-        if (data.maximum_stock < 0) {
+        
+        // Additional validation: Minimum stock cannot be greater than maximum stock
+        const minStock = parseInt(data.minimum_stock) || 0;
+        const maxStock = parseInt(data.maximum_stock) || 0;
+        const quantity = parseInt(data.quantity) || 0;
+        
+        // Only validate if both fields have meaningful values
+        if (minStock > 0 && maxStock > 0 && minStock > maxStock) {
+            setValidationErrors({ minimum_stock: 'Minimum stock level cannot be greater than maximum stock level.' });
+            toast.error('Minimum stock level cannot be greater than maximum stock level.');
             return;
         }
-        if (data.minimum_stock > data.maximum_stock) {
+        
+        // Additional validation: Quantity cannot exceed maximum stock level
+        if (maxStock > 0 && quantity > maxStock) {
+            setValidationErrors({ quantity: `Quantity cannot exceed maximum stock level of ${maxStock}` });
+            toast.error(`Quantity cannot exceed maximum stock level of ${maxStock}`);
             return;
         }
         
         post(route("pharmacist.inventory.item.add"), {
             onSuccess: () => {
+                console.log('Item added successfully');
+                toast.success('Item added successfully!');
                 onClose();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             },
             onError: (errors) => {
                 console.error("Validation errors:", errors);
+                // Display error toast
+                if (errors.itemname) {
+                    toast.error(errors.itemname);
+                } else {
+                    toast.error('Failed to add item. Please check all fields.');
+                }
             }
         });
     };
 
-    const unitOptions = [
-        { value: "pieces", label: "Pieces" },
-        { value: "boxes", label: "Boxes" },
-        { value: "bottles", label: "Bottles" },
-        { value: "tubes", label: "Tubes" },
-        { value: "strips", label: "Strips" },
-        { value: "vials", label: "Vials" },
-        { value: "capsules", label: "Capsules" },
-        { value: "tablets", label: "Tablets" },
-    ];
+    // Using shared unit options from constants
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
@@ -189,7 +278,7 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                         name="manufacturer"
                                         value={data.manufacturer}
                                         onChange={handleChange}
-                                        placeholder="e.g., PharmaCorp"
+                                        placeholder="e.g., City Health Office"
                                         className="w-full pl-10"
                                     />
                                 </div>
@@ -241,6 +330,9 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                 {errors.quantity && (
                                     <p className="text-sm text-red-600">{errors.quantity}</p>
                                 )}
+                                {validationErrors.quantity && (
+                                    <p className="text-sm text-red-600">{validationErrors.quantity}</p>
+                                )}
                             </div>
 
                             <div className="space-y-2">
@@ -252,7 +344,7 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                         <SelectValue placeholder="Select unit" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {unitOptions.map((unit) => (
+                                        {UNIT_OPTIONS.map((unit) => (
                                             <SelectItem key={unit.value} value={unit.value}>
                                                 {unit.label}
                                             </SelectItem>
@@ -305,6 +397,9 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                 {errors.minimum_stock && (
                                     <p className="text-sm text-red-600">{errors.minimum_stock}</p>
                                 )}
+                                {validationErrors.minimum_stock && (
+                                    <p className="text-sm text-red-600">{validationErrors.minimum_stock}</p>
+                                )}
                             </div>
 
                             <div className="space-y-2">
@@ -322,6 +417,9 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                 />
                                 {errors.maximum_stock && (
                                     <p className="text-sm text-red-600">{errors.maximum_stock}</p>
+                                )}
+                                {validationErrors.maximum_stock && (
+                                    <p className="text-sm text-red-600">{validationErrors.maximum_stock}</p>
                                 )}
                             </div>
                         </div>
@@ -367,6 +465,7 @@ const AddItemForm = ({ open, onClose, categories = [] }) => {
                                         value={data.expiry_date}
                                         onChange={handleChange}
                                         className="w-full pl-10"
+                                        min={new Date().toISOString().split('T')[0]}
                                     />
                                 </div>
                                 {errors.expiry_date && (

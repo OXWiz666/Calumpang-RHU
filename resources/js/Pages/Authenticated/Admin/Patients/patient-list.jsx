@@ -33,19 +33,23 @@ export default function PatientList({ patients, onSelectPatient, isGuestPatients
     const [statusFilter, setStatusFilter] = useState("all");
     const [genderFilter, setGenderFilter] = useState("all");
 
+    // Debug logging
+    console.log('PatientList received patients:', patients);
+    console.log('isGuestPatients:', isGuestPatients);
+
     useEffect(() => {
         console.log("gender:", genderFilter);
     }, [genderFilter]);
 
     const filteredPatients = patients.filter((patient) => {
         const matchesSearch =
-            patient?.firstname
+            (patient?.firstname || patient?.firstName)
                 ?.toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
-            patient?.lastname
+            (patient?.lastname || patient?.lastName)
                 ?.toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
-            patient?.middlename
+            (patient?.middlename || patient?.middleName)
                 ?.toLowerCase()
                 .includes(searchTerm.toLowerCase()) ||
             patient?.email
@@ -155,12 +159,12 @@ export default function PatientList({ patients, onSelectPatient, isGuestPatients
                             <div className={`h-10 w-10 rounded-full flex items-center justify-center font-semibold shrink-0 ${
                                 isGuestPatients ? 'bg-blue-100 text-blue-600' : 'bg-primary/10 text-primary'
                             }`}>
-                                {`${patient?.firstname?.[0] ?? ''}${patient?.lastname?.[0] ?? ''}`}
+                                {`${patient?.firstname?.[0] ?? patient?.firstName?.[0] ?? ''}${patient?.lastname?.[0] ?? patient?.lastName?.[0] ?? ''}`}
                             </div>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                     <div className="font-medium truncate text-gray-900">
-                                        {patient?.firstname} {patient?.middlename} {patient?.lastname}
+                                        {patient?.firstname || patient?.firstName} {patient?.middlename || patient?.middleName} {patient?.lastname || patient?.lastName}
                                     </div>
                                     <div className="flex gap-1">
                                         {(patient?.gender || patient?.sex) && (
@@ -185,7 +189,7 @@ export default function PatientList({ patients, onSelectPatient, isGuestPatients
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <MapPin className="h-4 w-4" />
-                            <span className="truncate w-[220px]">{patient?.email || 'Not Set'}</span>
+                            <span className="truncate w-[220px]">{patient?.address || patient?.email || 'Not Set'}</span>
                         </div>
                         <div className="hidden md:flex items-center gap-2 text-xs min-w-0 text-muted-foreground">
                             <Calendar className="h-4 w-4" />

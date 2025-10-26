@@ -8,7 +8,7 @@ import {
 } from "@/components/tempo/components/ui/dialog";
 import { Button } from "@/components/tempo/components/ui/button";
 import { Badge } from "@/components/tempo/components/ui/badge";
-import { useForm } from "@inertiajs/react";
+import { useForm, router } from "@inertiajs/react";
 import { motion } from "framer-motion";
 import { 
     Tag, 
@@ -69,6 +69,8 @@ const CategoryManagement = ({ open, onClose, categories = [] }) => {
         updateCategory(route('pharmacist.inventory.category.archive', categoryId), {
             onSuccess: () => {
                 onClose();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             }
         });
     };
@@ -77,6 +79,8 @@ const CategoryManagement = ({ open, onClose, categories = [] }) => {
         updateCategory(route('pharmacist.inventory.category.unarchive', categoryId), {
             onSuccess: () => {
                 onClose();
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
             }
         });
     };
@@ -113,6 +117,8 @@ const CategoryManagement = ({ open, onClose, categories = [] }) => {
                 // Reset form
                 setEditingCategory(null);
                 setEditName("");
+                // Auto-refresh the page data - use visit to refresh the current page
+                router.visit(window.location.pathname, { method: 'get' });
                 setEditIcon("Package");
                 setEditDescription("");
                 

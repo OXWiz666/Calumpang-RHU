@@ -19,7 +19,9 @@ Route::get('/patient-appointments/{referenceNumber}', [PatientController::class,
 // Duplicate validation routes (no auth required for guest appointments)
 Route::post('/check-email-exists', [PatientController::class, 'checkEmailExists']);
 Route::post('/check-phone-exists', [PatientController::class, 'checkPhoneExists']);
+Route::post('/verify-code', [PatientController::class, 'verifyCode']);
 Route::post('/check-duplicates', [App\Http\Controllers\ProgramParticipantController::class, 'checkDuplicates']);
+Route::get('/participant-history/{registrationId}', [App\Http\Controllers\ProgramParticipantController::class, 'getParticipantHistory']);
 
 // Verification routes (no auth required for guest appointments)
 Route::post('/send-verification', [PatientController::class, 'sendVerificationCode']);

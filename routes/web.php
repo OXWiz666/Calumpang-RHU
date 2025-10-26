@@ -90,6 +90,10 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     Route::get('/faq', [LandingPageController::class, 'faq'])->name('faq');
 
     Route::get('/appointments',[PatientController::class,'appointments'])->name('patient.appoint');
+    
+    // Public diagnosis routes for guest patients
+    Route::get('/appointments/diagnosis/{appointmentId}',[AppointmentsController::class,'getDiagnosis'])->name('public.appointments.diagnosis.get');
+    Route::get('/appointments/test-medical-records',[AppointmentsController::class,'testMedicalRecords'])->name('public.appointments.test.medical.records');
     //Route::get('/dashboard/test', [TestDbControllerrr::class, 'index'])->name('dashboard.test');
 
     // Appointment creation route for guests (exempt from CSRF for API calls)
@@ -114,6 +118,9 @@ Route::middleware(['GuestOrPatient'])->group(function () {
     });
 
     Route::get('services/get-sub-services/{id}',[PatientController::class,'GetSubServices'])->name('patient.subservices.get');
+    
+    // Public date availability route for appointment booking
+    Route::get('/patient/get-date-availability',[PatientController::class,'getDateAvailability'])->name('patient.get.date.availability');
 
     Route::post('programs/join-program/{schedule}',[ProgramParticipantController::class,'registerProgram'])->name('patient.seasonal.join');
 
@@ -137,9 +144,12 @@ Route::middleware(['auth','Patient'])->group(function(){
 
         // Check slot availability
         Route::get('/check-slot-availability',[PatientController::class,'checkSlotAvailability'])->name('patient.check.slot.availability');
-        Route::get('/get-date-availability',[PatientController::class,'getDateAvailability'])->name('patient.get.date.availability');
 
         Route::post('/message/send',[PatientMessagesController::class,'sendmssg'])->name('patient.landing.sendmessage');
+        
+        // Diagnosis routes for patients
+        Route::get('/appointments/diagnosis/{appointmentId}',[AppointmentsController::class,'getDiagnosis'])->name('patient.appointments.diagnosis.get');
+        Route::get('/appointments/test-medical-records',[AppointmentsController::class,'testMedicalRecords'])->name('patient.appointments.test.medical.records');
     });
 });
 
@@ -147,11 +157,43 @@ Route::middleware(['auth','Doctor'])->group(function(){
     Route::prefix('doctor')->group(function(){
         Route::get('/',[DoctorController::class,'index'])->name('doctor.home');
         
+        // Medical Records management
+        Route::get('/medical-records',[DoctorController::class,'medicalRecords'])->name('doctor.medical-records');
+        Route::get('/medical-records/create',[DoctorController::class,'createMedicalRecord'])->name('doctor.medical-records.create');
+        Route::post('/medical-records',[DoctorController::class,'storeMedicalRecord'])->name('doctor.medical-records.store');
+        
+        // Admin Medical Records (doctor access alias)
+        Route::post('/patients/{patient}/medical-records',[DoctorController::class,'storeAdminMedicalRecord'])->name('doctor.patients.medical-records.store');
+        
         // Prescription management
         Route::get('/prescriptions',[DoctorController::class,'prescriptions'])->name('doctor.prescriptions');
         Route::get('/prescriptions/create',[DoctorController::class,'createPrescription'])->name('doctor.prescriptions.create');
         Route::post('/prescriptions',[DoctorController::class,'storePrescription'])->name('doctor.prescriptions.store');
         Route::get('/prescriptions/{prescription}',[DoctorController::class,'showPrescription'])->name('doctor.prescriptions.show');
+        
+        // Diagnosis management
+        Route::get('/diagnosis',[DoctorController::class,'diagnosisHistory'])->name('doctor.diagnosis.index');
+        Route::post('/diagnosis',[DoctorController::class,'storeDiagnosis'])->name('doctor.diagnosis.store');
+        Route::post('/diagnosis/{id}',[DoctorController::class,'updateDiagnosis'])->name('doctor.diagnosis.update');
+        Route::get('/api/patient-appointments/{firstname}/{lastname}',[DoctorController::class,'getPatientAppointments'])->name('doctor.api.patient-appointments');
+        
+        // Test route for debugging
+        Route::get('/test-appointments', function() {
+            $appointments = \App\Models\appointments::where('firstname', 'Jude')
+                ->where('lastname', 'Lesmoras')
+                ->whereIn('status', [1, 5])
+                ->get(['id', 'firstname', 'lastname', 'status', 'date']);
+            return response()->json(['appointments' => $appointments]);
+        });
+        
+        // Test route to debug middleware issues
+        Route::get('/test-route', function() {
+            return response()->json([
+                'message' => 'Doctor route is working',
+                'user_id' => Auth::id(),
+                'user_role' => Auth::user() ? Auth::user()->roleID : 'not_authenticated'
+            ]);
+        })->name('doctor.test');
         
         // API endpoints for dropdowns
         Route::get('/api/patients',[DoctorController::class,'getPatients'])->name('doctor.api.patients');
@@ -211,7 +253,9 @@ Route::middleware(['auth','Admin'])->group(function(){
 
         Route::prefix('programs')->group(function(){
             Route::get('/',[HealthProgramsController::class,'index'])->name('admin.programs');
+            Route::get('fetch',[HealthProgramsController::class,'fetch'])->name('admin.programs.fetch');
             Route::post('create',[HealthProgramsController::class,'CreateProgram'])->name('admin.programs.create');
+            Route::put('{programId}/update',[HealthProgramsController::class,'updateProgram'])->name('admin.programs.update');
             Route::post('archive',[HealthProgramsController::class,'archiveProgram'])->name('admin.programs.archive');
             Route::post('unarchive',[HealthProgramsController::class,'unarchiveProgram'])->name('admin.programs.unarchive');
             Route::get('{programId}/patients',[HealthProgramsController::class,'getProgramPatients'])->name('admin.programs.patients');
@@ -245,7 +289,10 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/sub-services/create',[ServicesController::class,'createSubService'])->name('admin.services.subservice.create');
 
             Route::post('/sub-services/save-time',[ServicesController::class,'saveTime'])->name('admin.services.time.update');
+            Route::post('/sub-services/update-slot-capacity',[ServicesController::class,'updateSlotCapacity'])->name('admin.services.slot.update');
             Route::post('/sub-services/save-days',[ServicesController::class,'saveDays'])->name('admin.services.days.update');
+            Route::post('/date-slots/update',[ServicesController::class,'updateDateSlots'])->name('admin.services.date-slots.update');
+            Route::post('/day-slots/update',[ServicesController::class,'updateDaySlots'])->name('admin.services.day-slots.update');
             Route::post('/archive',[ServicesController::class,'archiveService'])->name('admin.services.archive');
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
             
@@ -275,6 +322,9 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         Route::post('/appointments/archive',[AppointmentsController::class,'archiveAppointment'])->name('admin.appointments.archive');
         Route::post('/appointments/unarchive',[AppointmentsController::class,'unarchiveAppointment'])->name('admin.appointments.unarchive');
         Route::get('/appointment/get/{appointment}', [AppointmentsController::class,'GetAppointment'])->name('admin.appointment.get');
+        Route::post('/appointments/diagnose',[AppointmentsController::class,'addDiagnosis'])->name('admin.appointments.diagnose');
+        Route::get('/appointments/diagnosis/{appointmentId}',[AppointmentsController::class,'getDiagnosis'])->name('admin.appointments.diagnosis.get');
+        Route::get('/appointments/test-medical-records',[AppointmentsController::class,'testMedicalRecords'])->name('admin.appointments.test.medical.records');
         //Route::get('/appointments',[AppointmentsController::class,'index'])->name('admin.appointments');
         //Route::get('/patients',[PatientsController::class,'index'])->name('admin.patients');
 
@@ -283,6 +333,35 @@ Route::middleware(['auth','AdminDoctor'])->group(function() {
         //add_medical_rec(Request $request, User $patientid)
 
         Route::get('/patients/details/{id}',[PatientsController::class,'PatientDetails'])->name('patients.details.view');
+        // Test POST route for debugging
+        Route::post('/test-medical-post/{patient}', function($patient) {
+            return response()->json([
+                'message' => 'POST route is accessible',
+                'patient_id' => $patient,
+                'user_id' => Auth::id(),
+                'user_role' => Auth::user() ? Auth::user()->roleID : 'not_authenticated',
+                'request_data' => request()->all()
+            ]);
+        })->name('test.medical.post');
+        
+        // Test route for debugging
+        Route::get('/test-medical-route/{patient}', function($patient) {
+            return response()->json([
+                'message' => 'Route is accessible',
+                'patient_id' => $patient,
+                'user_id' => Auth::id(),
+                'user_role' => Auth::user() ? Auth::user()->roleID : 'not_authenticated'
+            ]);
+        })->name('test.medical.route');
+        
+        // Test route for debugging medical record update - now actually updates the record
+        Route::put('/test-medical-update/{patient}/{medicalRecord}', [DoctorController::class, 'updateAdminMedicalRecord'])->name('test.medical.update');
+        
+        // Allow admin/doctor group to store medical records from the Admin Patients UI
+        Route::post('/patients/{patient}/medical-records',[DoctorController::class,'storeAdminMedicalRecord'])->name('admin.patients.medical-records.store');
+        Route::put('/patients/{patient}/medical-records/{medicalRecord}',[DoctorController::class,'updateAdminMedicalRecord'])->name('admin.patients.medical-records.update');
+        
+        Route::get('/patients/{id}/appointments',[PatientsController::class,'getPatientAppointments'])->name('patients.appointments');
         Route::put('/patients/{id}',[PatientsController::class,'update'])->name('patients.update');
 
         //Route::resource('patients',PatientsController::class);
@@ -340,6 +419,8 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
         Route::get('/inventory-reports/expired-batches', [InventoryReportsController::class, 'expiredBatches'])->name('pharmacist.reports.expired-batches');
         Route::get('/inventory-reports/custom', [InventoryReportsController::class, 'custom'])->name('pharmacist.reports.custom');
         Route::get('/settings', [PharmacistController::class, 'settings'])->name('pharmacist.settings');
+        Route::post('/settings/profile', [PharmacistController::class, 'updateProfile'])->name('pharmacist.settings.profile');
+        Route::post('/settings/password', [PharmacistController::class, 'updatePassword'])->name('pharmacist.settings.password');
         
         // Inventory management routes
         Route::prefix('inventory')->group(function () {
@@ -351,7 +432,11 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
                 Route::put('/item/unarchive/{inventory}', [PharmacistController::class, 'unarchive_item'])->name('pharmacist.inventory.item.unarchive');
                 Route::post('/item/dispense', [PharmacistController::class, 'dispense_item'])->name('pharmacist.inventory.dispense');
                 Route::post('/item/dispose', [PharmacistController::class, 'dispose_item'])->name('pharmacist.inventory.dispose');
-                Route::post('/item/dispose/bulk', [PharmacistController::class, 'bulk_dispose'])->name('pharmacist.inventory.dispose.bulk');
+    Route::post('/item/dispose/bulk', [PharmacistController::class, 'bulk_dispose'])->name('pharmacist.inventory.dispose.bulk');
+    Route::post('/dispense/bulk', [PharmacistController::class, 'bulk_dispense'])->name('pharmacist.inventory.dispense.bulk');
+    Route::post('/update/bulk', [PharmacistController::class, 'bulk_update'])->name('pharmacist.inventory.update.bulk');
+                Route::get('/prescriptions/by-case/{caseId}', [PharmacistController::class, 'getPrescriptionByCaseId'])->name('pharmacist.inventory.prescriptions.by-case');
+                Route::get('/prescriptions/case-ids', [PharmacistController::class, 'getAvailableCaseIds'])->name('pharmacist.inventory.prescriptions.case-ids');
                 
                 // Automatic dispensing routes
                 Route::get('/prescriptions/pending', [PharmacistController::class, 'get_pending_prescriptions'])->name('pharmacist.prescriptions.pending');
@@ -368,6 +453,9 @@ Route::middleware(['auth', 'Pharmacist'])->group(function () {
             Route::put('/category/unarchive/{category}', [PharmacistController::class, 'unarchive_category'])->name('pharmacist.inventory.category.unarchive');
             Route::put('/item/stock_movement/update/{movement}', [PharmacistController::class, 'update_stock_movement'])->name('pharmacist.inventory.item.stockmovement.update');
             Route::post('/item/update-stocks', [PharmacistController::class, 'update_stocks'])->name('pharmacist.inventory.update-stocks');
+            
+            // Stock Alert API
+            Route::get('/api/stock-alerts', [PharmacistController::class, 'getStockAlerts'])->name('pharmacist.inventory.stock-alerts');
         });
     });
 });

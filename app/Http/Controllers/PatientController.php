@@ -10,20 +10,27 @@ use App\Models\subservices;
 use App\Notifications\SystemNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Storage;
 
 use App\Models\User;
+use App\Models\Patient;
 use App\Services\ActivityLogger;
 use App\Services\NotifSender;
+use App\Services\PatientService;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\DB;
 use App\Mail\AppointmentConfirmationMail;
 use Illuminate\Support\Facades\Mail;
 
 class PatientController extends Controller
 {
-    //
+    protected $patientService;
+
+    public function __construct(PatientService $patientService)
+    {
+        $this->patientService = $patientService;
+    }
     public function profile(){
         // Get recent appointments for the current user
         $recentAppointments = appointments::with(['service','user', 'doctor', 'subservice'])
@@ -165,7 +172,124 @@ class PatientController extends Controller
     }
 
     public function GetSubServices(Request $request,$id){
-        $subservices = subservices::with(['times'])->where('service_id',$id)->get();
+        // Only get active subservices (status = 1, not archived)
+        $subservices = subservices::with(['times'])->where('service_id',$id)->where('status', 1)->get();
+        
+        // Get the selected date from request, default to today if not provided
+        $selectedDate = $request->input('date', now()->format('Y-m-d'));
+        $dayName = \Carbon\Carbon::parse($selectedDate)->format('l'); // Get day name (Monday, Tuesday, etc.)
+        
+        // Debug logging
+        \Log::info('GetSubServices Debug:', [
+            'service_id' => $id,
+            'selected_date' => $selectedDate,
+            'day_name' => $dayName,
+            'subservices_count' => $subservices->count(),
+            'request_date_param' => $request->input('date')
+        ]);
+        
+        // Calculate real-time slot availability for each subservice
+        $subservices->each(function($subservice) use ($selectedDate, $dayName) {
+            \Log::info('Processing subservice:', [
+                'subservice_id' => $subservice->id,
+                'subservice_name' => $subservice->subservicename,
+                'selected_date' => $selectedDate,
+                'day_name' => $dayName
+            ]);
+            
+            // Load day-based slot schedules for the selected day
+            $daySchedule = DB::table('day_slot_schedules')
+                ->where('subservice_id', $subservice->id)
+                ->where('day', $dayName)
+                ->first();
+            
+            \Log::info('Day Schedule Query Result:', [
+                'subservice_id' => $subservice->id,
+                'subservice_name' => $subservice->subservicename,
+                'selected_date' => $selectedDate,
+                'day_name' => $dayName,
+                'day_schedule_found' => $daySchedule ? true : false,
+                'day_schedule_data' => $daySchedule,
+                'all_schedules_for_subservice' => DB::table('day_slot_schedules')->where('subservice_id', $subservice->id)->get(['day', 'time_slots'])
+            ]);
+            
+            if ($daySchedule) {
+                // Use day-based schedules
+                $timeSlotsData = json_decode($daySchedule->time_slots, true);
+                $times = [];
+                
+                \Log::info('Processing day schedule:', [
+                    'subservice_id' => $subservice->id,
+                    'time_slots_data' => $timeSlotsData,
+                    'time_slots_count' => is_array($timeSlotsData) ? count($timeSlotsData) : 'not array'
+                ]);
+                
+                if (is_array($timeSlotsData)) {
+                    foreach ($timeSlotsData as $timeSlot) {
+                        // Calculate available slots for this time slot on the specific date
+                        $bookedAppointments = appointments::where('subservice_id', $subservice->id)
+                            ->where('time', $timeSlot['time'])
+                            ->where('date', $selectedDate)
+                            ->whereIn('status', [1, 5, 6]) // Only count active appointments
+                            ->count();
+                        
+                        $availableSlots = max(0, $timeSlot['capacity'] - $bookedAppointments);
+                        
+                        // Create time object similar to the old structure
+                        $times[] = [
+                            'id' => $subservice->id . '_' . $timeSlot['time'], // Generate unique ID
+                            'time' => $timeSlot['time'],
+                            'available_slots' => $availableSlots,
+                            'booked_slots' => $bookedAppointments,
+                            'max_slots' => $timeSlot['capacity'],
+                            'is_day_schedule' => true,
+                            'day' => $dayName
+                        ];
+                    }
+                }
+                
+                $subservice->time_slots = collect($times);
+                
+                \Log::info('Generated Times for Day Schedule:', [
+                    'subservice_id' => $subservice->id,
+                    'times_count' => count($times),
+                    'times' => $times,
+                    'subservice_times_collection' => $subservice->times->toArray()
+                ]);
+            } else {
+                // Fall back to old times system if no day schedule exists
+                \Log::info('No day schedule found, using old times system', [
+                    'subservice_id' => $subservice->id,
+                    'old_times_count' => $subservice->times ? $subservice->times->count() : 0,
+                    'old_times_data' => $subservice->times ? $subservice->times->toArray() : 'no times'
+                ]);
+                
+                if ($subservice->times) {
+                    $subservice->times->each(function($time) use ($subservice, $selectedDate) {
+                        // Calculate available slots for this time slot on the specific date
+                        $bookedAppointments = appointments::where('subservice_id', $subservice->id)
+                            ->where('time', $time->time)
+                            ->where('date', $selectedDate)
+                            ->whereIn('status', [1, 5, 6])
+                            ->count();
+                        
+                        $maxSlots = $time->max_slots ?? 5;
+                        $availableSlots = max(0, $maxSlots - $bookedAppointments);
+                        
+                        // Add calculated fields to the time object
+                        $time->available_slots = $availableSlots;
+                        $time->booked_slots = $bookedAppointments;
+                        $time->max_slots = $maxSlots;
+                        $time->is_day_schedule = false;
+                    });
+                }
+            }
+        });
+        
+        \Log::info('Final Subservices Response:', [
+            'subservices' => $subservices->toArray()
+        ]);
+        
         return response()->json($subservices);
     }
 
@@ -296,7 +420,8 @@ class PatientController extends Controller
         $userRole = $user ? $user->role->roletype : "Guest";
 
         // Generate priority number for the same date and service
-        $latestAppointment = appointments::where('date', \Carbon\Carbon::parse($request->date)->format("Y-m-d"))
+        $formattedDate = \Carbon\Carbon::parse($request->date)->format('Y-m-d');
+        $latestAppointment = appointments::where('date', $formattedDate)
             ->where('servicetype_id', $request->service)
             ->orderBy('priority_number', 'desc')
             ->first();
@@ -325,13 +450,13 @@ class PatientController extends Controller
             'middlename' => $request->middlename ?? null,
             'email' => $request->email,
             'phone' => $request->phone,
-            'date' => \Carbon\Carbon::parse($request->date)->format("Y-m-d"),
+            'date' => $formattedDate, // Use the formatted date
             'time' => \Carbon\Carbon::parse($request->time)->format("H:i:s"),
             'servicetype_id' => $request->service,
             'subservice_id' => $subserviceId,
             'notes' => $request->notes,
             'priority_number' => $priorityNumber,
-            'status' => 6, // Pending verification
+            'status' => 1, // Scheduled
             'is_verified' => false, // Initially unverified
             'verified_at' => null,
             // Patient profile fields for Patient Records
@@ -346,13 +471,26 @@ class PatientController extends Controller
             'province_id' => $request->province_id ?? null,
             'city_id' => $request->city_id ?? null,
             'barangay_id' => $request->barangay_id ?? null,
+            'region' => $request->region ?? null,
+            'province' => $request->province ?? null,
+            'city' => $request->city ?? null,
+            'barangay' => $request->barangay ?? null,
             'street' => $request->street ?? null,
             'zip_code' => $request->zip_code ?? null,
             'profile_picture' => $request->profile_picture ?? null,
         ];
 
 
+        // Create or find patient
+        $patient = $this->patientService->findOrCreatePatient($appointmentData);
+        
+        // Add patient_id to appointment data
+        $appointmentData['patient_id'] = $patient->id;
+
         $appointment = appointments::create($appointmentData);
+
+        // Update slot availability cache (if using caching)
+        $this->updateSlotAvailability($appointment);
 
         // Don't send notifications yet - wait for verification
         // Notifications will be sent after verification is complete
@@ -455,26 +593,19 @@ class PatientController extends Controller
      */
     private function sendAppointmentConfirmationSMS($appointment)
     {
-        $message = "✅ APPOINTMENT CONFIRMED\n\n";
-        $message .= "Ref: {$appointment->reference_number}\n";
-        $message .= "Date: " . \Carbon\Carbon::parse($appointment->date)->format('M j, Y') . "\n";
-        $message .= "Time: " . \Carbon\Carbon::parse($appointment->time)->format('g:i A') . "\n";
-        $message .= "Service: " . ($appointment->service->servicename ?? 'General Consultation') . "\n\n";
-        $message .= "Please arrive 15 minutes early. Contact us if you need to reschedule.\n\n";
-        $message .= "Thank you for choosing RHU Calumpang!";
+        $serviceName = $appointment->service ? $appointment->service->servicename : 'General Consultation';
+        $date = \Carbon\Carbon::parse($appointment->date)->format('M j, Y');
+        $time = \Carbon\Carbon::parse($appointment->time)->format('g:i A');
+        
+        $message = "Calumpang Rural Health Unit: Your appointment details. Ref: {$appointment->reference_number}. Date: {$date} at {$time}. Service: {$serviceName}. Priority: {$appointment->priority_number}. Awaiting admin confirmation. Contact us for changes. Thank you!";
 
-        // Use the same SMS sending logic as verification
-        $verificationController = new \App\Http\Controllers\VerificationController();
-        $reflection = new \ReflectionClass($verificationController);
-        $method = $reflection->getMethod('sendSMSCode');
-        $method->setAccessible(true);
+        $smsService = new \App\Services\SMSService();
+        $result = $smsService->sendSMS($appointment->phone, $message);
         
-        $success = $method->invoke($verificationController, $appointment->phone, $message);
-        
-        if ($success) {
-            \Log::info("Appointment confirmation SMS sent to {$appointment->phone} for appointment #{$appointment->reference_number}");
+        if ($result['success']) {
+            \Log::info("Appointment details SMS sent to {$appointment->phone} for appointment #{$appointment->reference_number}");
         } else {
-            \Log::warning("Failed to send appointment confirmation SMS to {$appointment->phone} for appointment #{$appointment->reference_number}");
+            \Log::warning("Failed to send appointment details SMS to {$appointment->phone} for appointment #{$appointment->reference_number}: " . $result['message']);
         }
     }
 
@@ -523,13 +654,25 @@ class PatientController extends Controller
         $availability = [];
         foreach ($timeSlots as $time) {
             $bookedCount = $appointments->where('time', $time)->count();
-            $isAvailable = $bookedCount < 5; // Assuming max 5 appointments per time slot
+            
+            // Get the actual max slots for this time slot from the database
+            $timeSlot = null;
+            if ($subserviceId) {
+                $subservice = \App\Models\subservices::with('times')->find($subserviceId);
+                if ($subservice && $subservice->times) {
+                    $timeSlot = $subservice->times->where('time', $time)->first();
+                }
+            }
+            
+            $maxSlots = $timeSlot ? ($timeSlot->max_slots ?? 5) : 5;
+            $isAvailable = $bookedCount < $maxSlots;
             
             $availability[] = [
                 'time' => $time,
                 'booked_count' => $bookedCount,
                 'is_available' => $isAvailable,
-                'available_slots' => max(0, 5 - $bookedCount) // Assuming max 5 slots per time
+                'available_slots' => max(0, $maxSlots - $bookedCount),
+                'max_slots' => $maxSlots
             ];
         }
 
@@ -547,9 +690,25 @@ class PatientController extends Controller
         $endDate = $request->input('end_date');
         $serviceId = $request->input('service_id');
         
+        // Get service days with slot capacity
+        $serviceDays = \App\Models\service_days::where('service_id', $serviceId)
+            ->pluck('slot_capacity', 'day')
+            ->toArray();
+        
+        // Debug logging
+        \Log::info("getDateAvailability Debug:", [
+            'service_id' => $serviceId,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'service_days' => $serviceDays,
+            'service_days_count' => count($serviceDays)
+        ]);
+            
+        
         // Get appointments for the date range
         $appointments = appointments::whereBetween('date', [$startDate, $endDate])
             ->where('servicetype_id', $serviceId)
+            ->whereIn('status', [1, 5, 6]) // Only count active appointments (scheduled, confirmed, pending)
             ->selectRaw('date, COUNT(*) as appointment_count')
             ->groupBy('date')
             ->get()
@@ -562,19 +721,43 @@ class PatientController extends Controller
         
         while ($currentDate->lte($endDate)) {
             $dateStr = $currentDate->format('Y-m-d');
+            $dayName = $currentDate->format('l'); // Get day name (Monday, Tuesday, etc.)
             $appointmentCount = $appointments->get($dateStr, (object)['appointment_count' => 0])->appointment_count;
-            $isAvailable = $appointmentCount < 20; // Assuming max 20 appointments per day
+            
+            // Get day-specific slot capacity
+            // If the service has no configured days, don't make any dates available
+            if (empty($serviceDays)) {
+                // Service has no configured days - mark as unavailable
+                $maxSlots = 0;
+                $availableSlots = 0;
+                $isAvailable = false;
+            } else if (isset($serviceDays[$dayName])) {
+                // This day is configured for the service
+                $maxSlots = $serviceDays[$dayName];
+                $availableSlots = max(0, $maxSlots - $appointmentCount);
+                $isAvailable = $availableSlots > 0;
+            } else {
+                // This day is not configured for the service - mark as unavailable
+                $maxSlots = 0;
+                $availableSlots = 0;
+                $isAvailable = false;
+            }
+        
+        // Add debugging here
+        \Log::info("Date Availability Debug: {$dateStr} - Day: {$dayName}, Max Slots: {$maxSlots}, Booked: {$appointmentCount}, Available: {$availableSlots}");
             
             $availability[] = [
                 'date' => $dateStr,
                 'appointment_count' => $appointmentCount,
+                'max_slots' => $maxSlots,
                 'is_available' => $isAvailable,
-                'available_slots' => max(0, 20 - $appointmentCount)
+                'available_slots' => $availableSlots
             ];
             
             $currentDate->addDay();
         }
 
+        
         return response()->json([
             'start_date' => $startDate,
             'end_date' => $endDate->format('Y-m-d'),
@@ -585,8 +768,19 @@ class PatientController extends Controller
 
     public function sendVerificationCode(Request $request){
         try {
+            // Log the incoming request for debugging
+            \Log::info('Verification code request received', [
+                'appointment_id' => $request->appointment_id,
+                'method' => $request->method,
+                'contact' => $request->contact,
+                'patient_name' => $request->patient_name,
+                'appointment_date' => $request->appointment_date,
+                'appointment_time' => $request->appointment_time,
+                'service_name' => $request->service_name
+            ]);
+
             $request->validate([
-                'appointment_id' => 'required|integer',
+                'appointment_id' => 'nullable|integer',
                 'method' => 'required|in:email,sms',
                 'contact' => 'required|string'
             ]);
@@ -595,33 +789,232 @@ class PatientController extends Controller
             $verificationCode = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             
             // Store verification code in cache with 5-minute expiry
-            $cacheKey = "verification_code_{$request->appointment_id}";
+            // Use contact info as part of the key to make it more unique
+            $contact = $request->contact;
+            
+            // Format phone number consistently if it's SMS
+            if ($request->method === 'sms') {
+                $contact = $this->formatPhoneNumber($contact);
+            }
+            
+            $appointmentId = $request->appointment_id ?? 'temp';
+            $cacheKey = "verification_code_{$contact}_{$appointmentId}";
             \Cache::put($cacheKey, $verificationCode, 300); // 5 minutes
 
+            \Log::info('PatientController - Send Code: Cache Key Generated', [
+                'cacheKey' => $cacheKey,
+                'contact' => $contact,
+                'appointmentId' => $appointmentId,
+                'method' => $request->method,
+                'verificationCode' => $verificationCode,
+                'original_contact' => $request->contact,
+                'formatted_contact' => $contact
+            ]);
+
             if ($request->method === 'email') {
-                // Send email verification
-                \Mail::raw("Your verification code is: {$verificationCode}\n\nThis code will expire in 5 minutes.", function ($message) use ($request) {
-                    $message->to($request->contact)
-                            ->subject('Appointment Verification Code - Calumpang RHU');
-                });
+                \Log::info('Sending email verification', [
+                    'contact' => $request->contact,
+                    'verification_code' => $verificationCode,
+                    'patient_name' => $request->patient_name ?? 'Patient'
+                ]);
+
+                // Send professional email verification using React template
+                \Mail::to($request->contact)->send(new \App\Mail\VerificationCodeMail(
+                    $verificationCode,
+                    $request->patient_name ?? 'Patient',
+                    [
+                        'date' => $request->appointment_date ?? '',
+                        'time' => $request->appointment_time ?? '',
+                        'service' => $request->service_name ?? ''
+                    ]
+                ));
+
+                \Log::info('Email verification sent successfully');
             } else {
-                // Send SMS verification (you'll need to implement SMS service)
-                // For now, we'll just log it - you can integrate with SMS providers like Twilio
-                \Log::info("SMS Verification Code for {$request->contact}: {$verificationCode}");
+                // Send SMS verification via IPROG SMS API
+                $smsService = new \App\Services\SMSService();
+                $message = "Calumpang Rural Health Unit Appointment: Your verification code is {$verificationCode}. Valid for 5 minutes.";
                 
-                // In production, replace this with actual SMS sending:
-                // $this->sendSMS($request->contact, "Your verification code is: {$verificationCode}");
+                $result = $smsService->sendSMS($request->contact, $message);
+                
+                if ($result['success']) {
+                    \Log::info("SMS verification sent successfully via IPROG to {$request->contact}");
+                } else {
+                    \Log::error("Failed to send SMS verification via IPROG to {$request->contact}: " . $result['message']);
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Verification code sent successfully'
+                'message' => 'Verification code sent successfully',
+                'data' => [
+                    'verification_code' => $verificationCode,
+                    'method' => $request->method,
+                    'contact' => $request->contact
+                ]
             ]);
 
         } catch (\Exception $e) {
+            \Log::error('Verification code sending failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send verification code. Please try again.'
+                'message' => 'Failed to send verification code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function checkEmailExists(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        $email = $request->email;
+        
+        // Check in users table
+        $userExists = User::where('email', $email)->exists();
+        
+        // Check in patients table
+        $patientExists = Patient::where('email', $email)->exists();
+        
+        // Check in appointments table
+        $appointmentExists = appointments::where('email', $email)->exists();
+
+        return response()->json([
+            'exists' => $userExists || $patientExists || $appointmentExists
+        ]);
+    }
+
+    public function checkPhoneExists(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string'
+        ]);
+
+        $phone = $request->phone;
+        
+        // Check in users table (contactno field)
+        $userExists = User::where('contactno', $phone)->exists();
+        
+        // Check in patients table (phone field)
+        $patientExists = Patient::where('phone', $phone)->exists();
+        
+        // Check in appointments table (phone field)
+        $appointmentExists = appointments::where('phone', $phone)->exists();
+
+        return response()->json([
+            'exists' => $userExists || $patientExists || $appointmentExists
+        ]);
+    }
+
+    public function verifyCode(Request $request)
+    {
+        try {
+            $request->validate([
+                'verification_code' => 'required|string|size:6',
+                'appointment_id' => 'nullable|integer',
+                'method' => 'required|in:email,sms',
+                'contact' => 'required|string'
+            ]);
+
+            $verificationCode = $request->verification_code;
+            $appointmentId = $request->appointment_id ?? 'temp';
+            $method = $request->method;
+            $contact = $request->contact ?? '';
+
+            // Format phone number consistently if it's SMS
+            if ($method === 'sms') {
+                $contact = $this->formatPhoneNumber($contact);
+            }
+
+            // Log the verification attempt
+            \Log::info('Verification code attempt', [
+                'code' => $verificationCode,
+                'appointment_id' => $appointmentId,
+                'method' => $method,
+                'original_contact' => $request->contact,
+                'formatted_contact' => $contact
+            ]);
+
+            // Check the verification code in cache
+            $cacheKey = "verification_code_{$contact}_{$appointmentId}";
+            $cachedCode = \Cache::get($cacheKey);
+
+            \Log::info('PatientController - Verify Code: Cache Key Used', [
+                'cacheKey' => $cacheKey,
+                'contact' => $contact,
+                'appointmentId' => $appointmentId,
+                'method' => $method,
+                'submittedCode' => $verificationCode,
+                'original_contact' => $request->contact,
+                'formatted_contact' => $contact
+            ]);
+
+            \Log::info('PatientController - Verify Code: Cached Code', [
+                'cachedCode' => $cachedCode,
+                'match' => $cachedCode === $verificationCode,
+            ]);
+
+            if (!$cachedCode) {
+                \Log::warning('Verification code not found in cache', [
+                    'cache_key' => $cacheKey,
+                    'code' => $verificationCode,
+                    'contact' => $contact,
+                    'appointment_id' => $appointmentId,
+                    'method' => $method
+                ]);
+
+                // Try to find any verification codes for this contact
+                $allKeys = \Cache::get('verification_codes', []);
+                \Log::info('All verification codes in cache', ['keys' => $allKeys]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Verification code has expired or not found. Please request a new one.'
+                ], 400);
+            }
+
+            if ($cachedCode === $verificationCode) {
+                // Remove the code from cache after successful verification
+                \Cache::forget($cacheKey);
+
+                \Log::info('Verification code verified successfully', [
+                    'method' => $method,
+                    'appointment_id' => $appointmentId
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Verification code verified successfully'
+                ]);
+            } else {
+                \Log::warning('Invalid verification code provided', [
+                    'provided_code' => $verificationCode,
+                    'cached_code' => $cachedCode,
+                    'method' => $method
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid verification code'
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Verification code verification failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Verification failed: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -689,6 +1082,49 @@ class PatientController extends Controller
                 'message' => 'Failed to verify appointment. Please try again.'
             ], 500);
         }
+    }
+
+    /**
+     * Update slot availability when appointments are created/updated
+     */
+    private function updateSlotAvailability($appointment)
+    {
+        // Clear any cached slot availability data
+        // This ensures the next time the services page loads, it will recalculate
+        // You can implement caching here if needed
+        \Cache::forget('slot_availability_' . $appointment->subservice_id . '_' . $appointment->date);
+    }
+
+    /**
+     * Format phone number to include country code if not present
+     */
+    private function formatPhoneNumber($phoneNumber)
+    {
+        // Remove any non-numeric characters
+        $phone = preg_replace('/[^0-9]/', '', $phoneNumber);
+        
+        // If phone number starts with 0, replace with 63 (Philippines country code)
+        if (strpos($phone, '0') === 0) {
+            $phone = '63' . substr($phone, 1);
+        }
+        
+        // If phone number doesn't start with country code, add 63
+        if (!str_starts_with($phone, '63') && !str_starts_with($phone, '+63')) {
+            $phone = '63' . $phone;
+        }
+        
+        // Ensure the phone number is exactly 12 digits (63 + 10 digits)
+        if (strlen($phone) === 12) {
+            return $phone;
+        }
+        
+        // If it's 11 digits, it might be missing the leading 6
+        if (strlen($phone) === 11 && str_starts_with($phone, '3')) {
+            return '6' . $phone;
+        }
+        
+        // fallback
+        return $phone;
     }
 
 }

@@ -116,12 +116,6 @@ export default function Patients({ patients_ }) {
     const [patients, setPatients] = useState(patients_);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
-    const [genderFilter, setGenderFilter] = useState("male"); // Temporarily hardcoded to test
-    
-    // Debug: Log gender filter changes
-    useEffect(() => {
-        console.log('Gender filter changed to:', genderFilter);
-    }, [genderFilter]);
     const [ageRangeFilter, setAgeRangeFilter] = useState("all");
     const [dateRangeFilter, setDateRangeFilter] = useState("all");
     const [sortConfig, setSortConfig] = useState({
@@ -202,44 +196,6 @@ export default function Patients({ patients_ }) {
             })();
             
             if (matchesStatus) statusMatches++;
-            
-            const matchesGender = genderFilter === "all" || (() => {
-                if (!patient.gender) {
-                    console.log('Patient has no gender:', patient.firstname, patient.lastname);
-                    return false;
-                }
-                
-                const patientGender = String(patient.gender).toLowerCase().trim();
-                const filterGender = genderFilter.toLowerCase().trim();
-                
-                // Debug: Log every gender comparison
-                console.log(`Gender comparison - Filter: "${filterGender}", Patient: "${patientGender}" (${patient.gender}), Patient: ${patient.firstname} ${patient.lastname}`);
-                
-                // Handle different possible gender values
-                if (filterGender === "male") {
-                    const matches = patientGender === "male" || 
-                                   patientGender === "m" || 
-                                   patientGender === "masculine" ||
-                                   patientGender === "1" ||
-                                   patient.gender === 1;
-                    console.log(`Male filter check - Patient: ${patient.firstname}, Gender: "${patientGender}" (${patient.gender}), Matches: ${matches}`);
-                    return matches;
-                } else if (filterGender === "female") {
-                    const matches = patientGender === "female" || 
-                                   patientGender === "f" || 
-                                   patientGender === "feminine" ||
-                                   patientGender === "2" ||
-                                   patient.gender === 2;
-                    console.log(`Female filter check - Patient: ${patient.firstname}, Gender: "${patientGender}" (${patient.gender}), Matches: ${matches}`);
-                    return matches;
-                }
-                
-                const exactMatch = patientGender === filterGender;
-                console.log(`Exact match check - Filter: "${filterGender}", Patient: "${patientGender}", Matches: ${exactMatch}`);
-                return exactMatch;
-            })();
-            
-            if (matchesGender) genderMatches++;
 
             const matchesAgeRange = ageRangeFilter === "all" || (() => {
                 if (!patient.date_of_birth) return false;
@@ -281,18 +237,16 @@ export default function Patients({ patients_ }) {
             
             if (matchesDateRange) dateMatches++;
 
-            const finalMatch = matchesSearch && matchesStatus && matchesGender && matchesAgeRange && matchesDateRange;
+            const finalMatch = matchesSearch && matchesStatus && matchesAgeRange && matchesDateRange;
             
             // Debug logging for first few patients when filtering
-            if (genderFilter !== "all" && patients.indexOf(patient) < 3) {
+            if (patients.indexOf(patient) < 3) {
                 console.log(`Patient ${patient.firstname} ${patient.lastname}:`, {
                     matchesSearch,
                     matchesStatus,
-                    matchesGender,
                     matchesAgeRange,
                     matchesDateRange,
                     finalMatch,
-                    gender: patient.gender,
                     status: patient.status
                 });
             }
@@ -395,7 +349,6 @@ export default function Patients({ patients_ }) {
     const clearFilters = () => {
         setSearchTerm("");
         setStatusFilter("all");
-        setGenderFilter("all");
         setAgeRangeFilter("all");
         setDateRangeFilter("all");
     };
@@ -845,7 +798,7 @@ export default function Patients({ patients_ }) {
                                     <Filter className="h-4 w-4" />
                                     {showFilters ? 'Hide Filters' : 'Show Filters'}
                                 </Button>
-                                {(searchTerm || statusFilter !== "all" || genderFilter !== "all" || ageRangeFilter !== "all" || dateRangeFilter !== "all") && (
+                                {(searchTerm || statusFilter !== "all" || ageRangeFilter !== "all" || dateRangeFilter !== "all") && (
                                     <Button
                                         variant="outline"
                                         onClick={clearFilters}
@@ -859,7 +812,7 @@ export default function Patients({ patients_ }) {
 
                         {/* Advanced Filters */}
                         {showFilters && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg border">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg border">
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 mb-2 block">Status</label>
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -875,22 +828,6 @@ export default function Patients({ patients_ }) {
                                     </Select>
                                 </div>
 
-                                <div>
-                                    <label className="text-sm font-medium text-gray-700 mb-2 block">Gender</label>
-                                    <Select value={genderFilter} onValueChange={(value) => {
-                                        console.log('Gender Select onValueChange called with:', value);
-                                        setGenderFilter(value);
-                                    }}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Genders" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Genders</SelectItem>
-                                            <SelectItem value="male">Male</SelectItem>
-                                            <SelectItem value="female">Female</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
 
                                 <div>
                                     <label className="text-sm font-medium text-gray-700 mb-2 block">Age Range</label>
@@ -975,7 +912,10 @@ export default function Patients({ patients_ }) {
                                             >
                                                 Contact Information
                                             </SortableTableHead>
-                                            <SortableTableHead>
+                                            <SortableTableHead
+                                                sortKey="last_appointment"
+                                                sortable
+                                            >
                                                 Last Visit
                                             </SortableTableHead>
                                             <SortableTableHead
@@ -1027,7 +967,12 @@ export default function Patients({ patients_ }) {
                                                     {p.gender}
                                                 </TableCell>
                                                 <TableCell>09123</TableCell>
-                                                <TableCell>2023-5-3</TableCell>
+                                                <TableCell>
+                                                    {p.last_appointment ? 
+                                                        new Date(p.last_appointment).toLocaleDateString() : 
+                                                        'No appointments recorded'
+                                                    }
+                                                </TableCell>
                                                 <TableCell>
                                                     {p.created_at ? new Date(p.created_at).toLocaleString() : 'Not available'}
                                                 </TableCell>

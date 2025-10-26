@@ -408,21 +408,60 @@ class AuthController extends Controller
     }
 
     public function registerStaff(Request $request){
+        // Basic validation
         $request->validate([
             'first_name'=> "required|min:2",
-            'middlename'=> "required|min:2",
+            'middlename'=> "nullable|min:2",
             'last_name'=> "required|min:2",
             //'suffix'=> "required|min:2",
             'contactNumber'=> "required|min:11|numeric",
             'email'=> "required|email|unique:users,email",
             'password'=> "required|min:3",
             'confirmPassword'=> "required|same:password",
-            'gender'=> "required|in:M,F",
+            'gender'=> "required|in:M,F,O",
+            'gender_other'=> "nullable|string|max:255",
             'birth'=> "required|date",
+            'license_number'=> "nullable|string|max:255",
 
             //'isAdmin'=> "true",
             'role'=> 'required|in:1,7,6',
         ]);
+
+        // Custom validation for data redundancy
+        $errors = [];
+
+        // Check for duplicate name (first name + last name combination)
+        $existingByName = User::where('firstname', $request->first_name)
+            ->where('lastname', $request->last_name)
+            ->when($request->middlename, function($query) use ($request) {
+                $query->where('middlename', $request->middlename);
+            })
+            ->first();
+
+        if ($existingByName) {
+            $errors['duplicate_name'] = 'A staff member with this name already exists.';
+        }
+
+        // Check for duplicate contact number
+        $existingByContact = User::where('contactno', $request->contactNumber)->first();
+        if ($existingByContact) {
+            $errors['duplicate_contact'] = 'This contact number is already registered.';
+        }
+
+        // Check for duplicate license number (if provided)
+        if ($request->license_number) {
+            $existingByLicense = User::where('license_number', $request->license_number)->first();
+            if ($existingByLicense) {
+                $errors['duplicate_license'] = 'This license number is already registered.';
+            }
+        }
+
+        // If there are custom validation errors, return them
+        if (!empty($errors)) {
+            return redirect()->back()
+                ->withErrors($errors)
+                ->withInput($request->except('password', 'confirmPassword'));
+        }
 
 
         try{
@@ -430,22 +469,25 @@ class AuthController extends Controller
 
             $newUser = User::create([
                 'firstname' => $request->first_name,
-                'middlename' => $request->middlename,
+                'middlename' => $request->middlename ?? null,
                 'lastname' => $request->last_name,
                 'suffix' => $request->suffix ?? null,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'contactno' => $request->contactNumber,
                 'roleID' => $request->role,
+                'status' => 1, // Auto-set status to "Available" (1 = active/available)
                 // 'questionID' => $request->securityQuestion ?? null,
                 // 'answer' => $request->securityAnswer ?? null,
-                'gender' => $request->gender,
+                'gender' => $request->gender === 'O' ? $request->gender_other : $request->gender,
                 'birth' => $request->birth,
+                'license_number' => $request->license_number ?? null,
             ]);
 
             if($newUser->roleID == 1){ //check if doctor
                 doctor_details::create([
-                    'user_id' => $newUser->id
+                    'user_id' => $newUser->id,
+                    'status' => 1 // Auto-set doctor status to "Available" (1 = active/available)
                 ]);
             }
 

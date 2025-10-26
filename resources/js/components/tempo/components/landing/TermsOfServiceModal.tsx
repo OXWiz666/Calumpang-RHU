@@ -67,7 +67,7 @@ const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
                                 <div className="text-sm text-gray-700 space-y-3">
                                     <p><strong>1. Service Usage:</strong> By using our appointment booking system, you agree to provide accurate and truthful information about your health and personal details.</p>
                                     <p><strong>2. Data Privacy:</strong> We are committed to protecting your personal information in accordance with the Data Privacy Act of 2012 (Republic Act No. 10173).</p>
-                                    <p><strong>3. Appointment Policy:</strong> Appointments must be scheduled at least 24 hours in advance. Same-day cancellations may be subject to rescheduling fees.</p>
+                                    <p><strong>3. Appointment Policy:</strong> Appointments must be scheduled at least 24 hours in advance. Same-day cancellations may be subject to rescheduling.</p>
                                     <p><strong>4. Medical Records:</strong> All medical information provided will be kept confidential and used solely for healthcare purposes.</p>
                                     <p><strong>5. System Availability:</strong> While we strive for 24/7 availability, we cannot guarantee uninterrupted service due to maintenance or technical issues.</p>
                                 </div>

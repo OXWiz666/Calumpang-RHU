@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\appointments as Appointment;
-use App\Models\program_registrations;
+use App\Models\program_participants as program_registrations;
 use App\Models\program_schedules;
 use App\Models\servicetypes;
 use App\Models\subservices;

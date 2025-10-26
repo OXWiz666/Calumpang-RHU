@@ -31,16 +31,17 @@ import { ArrowLeft, Save } from "lucide-react";
 
 export default function AddPatientForm({ onSubmit, onCancel }) {
     const [formData, setFormData] = useState({
-        firstName: "",
-        lastName: "",
-        dateOfBirth: "",
+        firstname: "",
+        lastname: "",
+        middlename: "",
+        date_of_birth: "",
         gender: "",
-        phoneNumber: "",
+        phone: "",
         email: "",
         address: "",
         emergencyContact: "",
         emergencyPhone: "",
-        bloodType: "",
+        bloodtype: "",
         allergies: "",
         medications: "",
         status: "active",
@@ -93,13 +94,13 @@ export default function AddPatientForm({ onSubmit, onCancel }) {
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label htmlFor="firstName">First Name *</Label>
+                            <Label htmlFor="firstname">First Name *</Label>
                             <Input
-                                id="firstName"
-                                value={formData.firstName}
+                                id="firstname"
+                                value={formData.firstname}
                                 onChange={(e) =>
                                     handleInputChange(
-                                        "firstName",
+                                        "firstname",
                                         e.target.value
                                     )
                                 }
@@ -108,13 +109,13 @@ export default function AddPatientForm({ onSubmit, onCancel }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="lastName">Last Name *</Label>
+                            <Label htmlFor="lastname">Last Name *</Label>
                             <Input
-                                id="lastName"
-                                value={formData.lastName}
+                                id="lastname"
+                                value={formData.lastname}
                                 onChange={(e) =>
                                     handleInputChange(
-                                        "lastName",
+                                        "lastname",
                                         e.target.value
                                     )
                                 }
@@ -123,14 +124,28 @@ export default function AddPatientForm({ onSubmit, onCancel }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="dateOfBirth">Date of Birth *</Label>
+                            <Label htmlFor="middlename">Middle Name</Label>
                             <Input
-                                id="dateOfBirth"
+                                id="middlename"
+                                value={formData.middlename}
+                                onChange={(e) =>
+                                    handleInputChange(
+                                        "middlename",
+                                        e.target.value
+                                    )
+                                }
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="date_of_birth">Date of Birth *</Label>
+                            <Input
+                                id="date_of_birth"
                                 type="date"
-                                value={formData.dateOfBirth}
+                                value={formData.date_of_birth}
                                 onChange={(e) =>
                                     handleInputChange(
-                                        "dateOfBirth",
+                                        "date_of_birth",
                                         e.target.value
                                     )
                                 }
@@ -160,13 +175,13 @@ export default function AddPatientForm({ onSubmit, onCancel }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="phoneNumber">Phone Number *</Label>
+                            <Label htmlFor="phone">Phone Number *</Label>
                             <Input
-                                id="phoneNumber"
-                                value={formData.phoneNumber}
+                                id="phone"
+                                value={formData.phone}
                                 onChange={(e) =>
                                     handleInputChange(
-                                        "phoneNumber",
+                                        "phone",
                                         e.target.value
                                     )
                                 }
@@ -260,11 +275,11 @@ export default function AddPatientForm({ onSubmit, onCancel }) {
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="bloodType">Blood Type</Label>
+                            <Label htmlFor="bloodtype">Blood Type</Label>
                             <Select
-                                value={formData.bloodType}
+                                value={formData.bloodtype}
                                 onValueChange={(value) =>
-                                    handleInputChange("bloodType", value)
+                                    handleInputChange("bloodtype", value)
                                 }
                             >
                                 <SelectTrigger>

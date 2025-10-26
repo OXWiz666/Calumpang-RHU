@@ -13,31 +13,59 @@ import {
     isBefore,
     subDays,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, Calendar } from "lucide-react";
 
 const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceId = null, subserviceId = null }) => {
     const [currentMonth, setCurrentMonth] = React.useState(new Date());
     const [dateAvailability, setDateAvailability] = useState({});
     const [loading, setLoading] = useState(false);
+    
+    // Debug logging for serviceId
+    console.log('CustomCalendar received serviceId:', serviceId, 'type:', typeof serviceId);
 
     // Fetch date availability for the current month
     const fetchDateAvailability = async () => {
-        if (!serviceId) return;
+        if (!serviceId || serviceId === '' || serviceId === null || serviceId === undefined) {
+            console.log('No valid serviceId provided to calendar:', serviceId);
+            return;
+        }
         
+        console.log('Fetching availability for serviceId:', serviceId);
         setLoading(true);
         try {
             const startDate = startOfMonth(currentMonth);
             const endDate = endOfMonth(currentMonth);
             
-            const response = await fetch(`/patient/get-date-availability?start_date=${format(startDate, 'yyyy-MM-dd')}&end_date=${format(endDate, 'yyyy-MM-dd')}&service_id=${serviceId}`);
+            const url = `/patient/get-date-availability?start_date=${format(startDate, 'yyyy-MM-dd')}&end_date=${format(endDate, 'yyyy-MM-dd')}&service_id=${Number(serviceId)}`;
+            console.log('Fetching from URL:', url);
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                console.error('API call failed:', response.status, response.statusText);
+                throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+            }
+            
             const data = await response.json();
             
-            if (data.availability) {
+            console.log('API Response:', data);
+            console.log('API Response type:', typeof data);
+            console.log('API Response keys:', Object.keys(data));
+            
+            if (data.availability && Array.isArray(data.availability)) {
                 const availabilityMap = {};
                 data.availability.forEach(item => {
                     availabilityMap[item.date] = item;
                 });
                 setDateAvailability(availabilityMap);
+                console.log('✅ Date availability loaded successfully:', availabilityMap);
+                console.log('✅ Availability map keys:', Object.keys(availabilityMap));
+                console.log('✅ Sample availability data:', availabilityMap[Object.keys(availabilityMap)[0]]);
+            } else {
+                console.log('❌ No availability data received:', data);
+                console.log('❌ data.availability:', data.availability);
+                console.log('❌ data.availability type:', typeof data.availability);
+                console.log('❌ Full API response:', JSON.stringify(data, null, 2));
             }
         } catch (error) {
             console.error('Error fetching date availability:', error);
@@ -48,6 +76,7 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
 
     // Fetch availability when month or service changes
     useEffect(() => {
+        console.log('Calendar useEffect triggered - serviceId:', serviceId, 'currentMonth:', currentMonth);
         fetchDateAvailability();
     }, [currentMonth, serviceId, subserviceId]);
 
@@ -127,12 +156,56 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
         const dateStr = format(date, 'yyyy-MM-dd');
         const availability = dateAvailability[dateStr];
         
-        if (!availability) return 'unknown';
+        console.log(`🔍 Checking availability for ${dateStr}:`, availability);
+        console.log('dateAvailability keys:', Object.keys(dateAvailability));
+        console.log('dateAvailability object:', dateAvailability);
         
-        if (availability.appointment_count >= 20) return 'full';
-        if (availability.appointment_count >= 15) return 'limited';
-        if (availability.appointment_count >= 10) return 'moderate';
+        if (!availability) {
+            console.log(`No availability data for ${dateStr}`);
+            return 'unknown'; // Don't show hardcoded data, show unknown when no real data
+        }
+        
+        // Get day-specific slot capacity from service days
+        const dayName = format(date, 'EEEE'); // Get day name (Monday, Tuesday, etc.)
+        const maxSlots = availability.max_slots;
+        const usedSlots = availability.appointment_count || 0;
+        
+        // If maxSlots is 0 or undefined, the day is not configured and should be unavailable
+        if (!maxSlots || maxSlots === 0) {
+            return 'full';
+        }
+        
+        const availableSlots = Math.max(0, maxSlots - usedSlots);
+        
+        console.log(`${dateStr}: maxSlots=${maxSlots}, usedSlots=${usedSlots}, availableSlots=${availableSlots}`);
+        
+        // Updated logic to match the new legend format
+        if (availableSlots === 0) return 'full';
+        if (availableSlots <= 2) return 'limited';
+        if (availableSlots <= 5) return 'moderate';
         return 'available';
+    };
+
+    // Get slot count for a specific date
+    const getSlotCount = (date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const availability = dateAvailability[dateStr];
+        
+        if (!availability) {
+            return { available: 0, total: 0 }; // Don't show hardcoded data, show 0 when no real data
+        }
+        
+        const maxSlots = availability.max_slots;
+        const usedSlots = availability.appointment_count || 0;
+        
+        // If maxSlots is 0 or undefined, the day is not configured and should be unavailable
+        if (!maxSlots || maxSlots === 0) {
+            return { available: 0, total: 0 };
+        }
+        
+        const availableSlots = Math.max(0, maxSlots - usedSlots);
+        
+        return { available: availableSlots, total: maxSlots };
     };
 
     // Get availability icon for a specific date
@@ -159,15 +232,15 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
         
         switch (status) {
             case 'available':
-                return 'bg-green-100 border-green-300';
+                return 'bg-green-100 border-green-300 text-green-800';
             case 'moderate':
-                return 'bg-yellow-100 border-yellow-300';
+                return 'bg-yellow-100 border-yellow-300 text-yellow-800';
             case 'limited':
-                return 'bg-orange-100 border-orange-300';
+                return 'bg-orange-100 border-orange-300 text-orange-800';
             case 'full':
-                return 'bg-red-100 border-red-300';
+                return 'bg-red-100 border-red-300 text-red-800';
             default:
-                return '';
+                return 'bg-gray-100 border-gray-300 text-gray-800';
         }
     };
 
@@ -177,6 +250,20 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
         ...getNextMonthDays(),
     ];
     const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+    // Show message when no service is selected
+    if (!serviceId || serviceId === '' || serviceId === null || serviceId === undefined) {
+        console.log('Showing "Select a Service First" message because serviceId is:', serviceId);
+        return (
+            <div className="w-full">
+                <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Select a Service First</h3>
+                    <p className="text-gray-500">Please select a service type to view available appointment dates.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full">
@@ -218,6 +305,15 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
                     const isCurrentMonth = isSameMonth(day, currentMonth);
                     const isSelected =
                         selectedDate && isSameDay(day, selectedDate);
+                    
+                    // Debug logging for date selection
+                    if (day.getDate() === 31 && day.getMonth() === 9) { // October 31
+                        console.log('October 31 debug:');
+                        console.log('day:', day);
+                        console.log('selectedDate:', selectedDate);
+                        console.log('isSelected:', isSelected);
+                        console.log('isSameDay result:', selectedDate ? isSameDay(day, selectedDate) : false);
+                    }
                     //const isProgramDay = hasProgram(day);
                     const isProgramDay = hasProgram2(day, hasPrograms);
 
@@ -237,11 +333,22 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
                         //console.log("prggg: ", hasPrograms);
                     }
 
-                    // .filter((day) => !isBefore(new Date(), day))
-                    const isBeforexx = isBefore(subDays(new Date(), 1), day);
+                    // Check if the day is in the future (after today)
+                    const isFutureDay = isBefore(new Date(), day);
                     const availabilityStatus = getAvailabilityStatus(day);
                     const availabilityIcon = getAvailabilityIcon(day);
                     const availabilityColor = getAvailabilityColor(day);
+                    const slotCount = getSlotCount(day);
+                    
+                    // Debug logging for dates 26-31 (October)
+                    if (day.getDate() >= 26 && day.getDate() <= 31 && day.getMonth() === 9) { // October 26-31
+                        console.log(`🔍 October ${day.getDate()} Debug:`);
+                        console.log('isFutureDay:', isFutureDay);
+                        console.log('availabilityStatus:', availabilityStatus);
+                        console.log('isProgramDay:', isProgramDay);
+                        console.log('hasPrograms:', hasPrograms);
+                        console.log('Will be disabled:', !isFutureDay || availabilityStatus === 'full');
+                    }
 
                     //const yesterday = subDays(day, 1);
                     return (
@@ -249,28 +356,45 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
                             key={i}
                             onClick={(e) => {
                                 e.preventDefault();
-                                onDateSelect(day);
+                                // Create a new date in local timezone to avoid timezone conversion issues
+                                const localDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                                onDateSelect(localDate);
                             }}
-                            disabled={!isBeforexx || !isProgramDay || availabilityStatus === 'full'}
+                            disabled={!isFutureDay || availabilityStatus === 'full'}
                             className={`
-                h-9 w-9 mx-auto flex flex-col items-center justify-center rounded-full text-sm relative
+                h-12 w-12 mx-auto flex flex-col items-center justify-center rounded-lg text-sm relative border-2
                 ${!isCurrentMonth ? "text-gray-400" : ""}
-                ${isSelected ? "bg-blue-500 text-white" : ""}
+                ${isSelected ? "bg-blue-500 text-white border-blue-500" : ""}
                 ${
-                    isProgramDay && !isSelected && isBeforexx
-                        ? `bg-blue-100 ${availabilityColor}`
+                    !isSelected && isFutureDay && availabilityStatus !== 'unknown'
+                        ? availabilityColor || "bg-blue-50 border-blue-200"
                         : ""
                 }
-                ${isTodayDate && !isSelected ? "border border-blue-500" : ""}
+                ${isTodayDate && !isSelected ? "border-2 border-blue-500" : ""}
                 ${availabilityStatus === 'full' ? "opacity-50 cursor-not-allowed" : ""}
-                hover:bg-gray-100
+                hover:bg-gray-100 transition-all duration-200
               `}
-                            title={availabilityStatus !== 'unknown' ? 
-                                `${availabilityStatus.charAt(0).toUpperCase() + availabilityStatus.slice(1)} slots` : 
-                                'No data available'
+                            title={
+                                !isFutureDay ? 'Cannot select past or current date' :
+                                availabilityStatus !== 'unknown' ? 
+                                    `${slotCount.available}/${slotCount.total} slots available` : 
+                                    'No data available'
                             }
                         >
-                            <span className="text-xs">{format(day, "d")}</span>
+                            <span className="text-xs font-medium">{format(day, "d")}</span>
+                            {isFutureDay && availabilityStatus !== 'unknown' && (
+                                <div className="text-xs font-bold mt-0.5 flex items-center gap-1">
+                                    <span className={`${
+                                        availabilityStatus === 'available' ? 'text-green-700' :
+                                        availabilityStatus === 'moderate' ? 'text-yellow-700' :
+                                        availabilityStatus === 'limited' ? 'text-orange-700' :
+                                        'text-red-700'
+                                    }`}>
+                                        {slotCount.available}
+                                    </span>
+                                    <span className="text-gray-500">/{slotCount.total}</span>
+                                </div>
+                            )}
                             {availabilityIcon && (
                                 <div className="absolute -top-1 -right-1">
                                     {availabilityIcon}
@@ -283,24 +407,35 @@ const CustomCalendar = ({ selectedDate, onDateSelect, hasPrograms = [], serviceI
             
             {/* Legend */}
             {serviceId && (
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Slot Availability Legend:</h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle className="h-3 w-3 text-green-500" />
-                            <span>Available (0-9 slots)</span>
+                <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                        Slot Availability Legend
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-green-100 border-2 border-green-300 rounded flex items-center justify-center">
+                                <span className="text-green-700 text-xs font-bold"></span>
+                            </div>
+                            <span className="text-gray-700 font-medium">Available (6+ slots)</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <AlertCircle className="h-3 w-3 text-yellow-500" />
-                            <span>Moderate (10-14 slots)</span>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-300 rounded flex items-center justify-center">
+                                <span className="text-yellow-700 text-xs font-bold"></span>
+                            </div>
+                            <span className="text-gray-700 font-medium">Moderate (3-5 slots)</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <AlertCircle className="h-3 w-3 text-orange-500" />
-                            <span>Limited (15-19 slots)</span>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-orange-100 border-2 border-orange-300 rounded flex items-center justify-center">
+                                <span className="text-orange-700 text-xs font-bold"></span>
+                            </div>
+                            <span className="text-gray-700 font-medium">Limited (1-2 slots)</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <XCircle className="h-3 w-3 text-red-500" />
-                            <span>Full (20+ slots)</span>
+                        <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 bg-red-100 border-2 border-red-300 rounded flex items-center justify-center">
+                                <span className="text-red-700 text-xs font-bold"></span>
+                            </div>
+                            <span className="text-gray-700 font-medium">Full (0 slots)</span>
                         </div>
                     </div>
                 </div>

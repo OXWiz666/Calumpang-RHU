@@ -22,7 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/tempo/components/ui/select";
-import { ArrowLeft, Save, X } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import CustomModal from "@/components/CustomModal";
 import { router } from "@inertiajs/react";
 import {
@@ -43,13 +43,23 @@ import { motion } from "framer-motion";
 export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = true }) {
     const isAppointmentPatient = patient?.id?.startsWith('PAT_');
     
+    // Normalize gender values for database compatibility
+    const normalizeGender = (genderValue) => {
+        if (!genderValue) return '';
+        const value = genderValue.toString();
+        if (value === 'M' || value === 'Male') return 'Male';
+        if (value === 'F' || value === 'Female') return 'Female';
+        if (value === 'Other') return 'Other';
+        return value; // Return as-is if it's already correct
+    };
+    
     const [formData, setFormData] = useState({
         // Basic Information
         firstName: patient.firstname || "",
         middleName: patient.middlename || "",
         lastName: patient.lastname || "",
         dateOfBirth: isAppointmentPatient ? patient.date_of_birth : patient.birth,
-        gender: patient?.gender || patient?.sex || "",
+        gender: normalizeGender(patient?.gender || patient?.sex || ""),
         phoneNumber: patient.contactno || patient.phone || "",
         email: patient.email || "",
         status: patient.status || "active",
@@ -71,10 +81,7 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
         // Legacy address (for regular users)
         address: patient.address || "",
         
-        // Medical Information
-        bloodType: patient.bloodtype || "",
-        allergies: patient.allergies?.join(", ") || "",
-        medications: patient.medications?.join(", ") || "",
+        // Medical Information - removed
     });
 
     const handleSubmit = (e) => {
@@ -115,14 +122,7 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                 address: formData.address,
             }),
             
-            // Medical Information
-            bloodtype: formData.bloodType,
-            allergies: formData.allergies
-                ? formData.allergies.split(",").map((a) => a.trim())
-                : [],
-            medications: formData.medications
-                ? formData.medications.split(",").map((m) => m.trim())
-                : [],
+            // Medical Information - removed
         };
 
         // Submit the form using Inertia router
@@ -149,21 +149,13 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
         <Dialog open={isOpen} onOpenChange={onCancel}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center justify-between">
+                    <DialogTitle>
                         <div>
                             <h2 className="text-2xl font-bold">Edit Patient</h2>
                             <p className="text-sm text-muted-foreground mt-1">
                                 Update patient information
                             </p>
                         </div>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onCancel}
-                            className="h-8 w-8 p-0"
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
                     </DialogTitle>
                 </DialogHeader>
                 
@@ -196,7 +188,6 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                             e.target.value
                                         )
                                     }
-                                    required
                                 />
                             </div>
 
@@ -225,7 +216,6 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                             e.target.value
                                         )
                                     }
-                                    required
                                 />
                             </div>
 
@@ -243,7 +233,6 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                             e.target.value
                                         )
                                     }
-                                    required
                                 />
                             </div>
 
@@ -259,13 +248,9 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                         <SelectValue placeholder="Select gender" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="M">Male</SelectItem>
-                                        <SelectItem value="F">
-                                            Female
-                                        </SelectItem>
-                                        <SelectItem value="Other">
-                                            Other
-                                        </SelectItem>
+                                        <SelectItem value="Male">Male</SelectItem>
+                                        <SelectItem value="Female">Female</SelectItem>
+                                        <SelectItem value="Other">Other</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -283,7 +268,6 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                             e.target.value
                                         )
                                     }
-                                    required
                                 />
                             </div>
 
@@ -335,7 +319,6 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                                             e.target.value
                                         )
                                     }
-                                    required={!isAppointmentPatient}
                                     className="min-h-[60px] max-h-[80px]"
                                     rows={3}
                                 />
@@ -567,78 +550,7 @@ export default function EditPatientForm({ patient, onCancel, onSubmit, isOpen = 
                             </CardContent>
                         </Card> */}
 
-                    {/* Medical Information */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">Medical Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="bloodType">Blood Type</Label>
-                                <Select
-                                    value={formData.bloodType}
-                                    onValueChange={(value) =>
-                                        handleInputChange("bloodType", value)
-                                    }
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select blood type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">
-                                            Not specified
-                                        </SelectItem>
-                                        <SelectItem value="A+">A+</SelectItem>
-                                        <SelectItem value="A-">A-</SelectItem>
-                                        <SelectItem value="B+">B+</SelectItem>
-                                        <SelectItem value="B-">B-</SelectItem>
-                                        <SelectItem value="AB+">AB+</SelectItem>
-                                        <SelectItem value="AB-">AB-</SelectItem>
-                                        <SelectItem value="O+">O+</SelectItem>
-                                        <SelectItem value="O-">O-</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="allergies">
-                                    Known Allergies
-                                </Label>
-                                <Textarea
-                                    id="allergies"
-                                    value={formData.allergies}
-                                    onChange={(e) =>
-                                        handleInputChange(
-                                            "allergies",
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Separate multiple allergies with commas"
-                                    className="min-h-[50px] max-h-[80px]"
-                                    rows={2}
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="medications">
-                                    Current Medications
-                                </Label>
-                                <Textarea
-                                    id="medications"
-                                    value={formData.medications}
-                                    onChange={(e) =>
-                                        handleInputChange(
-                                            "medications",
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Separate multiple medications with commas"
-                                    className="min-h-[50px] max-h-[80px]"
-                                    rows={2}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {/* Medical Information - removed */}
 
                     {/* Form Actions */}
                     <div className="flex justify-end gap-3 pt-3 pb-2">

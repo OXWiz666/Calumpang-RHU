@@ -20,7 +20,6 @@ import {
   Layers2,
   SquareKanban,
   UserPen,
-  Bell,
   UserCog,
 } from "lucide-react";
 import LandingLayout from "@/Layouts/LandingLayout";
@@ -61,14 +60,6 @@ export default function Sidebar({ activeTab }) {
               >
                 <UserCog className="mr-2 h-5 w-5" />
                 Password Settings
-              </Button>
-              <Button
-                variant={activeTab === "notifsettings" ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                size="lg"
-              >
-                <Bell className="mr-2 h-5 w-5" />
-                Notification Settings
               </Button>
             </div>
           </CardContent>

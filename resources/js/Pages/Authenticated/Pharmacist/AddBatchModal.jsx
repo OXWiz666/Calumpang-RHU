@@ -15,14 +15,25 @@ import {
     Calendar, 
     Hash, 
     Building2,
-    Plus
+    Plus,
+    Package,
+    TrendingUp,
+    TrendingDown,
+    Scale,
+    Factory
 } from "lucide-react";
+import { UNIT_OPTIONS } from "@/constants/unitOptions";
 
 const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onCloseEditModal }) => {
     const [formData, setFormData] = useState({
         storage_location: "",
         batch_number: "",
         expiry_date: "",
+        minimum_stock: "",
+        maximum_stock: "",
+        unit_of_measure: "",
+        manufacturer: "",
+        current_quantity: "",
     });
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
@@ -35,6 +46,11 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                 storage_location: item.storageLocation || "",
                 batch_number: "",
                 expiry_date: "",
+                minimum_stock: item.minimum_stock || item.minimumStock || "",
+                maximum_stock: item.maximum_stock || item.maximumStock || "",
+                unit_of_measure: item.unit || item.unit_type || "",
+                manufacturer: item.manufacturer || "",
+                current_quantity: item.currentQuantity || item.quantity || item.stock?.stocks || "",
             });
         }
     }, [item]);
@@ -74,12 +90,15 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         const submitData = {
             itemname: item.name || "",
             categoryid: item.categoryId || item.category?.id || "",
-            manufacturer: item.manufacturer || "",
+            manufacturer: data.manufacturer || item.manufacturer || "",
             description: item.description || "",
-            unit_type: item.unit || item.unit_type || "",
+            unit_type: data.unit_of_measure || item.unit || item.unit_type || "",
             storage_location: data.storage_location || "",
             batch_number: data.batch_number.trim(),
             expiry_date: data.expiry_date,
+            minimum_stock: data.minimum_stock || "",
+            maximum_stock: data.maximum_stock || "",
+            current_quantity: data.current_quantity || "",
             original_item_id: item.id
         };
         
@@ -146,18 +165,7 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         });
     };
 
-    const unitOptions = [
-        { value: "pieces", label: "Pieces" },
-        { value: "tablets", label: "Tablets" },
-        { value: "capsules", label: "Capsules" },
-        { value: "vials", label: "Vials" },
-        { value: "boxes", label: "Boxes" },
-        { value: "bottles", label: "Bottles" },
-        { value: "tubes", label: "Tubes" },
-        { value: "sachets", label: "Sachets" },
-        { value: "strips", label: "Strips" },
-        { value: "units", label: "Units" },
-    ];
+    // Using shared unit options from constants
 
     if (!item) return null;
 
@@ -238,6 +246,160 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                                 {errors.storage_location && (
                                     <p className="text-sm text-red-600">{errors.storage_location}</p>
                                 )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Item Information Section */}
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-medium text-gray-900">Item Information</h3>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                Current item details
+                            </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Current Quantity */}
+                            <div className="space-y-2">
+                                <Label htmlFor="current_quantity" className="text-sm font-medium">
+                                    Current Quantity
+                                </Label>
+                                <div className="relative">
+                                    <Package className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="current_quantity"
+                                        name="current_quantity"
+                                        type="number"
+                                        value={data.current_quantity}
+                                        onChange={handleChange}
+                                        placeholder="Enter current quantity"
+                                        className="pl-10"
+                                        readOnly
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500">Current stock level (read-only)</p>
+                            </div>
+
+                            {/* Unit of Measure */}
+                            <div className="space-y-2">
+                                <Label htmlFor="unit_of_measure" className="text-sm font-medium">
+                                    Unit of Measure
+                                </Label>
+                                <div className="relative">
+                                    <Scale className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <select
+                                        id="unit_of_measure"
+                                        name="unit_of_measure"
+                                        value={data.unit_of_measure}
+                                        onChange={handleChange}
+                                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="">Select unit</option>
+                                        {UNIT_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {errors.unit_of_measure && (
+                                    <p className="text-sm text-red-600">{errors.unit_of_measure}</p>
+                                )}
+                            </div>
+
+                            {/* Manufacturer */}
+                            <div className="space-y-2">
+                                <Label htmlFor="manufacturer" className="text-sm font-medium">
+                                    Manufacturer
+                                </Label>
+                                <div className="relative">
+                                    <Factory className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="manufacturer"
+                                        name="manufacturer"
+                                        value={data.manufacturer}
+                                        onChange={handleChange}
+                                        placeholder="Enter manufacturer name"
+                                        className="pl-10"
+                                    />
+                                </div>
+                                {errors.manufacturer && (
+                                    <p className="text-sm text-red-600">{errors.manufacturer}</p>
+                                )}
+                            </div>
+
+                            {/* Minimum Stock Level */}
+                            <div className="space-y-2">
+                                <Label htmlFor="minimum_stock" className="text-sm font-medium">
+                                    Minimum Stock Level
+                                </Label>
+                                <div className="relative">
+                                    <TrendingDown className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="minimum_stock"
+                                        name="minimum_stock"
+                                        type="number"
+                                        min="0"
+                                        value={data.minimum_stock}
+                                        onChange={handleChange}
+                                        placeholder="Enter minimum stock level"
+                                        className="pl-10"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500">Alert threshold for low stock</p>
+                                {errors.minimum_stock && (
+                                    <p className="text-sm text-red-600">{errors.minimum_stock}</p>
+                                )}
+                            </div>
+
+                            {/* Maximum Stock Level */}
+                            <div className="space-y-2">
+                                <Label htmlFor="maximum_stock" className="text-sm font-medium">
+                                    Maximum Stock Level
+                                </Label>
+                                <div className="relative">
+                                    <TrendingUp className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="maximum_stock"
+                                        name="maximum_stock"
+                                        type="number"
+                                        min="0"
+                                        value={data.maximum_stock}
+                                        onChange={handleChange}
+                                        placeholder="Enter maximum stock level"
+                                        className="pl-10"
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-500">Maximum capacity limit</p>
+                                {errors.maximum_stock && (
+                                    <p className="text-sm text-red-600">{errors.maximum_stock}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Stock Level Summary */}
+                        <div className="bg-gray-50 rounded-lg p-4">
+                            <h4 className="text-sm font-medium text-gray-900 mb-2">Stock Level Summary</h4>
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div className="text-center">
+                                    <div className="text-lg font-semibold text-gray-900">
+                                        {data.current_quantity || 0}
+                                    </div>
+                                    <div className="text-gray-600">Current</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-lg font-semibold text-yellow-600">
+                                        {data.minimum_stock || 0}
+                                    </div>
+                                    <div className="text-gray-600">Minimum</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-lg font-semibold text-green-600">
+                                        {data.maximum_stock || 0}
+                                    </div>
+                                    <div className="text-gray-600">Maximum</div>
+                                </div>
                             </div>
                         </div>
                     </div>

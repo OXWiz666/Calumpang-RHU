@@ -15,6 +15,7 @@ import {
 import AdminLayout from "@/Layouts/AdminLayout";
 import { motion } from "framer-motion";
 import { router, usePage } from "@inertiajs/react";
+import { toast } from 'react-hot-toast';
 
 // export interface Patient {
 //   id: string
@@ -122,11 +123,15 @@ export default function PatientRecords({ patients_, doctors }) {
         setPatients(patients_);
     }, [patients_]);
 
-    // useEffect(() => {
-    //     router.visit({
-    //         only: ["patients_", "doctors", "flash"],
-    //     });
-    // }, [flash]);
+    // Handle flash messages
+    useEffect(() => {
+        if (flash?.success) {
+            toast.success(flash.success);
+        }
+        if (flash?.error) {
+            toast.error(flash.error);
+        }
+    }, [flash]);
 
     const [showAddForm, setShowAddForm] = useState(false);
     const [view, setView] = useState("list");

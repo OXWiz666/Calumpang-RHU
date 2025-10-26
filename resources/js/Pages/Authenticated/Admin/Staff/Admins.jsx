@@ -168,8 +168,16 @@ export default function Admins({ admins = [] }) {
     };
 
     const handleEditSuccess = (updatedAdmin) => {
-        // Refresh the page or update the admin in the list
-        window.location.reload();
+        console.log('Edit success callback triggered:', updatedAdmin);
+        // Show success toast
+        showToast(
+            "Success!",
+            "Admin information updated successfully!",
+            "success",
+            "update"
+        );
+        // Use Inertia reload to refresh the data
+        router.reload({ only: ['admins'] });
     };
 
     const handleSubmit = (e) => {

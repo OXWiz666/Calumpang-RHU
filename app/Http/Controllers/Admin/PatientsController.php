@@ -3,141 +3,219 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\appointments;
+use App\Models\Patient;
 use App\Models\doctor_details;
 use App\Models\medical_history;
 use App\Models\User;
+use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+
 class PatientsController extends Controller
 {
-    //
+    protected $patientService;
 
-    public function index(){
-        // Get all patients from appointments (guest patients only)
-        $appointmentPatients = \App\Models\appointments::whereNull('user_id')
-            ->whereNotNull('firstname')
-            ->whereNotNull('lastname')
-            ->select('firstname', 'lastname', 'middlename', 'email', 'phone', 'date_of_birth', 'gender', 'civil_status', 'nationality', 'religion', 'country', 'region', 'province', 'city', 'barangay', 'street', 'zip_code', 'profile_picture', 'created_at')
+    public function __construct(PatientService $patientService)
+    {
+        $this->patientService = $patientService;
+    }
+
+    public function index()
+    {
+        // Get all patients from the patients table
+        $patients = Patient::with(['user', 'appointments.service', 'appointments.subservice', 'medicalRecords.doctor'])
+            ->orderBy('created_at', 'desc')
             ->get()
-            ->groupBy(function($appointment) {
-                return strtolower($appointment->firstname . '_' . $appointment->lastname);
-            })
-            ->map(function($appointments, $nameKey) {
-                // Prioritize appointments with profile pictures
-                $appointmentWithPicture = $appointments->whereNotNull('profile_picture')->first();
-                $firstAppointment = $appointmentWithPicture ?: $appointments->first();
-                $appointmentCount = $appointments->count();
-                
-                return [
-                    'id' => 'PAT_' . strtoupper(substr($firstAppointment->firstname, 0, 3)) . '_' . 
-                           strtoupper(substr($firstAppointment->lastname, 0, 3)) . '_' . 
-                           $firstAppointment->created_at->format('Ymd'),
-                    'firstname' => $firstAppointment->firstname,
-                    'lastname' => $firstAppointment->lastname,
-                    'middlename' => $firstAppointment->middlename,
-                    'email' => $firstAppointment->email,
-                    'contactno' => $firstAppointment->phone,
-                    'phone' => $firstAppointment->phone,
-                    'date_of_birth' => $firstAppointment->date_of_birth,
-                    'gender' => $firstAppointment->gender,
-                    'civil_status' => $firstAppointment->civil_status,
-                    'nationality' => $firstAppointment->nationality,
-                    'religion' => $firstAppointment->religion,
-                    'country' => $firstAppointment->country,
-                    'region' => $firstAppointment->region,
-                    'province' => $firstAppointment->province,
-                    'city' => $firstAppointment->city,
-                    'barangay' => $firstAppointment->barangay,
-                    'street' => $firstAppointment->street,
-                    'zip_code' => $firstAppointment->zip_code,
-                    'profile_picture' => $firstAppointment->profile_picture,
-                    'registration_date' => $appointments->min('created_at'),
-                    'appointment_count' => $appointmentCount,
-                    'last_appointment' => $appointments->max('created_at'),
-                    'last_visit_date' => $appointments->max('created_at'),
-                    'patient_type' => 'Patient',
-                    'status' => 'active'
-                ];
-            })
-            ->values();
+            ->map(function($patient) {
+                // Format medical records for the list view
+                $formattedMedicalRecords = $patient->medicalRecords->map(function($record) {
+                    if ($record->admin_data && is_array($record->admin_data)) {
+                        $adminData = $record->admin_data;
+                        
+                        // Debug: Log admin data
+                        \Log::info('Admin medical record data:', [
+                            'record_id' => $record->id,
+                            'admin_data' => $adminData,
+                            'weight' => $adminData['weight'] ?? 'not set',
+                            'height' => $adminData['height'] ?? 'not set',
+                            'temperature' => $adminData['temperature'] ?? 'not set',
+                        ]);
+                        
+                        return [
+                            'id' => $record->id,
+                            'diagnosis' => null, // No diagnosis for admin records
+                            'symptoms' => null, // No symptoms for admin records
+                            'treatment' => null, // No treatment for admin records
+                            'notes' => null, // No notes for admin records
+                            'vital_signs' => null,
+                            'lab_results' => null,
+                            'record_type' => 'admin_entry',
+                            'follow_up_date' => null,
+                            'created_at' => $record->created_at->format('Y-m-d H:i:s'),
+                            'appointment_date' => $adminData['date'] ?? null,
+                            'appointment_service' => 'Medical Record',
+                            'doctor_name' => $record->doctor ? $record->doctor->firstname . ' ' . $record->doctor->lastname : 'Admin User',
+                            'admin_data' => $adminData
+                        ];
+                    } else {
+                        return [
+                            'id' => $record->id,
+                            'diagnosis' => $record->diagnosis,
+                            'symptoms' => $record->symptoms,
+                            'treatment' => $record->treatment,
+                            'notes' => $record->notes,
+                            'vital_signs' => $record->vital_signs,
+                            'lab_results' => $record->lab_results,
+                            'record_type' => $record->record_type,
+                            'follow_up_date' => $record->follow_up_date,
+                            'created_at' => $record->created_at->format('Y-m-d H:i:s'),
+                            'appointment_date' => $record->appointment ? $record->appointment->created_at->format('Y-m-d') : null,
+                            'appointment_service' => $record->appointment && $record->appointment->service ? $record->appointment->service->servicename : null,
+                            'doctor_name' => $record->doctor ? $record->doctor->firstname . ' ' . $record->doctor->lastname : 'Unknown Doctor'
+                        ];
+                    }
+                });
 
-        // Debug: Log unique gender values
-        $uniqueGenders = $appointmentPatients->pluck('gender')->unique()->filter()->values();
-        \Log::info('Unique gender values in patients data:', $uniqueGenders->toArray());
-        
+                return [
+                    'id' => $patient->patient_id,
+                    'firstname' => $patient->firstname,
+                    'lastname' => $patient->lastname,
+                    'middlename' => $patient->middlename,
+                    'email' => $patient->email,
+                    'contactno' => $patient->phone,
+                    'phone' => $patient->phone,
+                    'date_of_birth' => $patient->date_of_birth,
+                    'gender' => $patient->gender,
+                    'civil_status' => $patient->civil_status,
+                    'nationality' => $patient->nationality,
+                    'religion' => $patient->religion,
+                    'country' => $patient->country,
+                    'region' => $patient->region,
+                    'province' => $patient->province,
+                    'city' => $patient->city,
+                    'barangay' => $patient->barangay,
+                    'street' => $patient->street,
+                    'zip_code' => $patient->zip_code,
+                    'profile_picture' => $patient->profile_picture,
+                    'registration_date' => $patient->created_at,
+                    'appointment_count' => $patient->appointments->count(),
+                    'last_appointment' => $patient->appointments->max('created_at'),
+                    'last_visit_date' => $patient->appointments->max('created_at'),
+                    'patient_type' => $patient->user_id ? 'Registered' : 'Guest',
+                    'status' => $patient->status,
+                    'medical_records' => $formattedMedicalRecords->toArray(),
+                    'medical_histories' => collect([]), // For backward compatibility
+                ];
+            });
+
         return Inertia::render('Authenticated/Admin/Patients/page', [
-            'patients_' => $appointmentPatients,
+            'patients_' => $patients,
             'doctors' => doctor_details::with(['user'])->get(),
         ]);
     }
 
-
-    public function PatientDetails($id){
-        // Check if this is an appointment patient (ID starts with PAT_)
+    public function PatientDetails($id)
+    {
+        \Log::info('Admin PatientDetails called with ID: ' . $id);
+        
+        // Check if this is a patient ID (starts with PAT_)
         if (str_starts_with($id, 'PAT_')) {
-            // Parse the appointment patient ID to get the name and date
-            $parts = explode('_', $id);
-            if (count($parts) >= 4) {
-                $firstName = $parts[1];
-                $lastName = $parts[2];
-                $date = $parts[3];
-                
-                // Find the appointment record (prioritize one with profile picture)
-                $appointment = \App\Models\appointments::whereNull('user_id')
-                    ->where('firstname', 'like', $firstName . '%')
-                    ->where('lastname', 'like', $lastName . '%')
-                    ->whereDate('created_at', \Carbon\Carbon::createFromFormat('Ymd', $date))
-                    ->select('firstname', 'lastname', 'middlename', 'email', 'phone', 'date_of_birth', 'gender', 'civil_status', 'nationality', 'religion', 'country', 'region', 'province', 'city', 'barangay', 'street', 'zip_code', 'profile_picture', 'created_at')
-                    ->orderByRaw('CASE WHEN profile_picture IS NOT NULL THEN 0 ELSE 1 END')
-                    ->orderBy('created_at', 'asc')
-                    ->first();
-                    
-                if ($appointment) {
-                    // Get all appointments for this patient
-                    $allAppointments = \App\Models\appointments::whereNull('user_id')
-                        ->where('firstname', 'like', $firstName . '%')
-                        ->where('lastname', 'like', $lastName . '%')
-                        ->get();
-                    
-                    // Create a patient object similar to User model
-                    $patient = (object) [
-                        'id' => $id,
-                        'firstname' => $appointment->firstname,
-                        'lastname' => $appointment->lastname,
-                        'middlename' => $appointment->middlename,
-                        'email' => $appointment->email,
-                        'phone' => $appointment->phone,
-                        'contactno' => $appointment->phone,
-                        'date_of_birth' => $appointment->date_of_birth,
-                        'gender' => $appointment->gender,
-                        'civil_status' => $appointment->civil_status,
-                        'nationality' => $appointment->nationality,
-                        'religion' => $appointment->religion,
-                        'country' => $appointment->country,
-                        'region' => $appointment->region,
-                        'province' => $appointment->province,
-                        'city' => $appointment->city,
-                        'barangay' => $appointment->barangay,
-                        'street' => $appointment->street,
-                        'zip_code' => $appointment->zip_code,
-                        'profile_picture' => $appointment->profile_picture,
-                        'registration_date' => $allAppointments->min('created_at'),
-                        'appointment_count' => $allAppointments->count(),
-                        'last_visit_date' => $allAppointments->max('created_at'),
-                        'status' => 'active',
-                        'prescriptions' => collect([]), // No prescriptions for appointment patients
-                        'medical_histories' => collect([]), // No medical histories for appointment patients
-                        'emercont' => null // No emergency contact for appointment patients
-                    ];
-                } else {
-                    abort(404, 'Appointment patient not found');
-                }
-            } else {
-                abort(404, 'Invalid appointment patient ID');
+            $patient = Patient::with([
+                'user',
+                'appointments.service',
+                'appointments.subservice',
+                'appointments.doctor',
+                'prescriptions.doctor',
+                'prescriptions.medicines.medicine'
+            ])->where('patient_id', $id)->first();
+
+            if (!$patient) {
+                \Log::error('Patient not found with patient_id: ' . $id);
+                // Let's check what patients exist
+                $allPatients = Patient::all(['id', 'patient_id', 'firstname', 'lastname']);
+                \Log::info('Available patients: ', $allPatients->toArray());
+                abort(404, 'Patient not found');
             }
+            
+            \Log::info('Found patient: ' . $patient->firstname . ' ' . $patient->lastname);
+            // Medical records are not loaded for individual patient details page
+
+            // Format prescriptions data
+            $formattedPrescriptions = $patient->prescriptions->map(function($prescription) {
+                return [
+                    'id' => $prescription->id,
+                    'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
+                    'patient_name' => $patient->firstname . ' ' . $patient->lastname,
+                    'patient_id' => $patient->id,
+                    'doctor_name' => $prescription->doctor ? $prescription->doctor->firstname . ' ' . $prescription->doctor->lastname : 'Unknown Doctor',
+                    'doctor_id' => $prescription->doctor_id,
+                    'case_id' => $prescription->case_id,
+                    'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
+                    'status' => $prescription->status,
+                    'notes' => $prescription->notes,
+                    'medicines' => $prescription->medicines->map(function($medicine) {
+                        $inventoryItem = \App\Models\inventory::find($medicine->medicine_id);
+                        return [
+                            'id' => $medicine->id,
+                            'medicine_name' => $inventoryItem ? $inventoryItem->name : 'Unknown Medicine',
+                            'medicine_id' => $medicine->medicine_id,
+                            'dosage' => $medicine->dosage,
+                            'frequency' => $medicine->frequency,
+                            'duration' => $medicine->duration,
+                            'quantity' => $medicine->quantity,
+                            'instructions' => $medicine->instructions,
+                            'is_dispensed' => $medicine->is_dispensed
+                        ];
+                    }),
+                    'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
+                ];
+            });
+
+            // Medical records are not displayed on individual patient details page
+
+            // Create patient object for frontend
+            $patientData = (object) [
+                'id' => $patient->patient_id,
+                'firstname' => $patient->firstname,
+                'lastname' => $patient->lastname,
+                'middlename' => $patient->middlename,
+                'email' => $patient->email,
+                'phone' => $patient->phone,
+                'contactno' => $patient->phone,
+                'date_of_birth' => $patient->date_of_birth,
+                'gender' => $patient->gender,
+                'civil_status' => $patient->civil_status,
+                'nationality' => $patient->nationality,
+                'religion' => $patient->religion,
+                'country' => $patient->country,
+                'region' => $patient->region,
+                'province' => $patient->province,
+                'city' => $patient->city,
+                'barangay' => $patient->barangay,
+                'street' => $patient->street,
+                'zip_code' => $patient->zip_code,
+                'profile_picture' => $patient->profile_picture,
+                'registration_date' => $patient->created_at,
+                'appointment_count' => $patient->appointments->count(),
+                'last_visit_date' => $patient->appointments->orderBy('date', 'desc')->first()?->date ?? null,
+                'status' => $patient->status,
+                'prescriptions' => $formattedPrescriptions,
+                'medical_histories' => collect([]), // For backward compatibility
+                'medical_records' => [], // Medical records not displayed on individual patient details page
+                'emercont' => null // No emergency contact for now
+            ];
+
+            // Debug: Log what's being sent to frontend
+            \Log::info('Patient data being sent to frontend (medical records not included):', [
+                'appointment_count' => $patientData['appointment_count'],
+                'last_visit_date' => $patientData['last_visit_date']
+            ]);
+
         } else {
-            // Regular registered user
+            // Regular registered user (backward compatibility)
             $patient = User::with([
                 'emercont',
                 'medical_histories',
@@ -148,50 +226,17 @@ class PatientsController extends Controller
             ])->findOrFail($id);
             
             // Get appointment data for regular users
-            $userAppointments = \App\Models\appointments::where('user_id', $patient->id)->get();
+            $userAppointments = appointments::where('user_id', $patient->id)->get();
             
             if ($userAppointments->isNotEmpty()) {
                 $patient->last_visit_date = $userAppointments->max('created_at');
                 $patient->registration_date = $userAppointments->min('created_at');
             } else {
                 $patient->last_visit_date = null;
-                $patient->registration_date = $patient->created_at; // Fallback to user creation date
+                $patient->registration_date = $patient->created_at;
             }
-        }
 
-        // Format prescriptions data for frontend (only for registered users)
-        $formattedPrescriptions = collect([]);
-        if (method_exists($patient, 'prescriptions') && $patient->prescriptions) {
-            $formattedPrescriptions = $patient->prescriptions->map(function($prescription) {
-                return [
-                    'id' => $prescription->id,
-                    'prescription_number' => 'RX-' . str_pad($prescription->id, 6, '0', STR_PAD_LEFT),
-                    'patient_name' => $prescription->patient ? $prescription->patient->firstname . ' ' . $prescription->patient->lastname : 'Unknown Patient',
-                    'patient_id' => $prescription->patient_id,
-                    'doctor_name' => $prescription->doctor ? $prescription->doctor->firstname . ' ' . $prescription->doctor->lastname : 'Unknown Doctor',
-                    'doctor_id' => $prescription->doctor_id,
-                    'case_id' => $prescription->case_id,
-                    'prescription_date' => $prescription->prescription_date->format('Y-m-d'),
-                    'status' => $prescription->status,
-                    'notes' => $prescription->notes,
-                    'medicines' => $prescription->medicines->map(function($medicine) {
-                    // Get inventory item data
-                    $inventoryItem = \App\Models\inventory::find($medicine->medicine_id);
-                    return [
-                        'id' => $medicine->id,
-                        'medicine_name' => $inventoryItem ? $inventoryItem->name : 'Unknown Medicine',
-                        'medicine_id' => $medicine->medicine_id,
-                        'dosage' => $medicine->dosage,
-                        'frequency' => $medicine->frequency,
-                        'duration' => $medicine->duration,
-                        'quantity' => $medicine->quantity,
-                        'instructions' => $medicine->instructions,
-                        'is_dispensed' => $medicine->is_dispensed
-                    ];
-                }),
-                'created_at' => $prescription->created_at->format('Y-m-d H:i:s')
-            ];
-        });
+            $patientData = $patient;
         }
 
         // Get medicines data
@@ -215,87 +260,51 @@ class PatientsController extends Controller
             })
             ->values();
 
-        // Debug logging
-        \Log::info('Medicines data for patient details:', [
-            'count' => $medicinesData->count(),
-            'medicines' => $medicinesData->toArray()
-        ]);
+        $data = [
+            'patient' => $patientData,
+            'doctors' => doctor_details::with(['user'])->get(),
+            'medicines' => $medicinesData->toArray(),
+            'isAdminView' => true,
+        ];
 
-        // Set prescriptions relation for registered users, or update the object for appointment patients
-        if (method_exists($patient, 'setRelation')) {
-            $patient->setRelation('prescriptions', $formattedPrescriptions);
-        } else {
-            // For appointment patients, update the prescriptions property
-            $patient->prescriptions = $formattedPrescriptions;
-        }
-
-            $data = [
-                'patient' => $patient,
-                'doctors' => doctor_details::with(['user'])->get(),
-                'medicines' => $medicinesData->toArray(), // Convert collection to array
-                'isAdminView' => true, // Flag to indicate this is Admin view
-            ];
-
-
-        \Log::info('Inertia data being sent:', [
-            'medicines_count' => count($data['medicines']),
-            'medicines_data' => $data['medicines']
-        ]);
-
-        return Inertia::render('Authenticated/Admin/Patients/details', $data);
+        return Inertia::render('Authenticated/Admin/Patients/patient-details', $data);
     }
 
     public function update(Request $request, $id)
     {
-        // Check if this is an appointment patient (ID starts with PAT_)
         if (str_starts_with($id, 'PAT_')) {
-            // Parse the appointment patient ID to get the name and date
-            $parts = explode('_', $id);
-            if (count($parts) >= 4) {
-                $firstName = $parts[1];
-                $lastName = $parts[2];
-                $date = $parts[3];
-                
-                // Find the appointment record
-                $appointment = \App\Models\appointments::whereNull('user_id')
-                    ->where('firstname', 'like', $firstName . '%')
-                    ->where('lastname', 'like', $lastName . '%')
-                    ->whereDate('created_at', \Carbon\Carbon::createFromFormat('Ymd', $date))
-                    ->orderBy('created_at', 'asc')
-                    ->first();
-                    
-                if ($appointment) {
-                    // Update the appointment record with new data
-                    $appointment->update([
-                        'firstname' => $request->firstname,
-                        'middlename' => $request->middlename,
-                        'lastname' => $request->lastname,
-                        'email' => $request->email,
-                        'phone' => $request->phone,
-                        'date_of_birth' => $request->date_of_birth,
-                        'gender' => $request->gender,
-                        'civil_status' => $request->civil_status,
-                        'nationality' => $request->nationality,
-                        'religion' => $request->religion,
-                        'country' => $request->country,
-                        'region' => $request->region,
-                        'province' => $request->province,
-                        'city' => $request->city,
-                        'barangay' => $request->barangay,
-                        'street' => $request->street,
-                        'zip_code' => $request->zip_code,
-                    ]);
+            // Update patient in patients table
+            $patient = Patient::where('patient_id', $id)->firstOrFail();
+            
+            // No validation - allow all data to be changeable
+            
+            $patient->update([
+                'firstname' => $request->firstname,
+                'middlename' => $request->middlename,
+                'lastname' => $request->lastname,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'date_of_birth' => $request->date_of_birth,
+                'gender' => $request->gender,
+                'civil_status' => $request->civil_status,
+                'nationality' => $request->nationality,
+                'religion' => $request->religion,
+                'country' => $request->country,
+                'region' => $request->region,
+                'province' => $request->province,
+                'city' => $request->city,
+                'barangay' => $request->barangay,
+                'street' => $request->street,
+                'zip_code' => $request->zip_code,
+            ]);
 
-                    return redirect()->back()->with('success', 'Patient information updated successfully.');
-                } else {
-                    return redirect()->back()->with('error', 'Appointment patient not found.');
-                }
-            } else {
-                return redirect()->back()->with('error', 'Invalid appointment patient ID.');
-            }
+            return redirect()->back()->with('success', 'Patient information updated successfully.');
         } else {
             // Handle regular user updates
             $user = User::findOrFail($id);
+            
+            // No validation - allow all data to be changeable
+            
             $user->update([
                 'firstname' => $request->firstname,
                 'middlename' => $request->middlename,
@@ -312,48 +321,79 @@ class PatientsController extends Controller
         }
     }
 
-    /*
-        HTTP Method	URI	Action	Route Name
-        GET	        /posts	            index	posts.index
-        GET	        /posts/create	    create	posts.create
-        POST	    /posts	            store   posts.store
-        GET	        /posts/{post}	    show	posts.show
-        GET	        /posts/{post}/edit	edit	posts.edit
-        PUT/PATCH	/posts/{post}	    update	posts.update
-        DELETE	    /posts/{post}	    destroy	posts.destroy
-
-    */
-
-    public function add_medical_rec(Request $request, User $patientid){
-        //dd($request);
-
+    public function add_medical_rec(Request $request, User $patientid)
+    {
         $request->validate([
             'date' => 'required|date',
             'diagnosis' => 'required|min:3',
-            // 'treatment' => 'required|min:3',
+            'treatment' => 'nullable|string',
             'doctor' => 'required',
-            // 'notes' => 'required|min:3',
-            // 'followUp' => 'required|min:3',
+            'notes' => 'nullable|string',
+            'followUp' => 'nullable|string',
+            'symptoms' => 'nullable|string',
+            'vital_signs' => 'nullable|array',
+            'lab_results' => 'nullable|array',
+            'record_type' => 'nullable|in:consultation,checkup,emergency',
         ]);
 
-        medical_history::insert([
-            'user_id' => $patientid->id,
-            'doctor_id' => $request->doctor,
-            'diagnosis' => $request->diagnosis,
-            'treatment' => $request->treatment,
-            'clinic_notes' => $request->notes,
-            'followup_inst' => $request->followUp,
-            //'created_at' => $request->date,
-        ]);
-        //$patient = new User();
+        try {
+            // Find the most recent appointment for this patient
+            $appointment = appointments::where('user_id', $patientid->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
 
-        return back()->with([
-            'flash' => [
-                'icon' => 'success',
-                'message' => 'Added Successfully!',
-                'title' => "Success!"
-            ]
-        ]);
+            if (!$appointment) {
+                return back()->with([
+                    'flash' => [
+                        'icon' => 'error',
+                        'message' => 'No appointment found for this patient. Please create an appointment first.',
+                        'title' => "Error!"
+                    ]
+                ]);
+            }
+
+            // Create medical record in the new medical_records table
+            \App\Models\MedicalRecord::create([
+                'patient_id' => $patientid->id,
+                'appointment_id' => $appointment->id,
+                'doctor_id' => $request->doctor,
+                'diagnosis' => $request->diagnosis,
+                'symptoms' => $request->symptoms ?? $request->notes,
+                'treatment' => $request->treatment,
+                'notes' => $request->followUp,
+                'vital_signs' => $request->vital_signs ?? null,
+                'lab_results' => $request->lab_results ?? null,
+                'record_type' => $request->record_type ?? 'consultation',
+                'follow_up_date' => $request->followUp ? \Carbon\Carbon::parse($request->followUp)->format('Y-m-d') : null
+            ]);
+
+            // Also keep the old medical_history for backward compatibility
+            medical_history::insert([
+                'user_id' => $patientid->id,
+                'doctor_id' => $request->doctor,
+                'diagnosis' => $request->diagnosis,
+                'treatment' => $request->treatment,
+                'clinic_notes' => $request->notes,
+                'followup_inst' => $request->followUp,
+            ]);
+
+            return back()->with([
+                'flash' => [
+                    'icon' => 'success',
+                    'message' => 'Medical record added successfully! You can now create prescriptions for this patient.',
+                    'title' => "Success!"
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return back()->with([
+                'flash' => [
+                    'icon' => 'error',
+                    'message' => 'Failed to add medical record: ' . $e->getMessage(),
+                    'title' => "Error!"
+                ]
+            ]);
+        }
     }
 
     public function storePrescription(Request $request, User $patientid)
@@ -389,7 +429,7 @@ class PatientsController extends Controller
             foreach ($request->medicines as $medicineData) {
                 \App\Models\PrescriptionMedicine::create([
                     'prescription_id' => $prescription->id,
-                    'medicine_id' => $medicineData['medicine_id'], // This will be inventory item ID
+                    'medicine_id' => $medicineData['medicine_id'],
                     'dosage' => $medicineData['dosage'],
                     'frequency' => $medicineData['frequency'],
                     'duration' => $medicineData['duration'],
@@ -419,6 +459,67 @@ class PatientsController extends Controller
                     'title' => "Error!"
                 ]
             ]);
+        }
+    }
+
+    /**
+     * Get appointments for a specific patient
+     */
+    public function getPatientAppointments($patientId)
+    {
+        try {
+            // Check if this is a patient ID (starts with PAT_)
+            if (str_starts_with($patientId, 'PAT_')) {
+                $patient = Patient::where('patient_id', $patientId)->first();
+                if (!$patient) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Patient not found'
+                    ], 404);
+                }
+                
+                $appointments = appointments::with(['service', 'subservice', 'doctor.user'])
+                    ->where('patient_id', $patient->id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            } else {
+                // Regular user ID
+                $appointments = appointments::with(['service', 'subservice', 'doctor.user'])
+                    ->where('user_id', $patientId)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            }
+            
+            return response()->json([
+                'success' => true,
+                'appointments' => $appointments
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch appointments: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Migrate existing appointment data to patients table
+     */
+    public function migrate()
+    {
+        try {
+            $migratedCount = $this->patientService->migrateExistingAppointments();
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully migrated {$migratedCount} appointments to patients table.",
+                'migrated_count' => $migratedCount
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Migration failed: ' . $e->getMessage()
+            ], 500);
         }
     }
 }
