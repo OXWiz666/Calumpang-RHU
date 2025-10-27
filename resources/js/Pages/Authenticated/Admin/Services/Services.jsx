@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  Info,
 } from "lucide-react";
 
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -213,12 +214,55 @@ const Services = ({ services_ }) => {
     console.log("services: ", services_);
   }, [services_]);
 
+  // Sync selectedService when services data changes (after reload)
+  useEffect(() => {
+    if (selectedService && services.length > 0) {
+      // Find the updated service data
+      const updatedService = services.find(s => s.id === selectedService.id);
+      if (updatedService) {
+        // Compare month_configurations to see if there are actual changes
+        // This prevents unnecessary re-renders but still updates when the server data changes
+        const currentConfigs = JSON.stringify(selectedService.month_configurations || []);
+        const updatedConfigs = JSON.stringify(updatedService.month_configurations || []);
+        
+        if (currentConfigs !== updatedConfigs) {
+          setSelectedService(updatedService);
+        }
+      }
+    }
+  }, [services]);
+
   // Handle selectedService changes for Edit Days modal
   useEffect(() => {
     if (selectedService && IsEditDaysOpen) {
       console.log("Setting form data for service:", selectedService);
-      setDataDays("days", selectedService?.servicedays?.map((sub) => sub.day) || []);
+      
+      // Extract days from servicedays (global configuration)
+      const days = selectedService?.servicedays?.map((sub) => sub.day) || [];
+      const daySlots = {};
+      
+      // Extract slot capacities for each day
+      selectedService?.servicedays?.forEach((day) => {
+        daySlots[day.day] = day.slot_capacity || 20;
+      });
+      
+      // Also load month-specific configurations
+      if (selectedService?.month_configurations && selectedService.month_configurations.length > 0) {
+        selectedService.month_configurations.forEach((config) => {
+          if (config.day_configurations) {
+            Object.keys(config.day_configurations).forEach((day) => {
+              if (!days.includes(day)) {
+                days.push(day);
+              }
+              daySlots[day] = config.day_configurations[day].slot_capacity || 20;
+            });
+          }
+        });
+      }
+      
+      setDataDays("days", days);
       setDataDays("serviceid", selectedService?.id);
+      setDataDays("daySlots", daySlots);
     }
   }, [selectedService, IsEditDaysOpen]);
 
@@ -644,27 +688,37 @@ const Services = ({ services_ }) => {
     daySlots: {}, // Object to store slot capacity for each day
   });
 
-  const saveDays = () => {
-    console.log("Saving days with data:", dataDays);
-    if (!dataDays.serviceid) {
-      showToast("Error", "Service ID is required", "error");
-      return;
-    }
-    postDays(route("admin.services.days.update"), {
-      preserveScroll: true,
-      preserveState: false, // Allow state to be updated
-      replace: true,
-      onSuccess: () => {
-        setIsEditDaysOpen(false);
-        showToast("Success!", "Successfully Updated!", "success");
-        // Refresh the page to get updated slot calculations
-        router.reload({ only: ['services_'] });
-      },
-      onError: (errors) => {
-        console.log("Save days errors:", errors);
-      }
-    });
-  };
+    const saveDays = () => {
+        console.log("Saving days with data:", dataDays);
+        if (!dataDays.serviceid) {
+            showToast("Error", "Service ID is required", "error");
+            return;
+        }
+        
+        if (!dataDays.days || dataDays.days.length === 0) {
+            showToast("Error", "Please add at least one day before saving", "error");
+            return;
+        }
+
+        // IMPORTANT: This saves GLOBAL days (applies to ALL months)
+        // For month-specific configuration, use the "Manage Recurring Days" feature
+        postDays(route("admin.services.days.update"), {
+            preserveScroll: true,
+            preserveState: false,
+            replace: true,
+            onSuccess: (page) => {
+                console.log("Save successful, page data:", page);
+                setIsEditDaysOpen(false);
+                showToast("Success!", "Days and slots have been saved!", "success");
+                // Force a full page reload to ensure calendar picks up changes
+                router.reload({ only: ['services_'], preserveScroll: false });
+            },
+            onError: (errors) => {
+                console.error("Save days errors:", errors);
+                showToast("Error", "Failed to save days. Please try again.", "error");
+            }
+        });
+    };
 
   const generateTimeArray = [
     "09:00 AM",
@@ -712,11 +766,34 @@ const Services = ({ services_ }) => {
   });
   const [selectedDayScheduleIndex, setSelectedDayScheduleIndex] = useState(null);
   
+  // Recurring day management states
+  const [showRecurringDayModal, setShowRecurringDayModal] = useState(false);
+  const [recurringDayConfig, setRecurringDayConfig] = useState({
+    day: '',
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    slotCapacity: 20
+  });
+  
   // Track if there are unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
+  // Sorting, pagination and filters for Available Days
+  const [daySortConfig, setDaySortConfig] = useState({ key: 'date', direction: 'asc' });
+  const [dayFilterText, setDayFilterText] = useState('');
+  const [dayFilterStatus, setDayFilterStatus] = useState('all'); // all, available, limited, full
+  const [dayFilterDate, setDayFilterDate] = useState(''); // Specific date filter
+  const [dayFilterMonth, setDayFilterMonth] = useState('all'); // Month filter
+  const [dayFilterYear, setDayFilterYear] = useState('all'); // Year filter
+  const [dayPagination, setDayPagination] = useState({ page: 1, perPage: 20 });
+  
   // Day filter for sub-service time slots display
   const [selectedDayFilter, setSelectedDayFilter] = useState('all');
+  
+  // Additional filters for time slots
+  const [timeSlotFilterMonth, setTimeSlotFilterMonth] = useState('all'); // Month filter for time slots
+  const [timeSlotFilterYear, setTimeSlotFilterYear] = useState('all'); // Year filter for time slots
+  const [timeSlotSortConfig, setTimeSlotSortConfig] = useState({ key: 'time', direction: 'asc' }); // Sorting for time slots
   
   // Pagination for time slots
   const [timeSlotsPage, setTimeSlotsPage] = useState(1);
@@ -1034,47 +1111,84 @@ const Services = ({ services_ }) => {
     }
   };
 
-  // Function to filter time slots by selected day
+  // Function to filter and sort time slots
   const getFilteredTimeSlots = (subservice) => {
     if (!subservice?.time_slots) return [];
     
-    if (selectedDayFilter === 'all') {
-      return subservice.time_slots;
+    let filtered = subservice.time_slots;
+    
+    // Filter by day
+    if (selectedDayFilter !== 'all') {
+      filtered = filtered.filter(timeSlot => timeSlot.day === selectedDayFilter);
     }
     
-    return subservice.time_slots.filter(timeSlot => timeSlot.day === selectedDayFilter);
+    // Filter by month
+    if (timeSlotFilterMonth !== 'all') {
+      filtered = filtered.filter(timeSlot => {
+        if (timeSlot.specific_date) {
+          const date = new Date(timeSlot.specific_date);
+          return date.getMonth() + 1 === parseInt(timeSlotFilterMonth);
+        }
+        return false;
+      });
+    }
+    
+    // Filter by year
+    if (timeSlotFilterYear !== 'all') {
+      filtered = filtered.filter(timeSlot => {
+        if (timeSlot.specific_date) {
+          const date = new Date(timeSlot.specific_date);
+          return date.getFullYear().toString() === timeSlotFilterYear;
+        }
+        return false;
+      });
+    }
+    
+    // Sort the results
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      if (timeSlotSortConfig.key === 'time') {
+        comparison = (a.time || '').localeCompare(b.time || '');
+      } else if (timeSlotSortConfig.key === 'date') {
+        const dateA = a.specific_date || a.sample_date || '';
+        const dateB = b.specific_date || b.sample_date || '';
+        comparison = new Date(dateA).getTime() - new Date(dateB).getTime();
+      } else if (timeSlotSortConfig.key === 'availability') {
+        comparison = (a.available_slots || 0) - (b.available_slots || 0);
+      } else if (timeSlotSortConfig.key === 'capacity') {
+        comparison = (a.max_slots || 0) - (b.max_slots || 0);
+      } else if (timeSlotSortConfig.key === 'day') {
+        comparison = (a.day || '').localeCompare(b.day || '');
+      }
+      
+      return timeSlotSortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
   };
 
   // Function to get paginated time slots
   const getPaginatedTimeSlots = (subservice) => {
     const filteredSlots = getFilteredTimeSlots(subservice);
     
-    if (selectedDayFilter === 'all') {
-      // Paginate when showing all days
-      const startIndex = (timeSlotsPage - 1) * timeSlotsPerPage;
-      const endIndex = startIndex + timeSlotsPerPage;
-      return filteredSlots.slice(startIndex, endIndex);
-    }
-    
-    // Don't paginate when filtering by specific day
-    return filteredSlots;
+    // Always paginate regardless of filters
+    const startIndex = (timeSlotsPage - 1) * timeSlotsPerPage;
+    const endIndex = startIndex + timeSlotsPerPage;
+    return filteredSlots.slice(startIndex, endIndex);
   };
 
   // Function to get total pages for time slots
   const getTimeSlotsTotalPages = (subservice) => {
     const filteredSlots = getFilteredTimeSlots(subservice);
-    
-    if (selectedDayFilter === 'all') {
-      return Math.ceil(filteredSlots.length / timeSlotsPerPage);
-    }
-    
-    return 1; // No pagination needed for specific day
+    // Always calculate total pages based on filtered results
+    return Math.ceil(filteredSlots.length / timeSlotsPerPage);
   };
 
-  // Reset pagination when day filter changes
+  // Reset pagination when filters change
   useEffect(() => {
     setTimeSlotsPage(1);
-  }, [selectedDayFilter]);
+  }, [selectedDayFilter, timeSlotFilterMonth, timeSlotFilterYear]);
 
   // Initialize daySlotSchedules when opening edit dialog
   useEffect(() => {
@@ -1096,10 +1210,17 @@ const Services = ({ services_ }) => {
             if (!timesByDay[day]) {
               timesByDay[day] = [];
             }
-            timesByDay[day].push({
-              time: timeSlot.time,
-              capacity: timeSlot.capacity || timeSlot.max_slots || 5
-            });
+            
+            // Check if this time already exists in the array
+            const timeExists = timesByDay[day].some(slot => slot.time === timeSlot.time);
+            
+            // Only add if this time doesn't already exist (deduplicate based on time)
+            if (!timeExists) {
+              timesByDay[day].push({
+                time: timeSlot.time,
+                capacity: timeSlot.capacity || timeSlot.max_slots || 5
+              });
+            }
           }
         });
 
@@ -1438,9 +1559,168 @@ const Services = ({ services_ }) => {
                           <SortableTableHead sortKey="status" sortable className="font-semibold text-gray-900">
                         Status
                       </SortableTableHead>
-                          <SortableTableHead className="font-semibold text-gray-900">Available Days</SortableTableHead>
+                          <SortableTableHead className="font-semibold text-gray-900">
+                            Available Days
+                          </SortableTableHead>
                           <SortableTableHead className="font-semibold text-gray-900">Sub Services</SortableTableHead>
                           <SortableTableHead className="font-semibold text-gray-900">Actions</SortableTableHead>
+                    </TableRow>
+                    {/* Professional Controls Row - Filter, Sort, and Pagination */}
+                    <TableRow className="bg-slate-50 border-b border-slate-200">
+                      <TableCell colSpan={2}></TableCell>
+                      <TableCell colSpan={3} className="py-3">
+                        <div className="space-y-3">
+                          {/* Left: Filter Controls */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                              Filter:
+                            </Label>
+                            <Input
+                              placeholder="Search days..."
+                              value={dayFilterText}
+                              onChange={(e) => setDayFilterText(e.target.value)}
+                              className="h-8 text-xs w-24"
+                            />
+                            <select
+                              value={dayFilterMonth}
+                              onChange={(e) => {
+                                setDayFilterMonth(e.target.value);
+                                setDayPagination({...dayPagination, page: 1});
+                              }}
+                              className="h-8 text-xs border rounded px-2 w-20"
+                            >
+                              <option value="all">All Months</option>
+                              <option value="1">Jan</option>
+                              <option value="2">Feb</option>
+                              <option value="3">Mar</option>
+                              <option value="4">Apr</option>
+                              <option value="5">May</option>
+                              <option value="6">Jun</option>
+                              <option value="7">Jul</option>
+                              <option value="8">Aug</option>
+                              <option value="9">Sep</option>
+                              <option value="10">Oct</option>
+                              <option value="11">Nov</option>
+                              <option value="12">Dec</option>
+                            </select>
+                            <select
+                              value={dayFilterYear}
+                              onChange={(e) => {
+                                setDayFilterYear(e.target.value);
+                                setDayPagination({...dayPagination, page: 1});
+                              }}
+                              className="h-8 text-xs border rounded px-2 w-16"
+                            >
+                              <option value="all">All Years</option>
+                              <option value="2024">2024</option>
+                              <option value="2025">2025</option>
+                              <option value="2026">2026</option>
+                              <option value="2027">2027</option>
+                              <option value="2028">2028</option>
+                            </select>
+                            <select
+                              value={dayFilterStatus}
+                              onChange={(e) => setDayFilterStatus(e.target.value)}
+                              className="h-8 text-xs border rounded px-2 w-24"
+                            >
+                              <option value="all">All Status</option>
+                              <option value="available">Available</option>
+                              <option value="limited">Limited</option>
+                              <option value="full">Full</option>
+                            </select>
+                          </div>
+                          
+                          {/* Center: Sort Controls */}
+                          <div className="flex items-center gap-1 justify-center flex-wrap">
+                            <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                              Sort by:
+                            </Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDaySortConfig({ 
+                                key: 'date', 
+                                direction: daySortConfig.key === 'date' && daySortConfig.direction === 'asc' ? 'desc' : 'asc'
+                              })}
+                              className="h-8 text-xs px-2 flex items-center gap-1"
+                            >
+                              Date {daySortConfig.key === 'date' && (daySortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDaySortConfig({ 
+                                key: 'day', 
+                                direction: daySortConfig.key === 'day' && daySortConfig.direction === 'asc' ? 'desc' : 'asc'
+                              })}
+                              className="h-8 text-xs px-2 flex items-center gap-1"
+                            >
+                              Day {daySortConfig.key === 'day' && (daySortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDaySortConfig({ 
+                                key: 'available', 
+                                direction: daySortConfig.key === 'available' && daySortConfig.direction === 'asc' ? 'desc' : 'asc'
+                              })}
+                              className="h-8 text-xs px-2 flex items-center gap-1"
+                            >
+                              Slots {daySortConfig.key === 'available' && (daySortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDaySortConfig({ 
+                                key: 'capacity', 
+                                direction: daySortConfig.key === 'capacity' && daySortConfig.direction === 'asc' ? 'desc' : 'asc'
+                              })}
+                              className="h-8 text-xs px-2 flex items-center gap-1"
+                            >
+                              Capacity {daySortConfig.key === 'capacity' && (daySortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </Button>
+                          </div>
+                          
+                          {/* Right: Pagination Controls */}
+                          <div className="flex items-center gap-2 justify-end">
+                            <Label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                              Show:
+                            </Label>
+                            <select 
+                              value={dayPagination.perPage} 
+                              onChange={(e) => setDayPagination({...dayPagination, perPage: parseInt(e.target.value), page: 1})}
+                              className="h-8 text-xs border rounded px-2 py-1 w-16"
+                            >
+                              <option value={10}>10</option>
+                              <option value={20}>20</option>
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                            </select>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDayPagination({...dayPagination, page: Math.max(1, dayPagination.page - 1)})}
+                                disabled={dayPagination.page === 1}
+                                className="h-8 w-8 text-xs p-0"
+                              >
+                                ‹
+                              </Button>
+                              <span className="text-xs text-slate-600 px-2">
+                                {dayPagination.page}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDayPagination({...dayPagination, page: dayPagination.page + 1})}
+                                className="h-8 w-8 text-xs p-0"
+                              >
+                                ›
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   </TableHeader>
 
@@ -1485,39 +1765,173 @@ const Services = ({ services_ }) => {
                             {getStatusBadge(service.status)}
                           </TableCell>
                               <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                            {service?.servicedays?.map((day, i) => {
-                                // Use the day-level availability data from backend
-                                const totalMaxSlots = day.total_slots_for_day || day.slot_capacity || 5;
-                                const totalAvailableSlots = day.available_slots_for_day || 0;
-                                const totalBookedSlots = day.booked_appointments_for_day || 0;
-                                
-                                // Determine badge color based on real-time availability (same logic as patient calendar)
-                                let badgeClass = "bg-blue-100 text-blue-700 border-blue-200"; // Default
-                                
-                                if (totalAvailableSlots === 0) {
-                                    badgeClass = "bg-red-100 text-red-700 border-red-200"; // Full (0 slots) - RED
-                                } else if (totalAvailableSlots <= 2) {
-                                    badgeClass = "bg-orange-100 text-orange-700 border-orange-200"; // Limited (1-2 slots) - ORANGE
-                                } else if (totalAvailableSlots <= 5) {
-                                    badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200"; // Moderate (3-5 slots) - YELLOW
-                                } else {
-                                    badgeClass = "bg-green-100 text-green-700 border-green-200"; // Available (6+ slots) - GREEN
-                                }
-                                
-                                return (
-                                    <Badge key={i} variant="secondary" className={badgeClass}>
-                                        <div className="flex items-center gap-1">
-                                            <span>{day.day}</span>
-                                            <span className="text-xs font-bold">
-                                                ({totalAvailableSlots}/{totalMaxSlots})
-                                            </span>
-                                        </div>
-                                    </Badge>
-                                );
-                            })}
-                                </div>
-                          </TableCell>
+                                {(() => {
+                                  // If service is inactive/archived, don't show available days
+                                  if (service.status === 0) {
+                                    return (
+                                      <span className="text-xs text-gray-400 italic">
+                                        N/A (Service Inactive)
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  // Collect all day badges for this service
+                                  let allDayBadges = [];
+                                  
+                                  service?.servicedays?.forEach((day, i) => {
+                                    // Only show days that have specific dates from month configurations
+                                    // Skip global servicedays without date_specific_availability
+                                    if (day.date_specific_availability && day.date_specific_availability.length > 0) {
+                                      // Show individual dates instead of grouping by month
+                                      day.date_specific_availability.forEach((dateData, dateIndex) => {
+                                        const date = new Date(dateData.date);
+                                        const dateKey = `${i}-${dateIndex}-${dateData.date}`;
+                                        
+                                        allDayBadges.push({
+                                          day: day.day,
+                                          date: dateData.date,
+                                          dateIndex: dateIndex,
+                                          key: dateKey,
+                                          totalMaxSlots: dateData.total_slots || 0,
+                                          totalAvailableSlots: dateData.available_slots || 0,
+                                          dateData: dateData,
+                                          isDateSpecific: true,
+                                          dateFormatted: date.toLocaleDateString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric', 
+                                            year: 'numeric' 
+                                          }),
+                                          bookedSlots: dateData.booked_slots || 0
+                                        });
+                                      });
+                                    }
+                                    // Removed the else-if block that was showing global servicedays
+                                    // Only month-specific days with dates should be displayed
+                                  });
+
+                                  // Filter
+                                  let filteredBadges = allDayBadges.filter(badge => {
+                                    // Filter by day name search
+                                    if (dayFilterText && !badge.day.toLowerCase().includes(dayFilterText.toLowerCase())) {
+                                      return false;
+                                    }
+                                    // Filter by specific date
+                                    if (dayFilterDate && badge.date && !badge.date.includes(dayFilterDate)) {
+                                      return false;
+                                    }
+                                    // Filter by month
+                                    if (dayFilterMonth !== 'all' && badge.date) {
+                                      const badgeMonth = new Date(badge.date).getMonth() + 1;
+                                      if (parseInt(dayFilterMonth) !== badgeMonth) {
+                                        return false;
+                                      }
+                                    }
+                                    // Filter by year
+                                    if (dayFilterYear !== 'all' && badge.date) {
+                                      const badgeYear = new Date(badge.date).getFullYear().toString();
+                                      if (dayFilterYear !== badgeYear) {
+                                        return false;
+                                      }
+                                    }
+                                    // Filter by availability status
+                                    if (dayFilterStatus !== 'all') {
+                                      const available = badge.totalAvailableSlots;
+                                      if (dayFilterStatus === 'available' && (available === 0 || available <= 2)) {
+                                        return false;
+                                      }
+                                      if (dayFilterStatus === 'limited' && available !== 0 && available > 2) {
+                                        return false;
+                                      }
+                                      if (dayFilterStatus === 'full' && available > 0) {
+                                        return false;
+                                      }
+                                    }
+                                    return true;
+                                  });
+
+                                  // Sort
+                                  if (daySortConfig.key) {
+                                    filteredBadges.sort((a, b) => {
+                                      if (daySortConfig.key === 'day') {
+                                        return daySortConfig.direction === 'asc' 
+                                          ? a.day.localeCompare(b.day)
+                                          : b.day.localeCompare(a.day);
+                                      }
+                                      if (daySortConfig.key === 'date') {
+                                        const dateA = a.date ? new Date(a.date).getTime() : 0;
+                                        const dateB = b.date ? new Date(b.date).getTime() : 0;
+                                        return daySortConfig.direction === 'asc'
+                                          ? dateA - dateB
+                                          : dateB - dateA;
+                                      }
+                                      if (daySortConfig.key === 'available') {
+                                        return daySortConfig.direction === 'asc'
+                                          ? a.totalAvailableSlots - b.totalAvailableSlots
+                                          : b.totalAvailableSlots - a.totalAvailableSlots;
+                                      }
+                                      if (daySortConfig.key === 'capacity') {
+                                        return daySortConfig.direction === 'asc'
+                                          ? a.totalMaxSlots - b.totalMaxSlots
+                                          : b.totalMaxSlots - a.totalMaxSlots;
+                                      }
+                                      return 0;
+                                    });
+                                  }
+
+                                  // Paginate
+                                  const startIdx = (dayPagination.page - 1) * dayPagination.perPage;
+                                  const endIdx = startIdx + dayPagination.perPage;
+                                  const paginatedBadges = filteredBadges.slice(startIdx, endIdx);
+                                  const totalPages = Math.ceil(filteredBadges.length / dayPagination.perPage);
+
+                                    return (
+                                      <div className="space-y-2">
+                                        {/* Badge Grid */}
+                                        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                                        {paginatedBadges.map((badge) => {
+                                          // Determine badge color based on real-time availability
+                                          let badgeClass = "bg-blue-100 text-blue-700 border-blue-200"; // Default
+                                          
+                                          if (badge.totalAvailableSlots === 0) {
+                                            badgeClass = "bg-red-100 text-red-700 border-red-200"; // Full (0 slots) - RED
+                                          } else if (badge.totalAvailableSlots <= 2) {
+                                            badgeClass = "bg-orange-100 text-orange-700 border-orange-200"; // Limited (1-2 slots) - ORANGE
+                                          } else if (badge.totalAvailableSlots <= 5) {
+                                            badgeClass = "bg-yellow-100 text-yellow-700 border-yellow-200"; // Moderate (3-5 slots) - YELLOW
+                                          } else {
+                                            badgeClass = "bg-green-100 text-green-700 border-green-200"; // Available (6+ slots) - GREEN
+                                          }
+                                          
+                                          return (
+                                            <Badge 
+                                              key={badge.key} 
+                                              variant="secondary" 
+                                              className={badgeClass}
+                                              title={badge.isDateSpecific ? badge.dateFormatted : `${badge.day} - ${badge.totalAvailableSlots}/${badge.totalMaxSlots} slots`}
+                                            >
+                                              <div className="flex items-center gap-1 flex-wrap">
+                                                <span className="text-xs font-semibold">{badge.day}</span>
+                                                {badge.dateFormatted && (
+                                                  <span className="text-[10px] text-gray-600 font-medium">{badge.dateFormatted}</span>
+                                                )}
+                                                <span className="text-xs font-bold">
+                                                  {badge.totalAvailableSlots}/{badge.totalMaxSlots}
+                                                </span>
+                                              </div>
+                                            </Badge>
+                                          );
+                                        })}
+                                      </div>
+                                      {/* Show total count if there are more badges */}
+                                      {filteredBadges.length > dayPagination.perPage && (
+                                        <p className="text-xs text-gray-500">
+                                          Showing {startIdx + 1}-{Math.min(endIdx, filteredBadges.length)} of {filteredBadges.length}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </TableCell>
                           <TableCell>
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="border-gray-300">
@@ -1598,6 +2012,126 @@ const Services = ({ services_ }) => {
                                     {service.subservices.length > 0 ? (
                                       <div className="bg-white rounded-lg border overflow-hidden">
                                         <Table>
+                                          {/* Filter Row - Above the Header Row */}
+                                          {service?.subservices?.[0]?.time_slots && service.subservices[0].time_slots.length > 0 && (
+                                            <TableHeader>
+                                              <TableRow className="bg-blue-50 border-b-2 border-blue-200">
+                                                <TableCell colSpan={1} className="py-2"></TableCell>
+                                                <TableCell colSpan={2} className="py-2">
+                                                  <div className="flex items-center gap-3 flex-wrap">
+                                                    {/* Day Filter */}
+                                                    <div className="flex items-center gap-2">
+                                                      <Label className="text-xs font-semibold text-gray-700">Day:</Label>
+                                                      <Select
+                                                        value={selectedDayFilter}
+                                                        onValueChange={(value) => {
+                                                          setSelectedDayFilter(value);
+                                                          setTimeSlotsPage(1);
+                                                        }}
+                                                      >
+                                                        <SelectTrigger className="w-32 h-8 text-xs">
+                                                          <SelectValue placeholder="All" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                          <SelectItem value="all">All Days</SelectItem>
+                                                          {getAvailableDays(service?.subservices?.[0]).map((day) => (
+                                                            <SelectItem key={day} value={day}>
+                                                              {day}
+                                                            </SelectItem>
+                                                          ))}
+                                                        </SelectContent>
+                                                      </Select>
+                                                    </div>
+                                                    
+                                                    {/* Month Filter */}
+                                                    <div className="flex items-center gap-2">
+                                                      <Label className="text-xs font-semibold text-gray-700">Month:</Label>
+                                                      <select
+                                                        value={timeSlotFilterMonth}
+                                                        onChange={(e) => {
+                                                          setTimeSlotFilterMonth(e.target.value);
+                                                          setTimeSlotsPage(1);
+                                                        }}
+                                                        className="h-8 text-xs border rounded px-2 w-20"
+                                                      >
+                                                        <option value="all">All</option>
+                                                        <option value="1">Jan</option>
+                                                        <option value="2">Feb</option>
+                                                        <option value="3">Mar</option>
+                                                        <option value="4">Apr</option>
+                                                        <option value="5">May</option>
+                                                        <option value="6">Jun</option>
+                                                        <option value="7">Jul</option>
+                                                        <option value="8">Aug</option>
+                                                        <option value="9">Sep</option>
+                                                        <option value="10">Oct</option>
+                                                        <option value="11">Nov</option>
+                                                        <option value="12">Dec</option>
+                                                      </select>
+                                                    </div>
+                                                    
+                                                    {/* Year Filter */}
+                                                    <div className="flex items-center gap-2">
+                                                      <Label className="text-xs font-semibold text-gray-700">Year:</Label>
+                                                      <select
+                                                        value={timeSlotFilterYear}
+                                                        onChange={(e) => {
+                                                          setTimeSlotFilterYear(e.target.value);
+                                                          setTimeSlotsPage(1);
+                                                        }}
+                                                        className="h-8 text-xs border rounded px-2 w-16"
+                                                      >
+                                                        <option value="all">All</option>
+                                                        <option value="2024">2024</option>
+                                                        <option value="2025">2025</option>
+                                                        <option value="2026">2026</option>
+                                                        <option value="2027">2027</option>
+                                                        <option value="2028">2028</option>
+                                                      </select>
+                                                    </div>
+                                                    
+                                                    {/* Sort Buttons */}
+                                                    <div className="flex items-center gap-2 ml-auto">
+                                                      <Label className="text-xs font-semibold text-gray-700">Sort:</Label>
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setTimeSlotSortConfig({ 
+                                                          key: 'time', 
+                                                          direction: timeSlotSortConfig.key === 'time' && timeSlotSortConfig.direction === 'asc' ? 'desc' : 'asc'
+                                                        })}
+                                                        className="h-7 text-xs px-2"
+                                                      >
+                                                        Time {timeSlotSortConfig.key === 'time' && (timeSlotSortConfig.direction === 'asc' ? '↑' : '↓')}
+                                                      </Button>
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setTimeSlotSortConfig({ 
+                                                          key: 'date', 
+                                                          direction: timeSlotSortConfig.key === 'date' && timeSlotSortConfig.direction === 'asc' ? 'desc' : 'asc'
+                                                        })}
+                                                        className="h-7 text-xs px-2"
+                                                      >
+                                                        Date {timeSlotSortConfig.key === 'date' && (timeSlotSortConfig.direction === 'asc' ? '↑' : '↓')}
+                                                      </Button>
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setTimeSlotSortConfig({ 
+                                                          key: 'availability', 
+                                                          direction: timeSlotSortConfig.key === 'availability' && timeSlotSortConfig.direction === 'asc' ? 'desc' : 'asc'
+                                                        })}
+                                                        className="h-7 text-xs px-2"
+                                                      >
+                                                        Slots {timeSlotSortConfig.key === 'availability' && (timeSlotSortConfig.direction === 'asc' ? '↑' : '↓')}
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                </TableCell>
+                                              </TableRow>
+                                            </TableHeader>
+                                          )}
                                           <TableHeader>
                                             <TableRow className="bg-gray-50">
                                               <SortableTableHead className="font-medium w-1/3">Sub Service</SortableTableHead>
@@ -1633,29 +2167,6 @@ const Services = ({ services_ }) => {
                                                 </TableCell>
                                                 <TableCell className="py-4 align-middle">
                                                   <div className="space-y-3">
-                                                    {/* Day Filter Dropdown */}
-                                                    {subservice?.time_slots && subservice.time_slots.length > 0 && (
-                                                      <div className="flex items-center gap-2 mb-3">
-                                                        <Label className="text-sm font-medium text-gray-600">Filter by Day:</Label>
-                                                        <Select
-                                                          value={selectedDayFilter}
-                                                          onValueChange={setSelectedDayFilter}
-                                                        >
-                                                          <SelectTrigger className="w-40 h-8 text-sm">
-                                                            <SelectValue placeholder="Select day" />
-                                                          </SelectTrigger>
-                                                          <SelectContent>
-                                                            <SelectItem value="all">All Days</SelectItem>
-                                                            {getAvailableDays(subservice).map((day) => (
-                                                              <SelectItem key={day} value={day}>
-                                                                {day}
-                                                              </SelectItem>
-                                                            ))}
-                                                          </SelectContent>
-                                                        </Select>
-                                                      </div>
-                                                    )}
-                                                    
                                                     {/* Time Slots Display */}
                                                     <div className="flex flex-wrap gap-3 items-center h-full">
                                                       {getPaginatedTimeSlots(subservice).length > 0 ? (
@@ -1712,15 +2223,27 @@ const Services = ({ services_ }) => {
                                                                         : "text-green-600"
                                                                 }`} />
                                                               </div>
-                                                              <span className="text-sm font-semibold text-gray-800">
-                                                                {moment(timeSlot.time, "HH:mm:ss").format("hh:mm A")}
-                                                              </span>
-                                                              {timeSlot.day && (
-                                                                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                                                  {timeSlot.day}
+                                                              <div className="flex flex-col items-center gap-1">
+                                                                <span className="text-sm font-semibold text-gray-800">
+                                                                  {moment(timeSlot.time, "HH:mm:ss").format("hh:mm A")}
                                                                 </span>
-                                                              )}
-                                                            </div>
+                                                                {timeSlot.date_formatted && (
+                                                                  <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-medium">
+                                                                    {timeSlot.date_formatted}
+                                                                  </span>
+                                                                )}
+                                                                {!timeSlot.date_formatted && timeSlot.specific_date && (
+                                                                  <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-medium">
+                                                                    {moment(timeSlot.specific_date).format("MMM D, YYYY")}
+                                                                  </span>
+                                                                )}
+                                                                {!timeSlot.date_formatted && !timeSlot.specific_date && timeSlot.day && (
+                                                                  <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                                                    {timeSlot.day}
+                                                                  </span>
+                                                                )}
+                                                              </div>
+                                                            </div>in
                                                             
                                                             <div className="flex items-center space-x-2">
                                                               <div className={`px-2 py-1 rounded-full text-xs font-bold ${
@@ -1780,7 +2303,7 @@ const Services = ({ services_ }) => {
                                                     </div>
                                                     
                                                     {/* Pagination Controls */}
-                                                    {selectedDayFilter === 'all' && getTimeSlotsTotalPages(subservice) > 1 && (
+                                                    {getTimeSlotsTotalPages(subservice) > 1 && (
                                                       <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
                                                         <div className="text-sm text-gray-600">
                                                           Showing {((timeSlotsPage - 1) * timeSlotsPerPage) + 1} to {Math.min(timeSlotsPage * timeSlotsPerPage, getFilteredTimeSlots(subservice).length)} of {getFilteredTimeSlots(subservice).length} time slots
@@ -2201,12 +2724,36 @@ const Services = ({ services_ }) => {
                                 onOpenChange={(open) => {
                                   setIsEditDaysOpen(open);
                                   if (open && selectedService) {
-            setDataDays("days", selectedService?.servicedays?.map((sub) => sub.day) || []);
+            const days = selectedService?.servicedays?.map((sub) => sub.day) || [];
+            const daySlots = {};
+            
+            // Extract slot capacities for each day
+            selectedService?.servicedays?.forEach((day) => {
+              daySlots[day.day] = day.slot_capacity || 20;
+            });
+            
+            // Also load month-specific configurations
+            if (selectedService?.month_configurations && selectedService.month_configurations.length > 0) {
+              selectedService.month_configurations.forEach((config) => {
+                if (config.day_configurations) {
+                  Object.keys(config.day_configurations).forEach((day) => {
+                    if (!days.includes(day)) {
+                      days.push(day);
+                    }
+                    daySlots[day] = config.day_configurations[day].slot_capacity || 20;
+                  });
+                }
+              });
+            }
+            
+            setDataDays("days", days);
             setDataDays("serviceid", selectedService?.id);
+            setDataDays("daySlots", daySlots);
           } else if (!open) {
             // Reset form when closing
             setDataDays("days", []);
             setDataDays("serviceid", "");
+            setDataDays("daySlots", {});
           }
         }}
       >
@@ -2225,90 +2772,197 @@ const Services = ({ services_ }) => {
             </div>
           </DialogHeader>
           <div className="grid gap-6 py-4">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-green-600" />
-                <Label className="text-base font-semibold">Available Days</Label>
+            {/* Main Recurring Day Management Section - Now the Primary Interface */}
+            <div className="bg-purple-50 rounded-lg p-6 border-2 border-purple-300">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-2 bg-purple-600 rounded-lg">
+                  <Calendar className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-purple-900">Manage Specific Month Days</h3>
+                  <p className="text-sm text-purple-600">
+                    Configure all occurrences of a specific day (e.g., all Mondays) within a month
+                  </p>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              {/* Quick Action Buttons */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
                 {days_.map((day) => (
-                  <div key={day} className="space-y-2">
-                    <Badge
-                      className={`cursor-pointer transition-colors text-center py-2 px-4 w-full ${
-                        dataDays.days.includes(day)
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                      }`}
-                      onClick={() => handleRecurrenceDateChange(day)}
-                    >
-                      {day}
-                    </Badge>
-                    
-                    {/* Slot Capacity for Selected Days */}
-                    {dataDays.days.includes(day) && (
-                      <div className="bg-blue-50 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-blue-800">{day} Slot Capacity</span>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm text-gray-600">Max Slots:</span>
-                          <Input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={dataDays.daySlots[day] || 20}
-                            onChange={(e) => updateDaySlots(day, e.target.value)}
-                            className="w-20 h-8 text-center text-sm border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 rounded"
-                          />
-                          <span className="text-xs text-gray-500">slots</span>
-                        </div>
-                        
-                        {/* Slot Availability Legend for this day */}
-                        <div className="bg-white rounded p-2 text-xs">
-                          <div className="text-gray-600 mb-1">Availability Status:</div>
-                          <div className="flex items-center space-x-2">
-                            {(() => {
-                              const slotCapacity = dataDays.daySlots[day] || 5;
-                              let status, color, icon;
-                              
-                              if (slotCapacity === 0) {
-                                status = 'Full (0 slots)';
-                                color = 'bg-red-500';
-                                icon = '✗';
-                              } else if (slotCapacity <= 2) {
-                                status = 'Limited (1-2 slots)';
-                                color = 'bg-orange-500';
-                                icon = '!';
-                              } else if (slotCapacity <= 5) {
-                                status = 'Moderate (3-5 slots)';
-                                color = 'bg-yellow-500';
-                                icon = '!';
-                              } else {
-                                status = 'Available (6+ slots)';
-                                color = 'bg-green-500';
-                                icon = '✓';
-                              }
-                              
-                              return (
-                                <>
-                                  <div className={`w-3 h-3 rounded-full ${color} flex items-center justify-center`}>
-                                    <span className="text-white text-xs font-bold">{icon}</span>
-                                  </div>
-                                  <span className="text-gray-600">{status}</span>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <Button
+                    key={day}
+                    variant="outline"
+                    onClick={() => {
+                      setRecurringDayConfig({...recurringDayConfig, day});
+                      setShowRecurringDayModal(true);
+                    }}
+                    className="h-auto py-3 border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
+                  >
+                    <div className="flex flex-col items-center space-y-1">
+                      <span className="font-semibold">{day}</span>
+                      <span className="text-xs text-purple-500">Click to configure</span>
+                    </div>
+                  </Button>
                 ))}
               </div>
+
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => setShowRecurringDayModal(true)}
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100"
+              >
+                <Calendar className="h-5 w-5 mr-2" />
+                Configure Days Manually
+              </Button>
             </div>
-            
+
+            {/* Show Currently Configured Days - Only Month-Specific Configurations */}
+            {selectedService?.month_configurations && selectedService.month_configurations.length > 0 && (
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Currently Configured Days (Month-Specific)
+                </h4>
+                <p className="text-xs text-green-600 mb-3">These configurations apply to specific months only</p>
+                <div className="space-y-3">
+                  {selectedService.month_configurations.map((config, index) => {
+                    const monthName = new Date(config.year, config.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    return (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-green-300">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-green-800">{monthName}</span>
+                          <button
+                            onClick={async () => {
+                              // Remove this month configuration
+                              try {
+                                const response = await axios.delete(`/admin/services/month-days/${config.id}`);
+                                console.log('Delete response:', response.data);
+                                
+                                if (response.data.success) {
+                                  // Update the selectedService state immediately to reflect the deletion
+                                  setSelectedService(prev => {
+                                    if (!prev) return prev;
+                                    
+                                    const updatedMonthConfigs = prev.month_configurations?.filter(
+                                      mc => mc.id !== config.id
+                                    ) || [];
+                                    
+                                    return {
+                                      ...prev,
+                                      month_configurations: updatedMonthConfigs
+                                    };
+                                  });
+                                  
+                                  showToast("Success", `Removed configuration for ${monthName}`, "success");
+                                  
+                                  // Reload in the background to sync with database
+                                  router.reload({ only: ['services_'] });
+                                } else {
+                                  showToast("Error", response.data.message || "Failed to remove configuration", "error");
+                                }
+                              } catch (error) {
+                                console.error('Error removing month configuration:', error);
+                                const errorMessage = error.response?.data?.message || error.message || "Failed to remove configuration";
+                                showToast("Error", errorMessage, "error");
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                            title="Remove this month configuration"
+                          >
+                            <Cross2Icon className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(config.day_configurations || {}).map(([day, dayConfig]) => (
+                            <div key={day} className="bg-green-50 rounded px-2 py-1 border border-green-200 flex items-center gap-1 group">
+                              <span className="text-xs font-medium text-green-700">{day}</span>
+                              <span className="text-xs text-green-600">
+                                ({dayConfig.slot_capacity || 20} slots)
+                              </span>
+                              <button
+                                onClick={async () => {
+                                  // Remove this specific day from the month configuration
+                                  try {
+                                    // Create updated day configurations without this day
+                                    const updatedConfigs = { ...config.day_configurations };
+                                    delete updatedConfigs[day];
+                                    
+                                    // If no days left, remove the entire month configuration
+                                    if (Object.keys(updatedConfigs).length === 0) {
+                                      const response = await axios.delete(`/admin/services/month-days/${config.id}`);
+                                      if (response.data.success) {
+                                        setSelectedService(prev => {
+                                          if (!prev) return prev;
+                                          const updatedMonthConfigs = prev.month_configurations?.filter(
+                                            mc => mc.id !== config.id
+                                          ) || [];
+                                          return {
+                                            ...prev,
+                                            month_configurations: updatedMonthConfigs
+                                          };
+                                        });
+                                        showToast("Success", `Removed ${day} from ${monthName}`, "success");
+                                        router.reload({ only: ['services_'] });
+                                      }
+                                    } else {
+                                      // Update the month configuration to remove this day
+                                      const response = await axios.put(`/admin/services/month-days/${config.id}`, {
+                                        day_configurations: updatedConfigs
+                                      }, {
+                                        headers: {
+                                          'Content-Type': 'application/json'
+                                        }
+                                      });
+                                      
+                                      if (response.data.success) {
+                                        // Update local state
+                                        setSelectedService(prev => {
+                                          if (!prev) return prev;
+                                          const updatedMonthConfigs = prev.month_configurations?.map(mc => {
+                                            if (mc.id === config.id) {
+                                              return {
+                                                ...mc,
+                                                day_configurations: updatedConfigs
+                                              };
+                                            }
+                                            return mc;
+                                          });
+                                          return {
+                                            ...prev,
+                                            month_configurations: updatedMonthConfigs
+                                          };
+                                        });
+                                        
+                                        showToast("Success", `Removed ${day} from ${monthName}`, "success");
+                                        
+                                        // Reload in the background
+                                        router.reload({ only: ['services_'] });
+                                      } else {
+                                        showToast("Error", response.data.message || "Failed to remove day", "error");
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error('Error removing day:', error);
+                                    const errorMessage = error.response?.data?.message || error.message || "Failed to remove day";
+                                    showToast("Error", errorMessage, "error");
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Remove this day"
+                              >
+                                <Cross2Icon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {Object.keys(errorsDays).length > 0 && (
               <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
                 <div className="flex items-start">
@@ -2322,7 +2976,7 @@ const Services = ({ services_ }) => {
               </div>
             )}
           </div>
-            
+          
           {/* Summary */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-gray-800 mb-2">Summary</h4>
@@ -2331,13 +2985,365 @@ const Services = ({ services_ }) => {
               <div>Average Slots per Day: {dataDays.days.length > 0 ? Math.round(Object.values(dataDays.daySlots).reduce((sum, slots) => sum + (slots || 0), 0) / dataDays.days.length) : 0}</div>
             </div>
           </div>
-        <DialogFooter className="flex justify-center pt-6 border-t border-gray-200">
+
+        <DialogFooter className="flex flex-col gap-3 border-t border-gray-200 pt-6">
+          {dataDays.days && dataDays.days.length > 0 && (
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded w-full">
+              <p className="text-sm text-blue-700">
+                <strong>Note:</strong> Click "Save Days & Slots" to persist these changes to the database. 
+                The patient calendar will update only after you save.
+              </p>
+            </div>
+          )}
           <Button
             onClick={saveDays}
-            disabled={processDays}
-            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-8"
+            disabled={processDays || !dataDays.days || dataDays.days.length === 0}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 px-8 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {processDays ? "Saving..." : "Save Days & Slots"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Recurring Day Management Modal */}
+    <Dialog open={showRecurringDayModal} onOpenChange={setShowRecurringDayModal}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                Manage Recurring Days for {selectedService?.servicename || 'Service'}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 mt-1">
+                Configure all occurrences of a specific day within a month (e.g., all Mondays in November 2025). 
+                This configuration will ONLY apply to the selected month.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          {/* Day Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="recurringDay" className="text-sm font-semibold">Select Day of Week</Label>
+            <select
+              id="recurringDay"
+              value={recurringDayConfig.day}
+              onChange={(e) => setRecurringDayConfig({...recurringDayConfig, day: e.target.value})}
+              className="w-full border-2 border-gray-300 rounded-lg p-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+            >
+              <option value="">-- Select Day --</option>
+              {days_.map((day) => (
+                <option key={day} value={day}>{day}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Month & Year Selection */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="recurringMonth" className="text-sm font-semibold">Month</Label>
+              <select
+                id="recurringMonth"
+                value={recurringDayConfig.month}
+                onChange={(e) => setRecurringDayConfig({...recurringDayConfig, month: parseInt(e.target.value)})}
+                className="w-full border-2 border-gray-300 rounded-lg p-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+              >
+                {[
+                  'January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'
+                ].map((month, index) => (
+                  <option key={index} value={index + 1}>{month}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recurringYear" className="text-sm font-semibold">Year</Label>
+              <select
+                id="recurringYear"
+                value={recurringDayConfig.year}
+                onChange={(e) => setRecurringDayConfig({...recurringDayConfig, year: parseInt(e.target.value)})}
+                className="w-full border-2 border-gray-300 rounded-lg p-2 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+              >
+                {Array.from({length: 5}, (_, i) => new Date().getFullYear() + i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Slot Capacity */}
+          <div className="space-y-2">
+            <Label htmlFor="recurringSlots" className="text-sm font-semibold">Slot Capacity</Label>
+            <div className="flex items-center space-x-2">
+              <Users className="h-5 w-5 text-purple-600" />
+              <Input
+                id="recurringSlots"
+                type="number"
+                min="1"
+                max="100"
+                value={recurringDayConfig.slotCapacity}
+                onChange={(e) => setRecurringDayConfig({...recurringDayConfig, slotCapacity: parseInt(e.target.value)})}
+                className="flex-1 border-2 border-gray-300 focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+              />
+              <span className="text-sm text-gray-600">slots per occurrence</span>
+            </div>
+          </div>
+
+          {/* Preview */}
+          {recurringDayConfig.day && (
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+              <h5 className="text-sm font-semibold text-purple-800 mb-2">Preview</h5>
+              <p className="text-xs text-purple-600">
+                This will configure all occurrences of <strong>{recurringDayConfig.day}</strong> in{' '}
+                {new Date(recurringDayConfig.year, recurringDayConfig.month - 1).toLocaleDateString('en-US', {
+                  month: 'long',
+                  year: 'numeric'
+                })}.
+              </p>
+              <p className="text-xs text-purple-700 mt-2">
+                <strong>Note:</strong> This configures ALL dates of that day in the month. For example, all Mondays in November = 5 dates total.
+              </p>
+            </div>
+          )}
+
+          {/* Date Validation */}
+          {(() => {
+            if (!recurringDayConfig.day) return null;
+            
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1; // 1-indexed
+            const currentDay = now.getDate();
+            
+            // Check if selected date is in the past
+            const isPastMonth = recurringDayConfig.year < currentYear || 
+                                (recurringDayConfig.year === currentYear && recurringDayConfig.month < currentMonth);
+            
+            // If it's the current month, check if all occurrences have passed
+            let allOccurrencesPassed = false;
+            if (recurringDayConfig.year === currentYear && recurringDayConfig.month === currentMonth) {
+              const dayIndex = days_.indexOf(recurringDayConfig.day);
+              const date = new Date(recurringDayConfig.year, recurringDayConfig.month - 1, 1);
+              
+              // Find first occurrence
+              while (date.getDay() !== dayIndex) {
+                date.setDate(date.getDate() + 1);
+              }
+              
+              // Check if all occurrences are in the past
+              const lastOccurrenceDate = new Date(date);
+              while (lastOccurrenceDate.getMonth() === recurringDayConfig.month - 1) {
+                lastOccurrenceDate.setDate(lastOccurrenceDate.getDate() + 7);
+              }
+              lastOccurrenceDate.setDate(lastOccurrenceDate.getDate() - 7);
+              
+              allOccurrencesPassed = lastOccurrenceDate < now;
+            }
+            
+            return (isPastMonth || allOccurrencesPassed) && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-md">
+                <div className="flex items-start">
+                  <Cross2Icon className="h-5 w-5 text-red-400 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-red-800 font-semibold">Invalid Date Selection</p>
+                    <p className="text-xs text-red-600 mt-1">
+                      {isPastMonth 
+                        ? 'Cannot configure days for months that have already passed.'
+                        : 'All occurrences of this day in this month have already passed.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowRecurringDayModal(false);
+              setRecurringDayConfig({
+                day: '',
+                year: new Date().getFullYear(),
+                month: new Date().getMonth() + 1,
+                slotCapacity: 20
+              });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={async () => {
+              // Calculate all dates for the selected day in the month
+              if (!recurringDayConfig.day || !dataDays.serviceid) {
+                showToast("Error", "Please select a day", "error");
+                return;
+              }
+
+              // Check for past dates
+              const now = new Date();
+              const currentYear = now.getFullYear();
+              const currentMonth = now.getMonth() + 1;
+              const isPastMonth = recurringDayConfig.year < currentYear || 
+                                  (recurringDayConfig.year === currentYear && recurringDayConfig.month < currentMonth);
+              
+              if (isPastMonth) {
+                showToast("Error", "Cannot configure days for months that have already passed", "error");
+                return;
+              }
+
+              try {
+                // Generate all dates for this day in the selected month
+                const dates = [];
+                const date = new Date(recurringDayConfig.year, recurringDayConfig.month - 1, 1);
+                
+                // Find first occurrence of selected day
+                const dayIndex = days_.indexOf(recurringDayConfig.day);
+                while (date.getDay() !== dayIndex) {
+                  date.setDate(date.getDate() + 1);
+                }
+
+                // Collect all occurrences in the month
+                while (date.getMonth() === recurringDayConfig.month - 1) {
+                  dates.push(date.toISOString().split('T')[0]);
+                  date.setDate(date.getDate() + 7);
+                }
+
+                // Save month-specific configuration to backend
+                await axios.post('/admin/services/month-days/update', {
+                  service_id: dataDays.serviceid,
+                  year: recurringDayConfig.year,
+                  month: recurringDayConfig.month,
+                  day: recurringDayConfig.day,
+                  dates: dates,
+                  slot_capacity: recurringDayConfig.slotCapacity
+                });
+
+                // Update the dataDays state to reflect the new configuration
+                // Add the day to the days list if not already there
+                const updatedDays = dataDays.days.includes(recurringDayConfig.day) 
+                  ? dataDays.days 
+                  : [...dataDays.days, recurringDayConfig.day];
+                
+                // Update the slot capacity for this day
+                const updatedDaySlots = {
+                  ...dataDays.daySlots,
+                  [recurringDayConfig.day]: recurringDayConfig.slotCapacity
+                };
+
+                setDataDays("days", updatedDays);
+                setDataDays("daySlots", updatedDaySlots);
+
+                // Update selectedService with the new month configuration IMMEDIATELY
+                setSelectedService(prev => {
+                  if (!prev) return prev;
+                  
+                  // Create the new configuration object
+                  const newDayConfig = {
+                    slot_capacity: recurringDayConfig.slotCapacity,
+                    dates: dates,
+                    updated_at: new Date().toISOString()
+                  };
+                  
+                  // Find existing month configuration
+                  const existingMonthConfig = prev.month_configurations?.find(
+                    mc => mc.year === recurringDayConfig.year && mc.month === recurringDayConfig.month
+                  );
+                  
+                  if (existingMonthConfig) {
+                    // Update existing configuration
+                    const updatedMonthConfigs = prev.month_configurations.map(mc => {
+                      if (mc.id === existingMonthConfig.id) {
+                        const updatedDayConfigs = {
+                          ...mc.day_configurations,
+                          [recurringDayConfig.day]: newDayConfig
+                        };
+                        return {
+                          ...mc,
+                          day_configurations: updatedDayConfigs
+                        };
+                      }
+                      return mc;
+                    });
+                    
+                    return {
+                      ...prev,
+                      month_configurations: updatedMonthConfigs
+                    };
+                  } else {
+                    // Create new month configuration
+                    const newMonthConfig = {
+                      id: `temp_${Date.now()}`,
+                      service_id: prev.id,
+                      year: recurringDayConfig.year,
+                      month: recurringDayConfig.month,
+                      day_configurations: {
+                        [recurringDayConfig.day]: newDayConfig
+                      },
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString()
+                    };
+                    
+                    return {
+                      ...prev,
+                      month_configurations: [...(prev.month_configurations || []), newMonthConfig]
+                    };
+                  }
+                });
+
+                showToast("Success", `Configured ${dates.length} date${dates.length > 1 ? 's' : ''} of ${recurringDayConfig.day} in ${new Date(recurringDayConfig.year, recurringDayConfig.month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} with ${recurringDayConfig.slotCapacity} slots each`, "success");
+                setShowRecurringDayModal(false);
+                
+                // Reload to sync with database
+                router.reload({ only: ['services_'] });
+              } catch (error) {
+                console.error('Error saving month-specific days:', error);
+                showToast("Error", "Failed to save month-specific configuration", "error");
+              }
+            }}
+            disabled={(() => {
+              if (!recurringDayConfig.day) return true;
+              
+              const now = new Date();
+              const currentYear = now.getFullYear();
+              const currentMonth = now.getMonth() + 1;
+              
+              const isPastMonth = recurringDayConfig.year < currentYear || 
+                                  (recurringDayConfig.year === currentYear && recurringDayConfig.month < currentMonth);
+              
+              if (isPastMonth) return true;
+              
+              // Check if all occurrences have passed
+              if (recurringDayConfig.year === currentYear && recurringDayConfig.month === currentMonth) {
+                const dayIndex = days_.indexOf(recurringDayConfig.day);
+                const date = new Date(recurringDayConfig.year, recurringDayConfig.month - 1, 1);
+                
+                while (date.getDay() !== dayIndex) {
+                  date.setDate(date.getDate() + 1);
+                }
+                
+                const lastOccurrenceDate = new Date(date);
+                while (lastOccurrenceDate.getMonth() === recurringDayConfig.month - 1) {
+                  lastOccurrenceDate.setDate(lastOccurrenceDate.getDate() + 7);
+                }
+                lastOccurrenceDate.setDate(lastOccurrenceDate.getDate() - 7);
+                
+                return lastOccurrenceDate < now;
+              }
+              
+              return false;
+            })()}
+            className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Apply to All Occurrences
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2441,6 +3447,20 @@ const Services = ({ services_ }) => {
                     )}
                   </div>
                   
+                  {/* Info Note About Day Schedules */}
+                  {daySlotSchedules.length > 0 && (
+                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="text-xs text-blue-800">
+                          <p className="font-semibold mb-1">Day-of-Week Schedules (Recurring)</p>
+                          <p>These schedules apply to <strong>all occurrences</strong> of each day (e.g., every Monday, every Tuesday). They don't have specific dates.</p>
+                          <p className="mt-1">To configure specific dates with different times/slots, use the <strong>"Manage Specific Month Days"</strong> feature.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Configured Days Summary */}
                   {daySlotSchedules.length > 0 && (
                     <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -2504,37 +3524,96 @@ const Services = ({ services_ }) => {
                           </div>
                           
                           <div className="space-y-2">
-                            {schedule.timeSlots.map((slot, slotIndex) => (
-                              <div key={slotIndex} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors">
-                                <div className="flex items-center space-x-2 flex-1">
-                                  <Clock className="h-3 w-3 text-gray-500" />
-                                  <Input
-                                    type="time"
-                                    value={slot.time}
-                                    onChange={(e) => editTimeSlotInDaySchedule(index, slotIndex, 'time', e.target.value)}
-                                    className="h-8 text-sm border-0 bg-transparent p-0 font-medium text-gray-800 focus:ring-0 focus:border-green-500"
-                                  />
+                            {schedule.timeSlots.map((slot, slotIndex) => {
+                              // Get the dates for this day and month configuration
+                              const getDatesForDay = (dayName) => {
+                                const dates = [];
+                                const now = new Date();
+                                const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(dayName);
+                                
+                                // First, try to get dates from month-specific configurations
+                                const selectedServiceData = selectedService || services.find(s => s.id === selectedService?.id);
+                                if (selectedServiceData && selectedServiceData.month_configurations) {
+                                  selectedServiceData.month_configurations.forEach(config => {
+                                    const dayConfig = config.day_configurations?.[dayName];
+                                    if (dayConfig && dayConfig.dates) {
+                                      dayConfig.dates.forEach(date => {
+                                        const dateObj = new Date(date);
+                                        if (dateObj >= now) {
+                                          dates.push(dateObj);
+                                        }
+                                      });
+                                    }
+                                  });
+                                }
+                                
+                                // If we still don't have dates, generate next 4-8 future occurrences
+                                if (dates.length === 0) {
+                                  const currentDate = new Date();
+                                  while (currentDate.getDay() !== dayIndex) {
+                                    currentDate.setDate(currentDate.getDate() + 1);
+                                  }
+                                  // Get next 8 occurrences
+                                  for (let i = 0; i < 8; i++) {
+                                    dates.push(new Date(currentDate));
+                                    currentDate.setDate(currentDate.getDate() + 7);
+                                  }
+                                }
+                                
+                                return dates.sort((a, b) => a - b);
+                              };
+                              
+                              const dates = getDatesForDay(schedule.day);
+                              
+                              return (
+                                <div key={slotIndex} className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-green-300 transition-colors">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center space-x-2 flex-1">
+                                      <Clock className="h-3 w-3 text-gray-500" />
+                                      <Input
+                                        type="time"
+                                        value={slot.time}
+                                        onChange={(e) => editTimeSlotInDaySchedule(index, slotIndex, 'time', e.target.value)}
+                                        className="h-8 text-sm border-0 bg-transparent p-0 font-medium text-gray-800 focus:ring-0 focus:border-green-500 w-24"
+                                      />
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={slot.capacity}
+                                        onChange={(e) => editTimeSlotInDaySchedule(index, slotIndex, 'capacity', parseInt(e.target.value) || 1)}
+                                        className="w-16 h-6 text-xs text-center border-0 bg-blue-100 text-blue-800 rounded-full focus:ring-0 focus:border-blue-500"
+                                      />
+                                      <span className="text-xs text-gray-500">slots</span>
+                                      <button
+                                        onClick={() => removeTimeSlotFromExistingSchedule(index, slotIndex)}
+                                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        title="Remove time slot"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Show dates this slot applies to */}
+                                  <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-gray-200">
+                                    <span className="text-xs font-semibold text-gray-600">Applies to:</span>
+                                    {dates.slice(0, 4).map((date, dateIdx) => (
+                                      <span key={dateIdx} className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full border border-blue-200 font-medium">
+                                        {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                      </span>
+                                    ))}
+                                    {dates.length > 4 && (
+                                      <span className="text-xs text-blue-600 font-medium italic">
+                                        +{dates.length - 4} more dates
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max="50"
-                                    value={slot.capacity}
-                                    onChange={(e) => editTimeSlotInDaySchedule(index, slotIndex, 'capacity', parseInt(e.target.value) || 1)}
-                                    className="w-16 h-6 text-xs text-center border-0 bg-blue-100 text-blue-800 rounded-full focus:ring-0 focus:border-blue-500"
-                                  />
-                                  <span className="text-xs text-gray-500">slots</span>
-                                  <button
-                                    onClick={() => removeTimeSlotFromExistingSchedule(index, slotIndex)}
-                                    className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                                    title="Remove time slot"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                             <button
                               onClick={() => addTimeSlotToExistingSchedule(index)}
                               className={`w-full p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg border border-dashed border-green-300 transition-colors text-sm font-medium ${

@@ -360,14 +360,32 @@ export default function CreatePrescription({ medicalRecords, medicines }) {
                                                 </div>
                                             </div>
                                             <div className="flex-1">
-                                                <h4 className="font-semibold text-green-900 mb-1">
+                                                <h4 className="font-semibold text-green-900 mb-2">
                                                     {selectedPatientId}
                                                 </h4>
-                                                <div className="space-y-1">
+                                                <div className="space-y-2">
                                                     <p className="text-sm text-green-700">
                                                         <span className="font-medium">Diagnosis:</span> {patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.diagnosis}
                                                     </p>
-                                                    <p className="text-sm text-green-600">
+                                                    {patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.symptoms && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-green-800">Symptoms:</p>
+                                                            <p className="text-sm text-green-600">{patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.symptoms}</p>
+                                                        </div>
+                                                    )}
+                                                    {patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.treatment && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-green-800">Treatment Plan:</p>
+                                                            <p className="text-sm text-green-600">{patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.treatment}</p>
+                                                        </div>
+                                                    )}
+                                                    {patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.notes && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-green-800">Notes:</p>
+                                                            <p className="text-sm text-green-600">{patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.notes}</p>
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs text-green-600">
                                                         <span className="font-medium">Date:</span> {patientDiagnoses.find(d => d.id === parseInt(data.medical_record_id))?.record_date}
                                                     </p>
                                                 </div>

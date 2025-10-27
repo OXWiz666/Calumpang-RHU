@@ -851,9 +851,9 @@ class InventoryReportsController extends Controller
                 'Most Recent Staff' => $lastMovement->staff ? 
                     $lastMovement->staff->firstname . ' ' . $lastMovement->staff->lastname : 'N/A',
                 'Manufacturer' => $inventory ? $inventory->manufacturer ?? 'N/A' : 'N/A',
-                'Patient Name' => $lastMovement->patient_name ?? 'N/A',
+                'Patient Name/Reason' => $lastMovement->patient_name ?? 'N/A',
                 'Batch Number' => $lastMovement->batch_number ?? 'N/A',
-                'Reason' => $lastMovement->reason ?? 'Dispensed',
+                'Mode' => $lastMovement->reason ?? 'Dispensed',
             ];
         })->filter(function($item) {
             return !empty($item['Item Name']) && $item['Item Name'] !== 'Unknown Item';

@@ -36,10 +36,6 @@ const DispenseSummary = ({
                         <div class="summary-title">Dispense Information</div>
                         <div class="info-grid">
                             <div class="info-item">
-                                <span class="info-label">Dispense Mode:</span>
-                                <span class="info-value">${mode}</span>
-                            </div>
-                            <div class="info-item">
                                 <span class="info-label">Dispense Date:</span>
                                 <span class="info-value">${formatDate(dispenseData.dispense_date)}</span>
                             </div>
@@ -458,15 +454,6 @@ const DispenseSummary = ({
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-blue-100 p-2 rounded-lg">
-                                            <Package className="h-4 w-4 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <div className="text-sm text-gray-600">Dispense Mode</div>
-                                            <div className="font-semibold text-gray-900 capitalize">{mode}</div>
-                                        </div>
-                                    </div>
                                     <div className="flex items-center gap-3">
                                         <div className="bg-green-100 p-2 rounded-lg">
                                             <Calendar className="h-4 w-4 text-green-600" />
