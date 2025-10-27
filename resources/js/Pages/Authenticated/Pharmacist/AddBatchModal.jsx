@@ -33,15 +33,33 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         maximum_stock: "",
         unit_of_measure: "",
         manufacturer: "",
+        quantity: "",
         current_quantity: "",
     });
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [toastType, setToastType] = useState("success"); // "success" or "error"
+    const [existingBatches, setExistingBatches] = useState([]);
+    const [batchError, setBatchError] = useState("");
+
+    // Fetch existing batches for the item to check for duplicates
+    const fetchExistingBatches = async () => {
+        if (!item?.id) return;
+        
+        try {
+            const response = await fetch(`/pharmacist/inventory/item/${item.id}/batches?t=${Date.now()}`);
+            if (response.ok) {
+                const batches = await response.json();
+                setExistingBatches(batches);
+            }
+        } catch (error) {
+            console.error('Error fetching batches:', error);
+        }
+    };
 
     // Initialize form data when item changes
     useEffect(() => {
-        if (item) {
+        if (item && open) {
             setFormData({
                 storage_location: item.storageLocation || "",
                 batch_number: "",
@@ -50,10 +68,14 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                 maximum_stock: item.maximum_stock || item.maximumStock || "",
                 unit_of_measure: item.unit || item.unit_type || "",
                 manufacturer: item.manufacturer || "",
+                quantity: "",
                 current_quantity: item.currentQuantity || item.quantity || item.stock?.stocks || "",
             });
+            setBatchError("");
+            fetchExistingBatches();
         }
-    }, [item]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [item, open]);
 
     const { data, setData, post, processing, errors } = useForm(formData);
 
@@ -61,6 +83,29 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         const { name, value } = e.target;
         setData(name, value);
         setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Check for duplicate batch numbers
+        if (name === 'batch_number') {
+            checkBatchDuplicate(value);
+        }
+    };
+
+    const checkBatchDuplicate = (batchNumber) => {
+        if (!batchNumber || !batchNumber.trim()) {
+            setBatchError("");
+            return;
+        }
+        
+        const trimmedBatch = batchNumber.trim();
+        const exists = existingBatches.some(batch => 
+            batch.batch_number && batch.batch_number.toLowerCase() === trimmedBatch.toLowerCase()
+        );
+        
+        if (exists) {
+            setBatchError("This batch number already exists for this item!");
+        } else {
+            setBatchError("");
+        }
     };
 
     const handleSubmit = (e) => {
@@ -72,17 +117,58 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         // Client-side validation for batch-specific fields only
         if (!data.batch_number.trim()) {
             console.log('Validation failed: No batch number');
-            alert('Please enter a batch number');
+            setToastMessage('Please enter a batch number');
+            setToastType("error");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
             return;
         }
+        
+        // Check for duplicate batch numbers
+        const trimmedBatch = data.batch_number.trim();
+        const exists = existingBatches.some(batch => 
+            batch.batch_number && batch.batch_number.toLowerCase() === trimmedBatch.toLowerCase()
+        );
+        
+        if (exists) {
+            console.log('Validation failed: Duplicate batch number');
+            setToastMessage('This batch number already exists for this item! Please use a different batch number.');
+            setToastType("error");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+            return;
+        }
+        
         if (!data.expiry_date) {
             console.log('Validation failed: No expiry date');
-            alert('Please select an expiry date');
+            setToastMessage('Please select an expiry date');
+            setToastType("error");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
             return;
         }
-        if (data.expiry_date && new Date(data.expiry_date) <= new Date()) {
-            console.log('Validation failed: Expiry date in past');
-            alert('Expiry date must be in the future');
+        if (data.expiry_date) {
+            const selectedDate = new Date(data.expiry_date);
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(0, 0, 0, 0);
+            
+            if (selectedDate <= new Date()) {
+                console.log('Validation failed: Expiry date is not in the future');
+                setToastMessage('Expiry date must be after today. Only future dates are allowed.');
+                setToastType("error");
+                setShowToast(true);
+                setTimeout(() => setShowToast(false), 3000);
+                return;
+            }
+        }
+        
+        if (!data.quantity || parseFloat(data.quantity) <= 0) {
+            console.log('Validation failed: No quantity or invalid quantity');
+            setToastMessage('Please enter a valid quantity greater than 0');
+            setToastType("error");
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
             return;
         }
         
@@ -96,9 +182,9 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
             storage_location: data.storage_location || "",
             batch_number: data.batch_number.trim(),
             expiry_date: data.expiry_date,
+            quantity: data.quantity,
             minimum_stock: data.minimum_stock || "",
             maximum_stock: data.maximum_stock || "",
-            current_quantity: data.current_quantity || "",
             original_item_id: item.id
         };
         
@@ -202,10 +288,13 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                                         value={data.batch_number}
                                         onChange={handleChange}
                                         placeholder="Enter batch number (e.g., RX12001121)"
-                                        className="pl-10"
+                                        className={`pl-10 ${batchError ? 'border-red-500' : ''}`}
                                         required
                                     />
                                 </div>
+                                {batchError && (
+                                    <p className="text-sm text-red-600 font-medium">{batchError}</p>
+                                )}
                                 {errors.batch_number && (
                                     <p className="text-sm text-red-600">{errors.batch_number}</p>
                                 )}
@@ -224,12 +313,16 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                                         value={data.expiry_date}
                                         onChange={handleChange}
                                         className="pl-10"
+                                        min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
                                         required
                                     />
                                 </div>
                                 {errors.expiry_date && (
                                     <p className="text-sm text-red-600">{errors.expiry_date}</p>
                                 )}
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Only future dates are allowed
+                                </p>
                             </div>
 
                             <div className="space-y-2">
@@ -245,6 +338,30 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                                 />
                                 {errors.storage_location && (
                                     <p className="text-sm text-red-600">{errors.storage_location}</p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="quantity" className="text-sm font-medium">
+                                    Quantity *
+                                </Label>
+                                <div className="relative">
+                                    <Plus className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="quantity"
+                                        name="quantity"
+                                        type="number"
+                                        value={data.quantity}
+                                        onChange={handleChange}
+                                        placeholder="Enter initial quantity"
+                                        className="pl-10"
+                                        min="1"
+                                        step="0.01"
+                                        required
+                                    />
+                                </div>
+                                {errors.quantity && (
+                                    <p className="text-sm text-red-600">{errors.quantity}</p>
                                 )}
                             </div>
                         </div>

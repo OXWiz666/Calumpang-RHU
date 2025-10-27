@@ -697,30 +697,33 @@ public function update_item(Request $request, inventory $inventory)
                     'batch_number' => $request->batch_number,
                     'expiry_date' => $request->expiry_date,
                     'category_id' => $request->categoryid,
-                    'status' => 1,
-                ]);
+                'status' => 1,
+            ]);
 
-                // Create stock record for the new batch
-                $stock = istocks::create([
-                    'inventory_id' => $newInventory->id,
-                    'stocks' => 0, // Start with 0 stock
-                    'stockname' => $request->unit_type ?? 'units',
-                ]);
+            // Get the quantity from request, default to 0 if not provided
+            $quantity = $request->quantity ?? 0;
 
-                $newInventory->update(['stock_id' => $stock->id]);
+            // Create stock record for the new batch
+            $stock = istocks::create([
+                'inventory_id' => $newInventory->id,
+                'stocks' => $quantity,
+                'stockname' => $request->unit_type ?? 'units',
+            ]);
 
-                // Create stock movement record for the new batch
-                istock_movements::create([
-                    'inventory_id' => $newInventory->id,
-                    'staff_id' => Auth::user()->id,
-                    'quantity' => 0, // No initial stock
-                    'expiry_date' => $request->expiry_date,
-                    'inventory_name' => $request->itemname,
-                    'stock_id' => $stock->id,
-                    'batch_number' => $request->batch_number,
-                    'type' => 'Incoming',
-                    'reason' => 'New batch added',
-                ]);
+            $newInventory->update(['stock_id' => $stock->id]);
+
+            // Create stock movement record for the new batch
+            istock_movements::create([
+                'inventory_id' => $newInventory->id,
+                'staff_id' => Auth::user()->id,
+                'quantity' => $quantity,
+                'expiry_date' => $request->expiry_date,
+                'inventory_name' => $request->itemname,
+                'stock_id' => $stock->id,
+                'batch_number' => $request->batch_number,
+                'type' => 'Incoming',
+                'reason' => 'New batch added',
+            ]);
 
                 DB::commit();
                 event(new InventoryUpdated('item.add', ['id' => $newInventory->id]));
@@ -785,8 +788,9 @@ public function update_item(Request $request, inventory $inventory)
             'unit_type' => "nullable|string",
             'storage_location' => "nullable|string",
             'batch_number' => "required|string",
-            'expiry_date' => "required|date",
+            'expiry_date' => "required|date|after:today",
             'original_item_id' => "required|exists:inventory,id",
+            'quantity' => "required|numeric|min:0.01",
         ]);
 
         \Log::info('Add batch request data:', $request->all());
@@ -822,10 +826,13 @@ public function update_item(Request $request, inventory $inventory)
                 'status' => 1,
             ]);
 
+            // Get the quantity from request, default to 0 if not provided
+            $quantity = $request->quantity ?? 0;
+
             // Create stock record for the new batch
             $stock = istocks::create([
                 'inventory_id' => $newInventory->id,
-                'stocks' => 0, // Start with 0 stock
+                'stocks' => $quantity,
                 'stockname' => $request->unit_type ?? 'units',
             ]);
 
@@ -835,7 +842,7 @@ public function update_item(Request $request, inventory $inventory)
             istock_movements::create([
                 'inventory_id' => $newInventory->id,
                 'staff_id' => Auth::user()->id,
-                'quantity' => 0, // No initial stock
+                'quantity' => $quantity,
                 'expiry_date' => $request->expiry_date,
                 'inventory_name' => $request->itemname,
                 'stock_id' => $stock->id,

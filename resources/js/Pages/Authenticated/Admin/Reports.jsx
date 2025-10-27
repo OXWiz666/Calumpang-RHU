@@ -887,7 +887,6 @@ const Reports = (
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="medical">Medical Records</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled Reports</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
