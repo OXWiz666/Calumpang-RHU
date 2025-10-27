@@ -457,7 +457,7 @@ const Reports = (
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+            {/* <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center gap-2">
                   <CalendarIcon className="h-4 w-4" />
@@ -482,7 +482,6 @@ const Reports = (
                 </DialogHeader>
                 
                 <div className="space-y-4">
-                  {/* Report Type */}
                   <div className="space-y-2">
                     <Label>Report Format</Label>
                     <Select value={reportType} onValueChange={setReportType}>
@@ -506,7 +505,6 @@ const Reports = (
                     </Select>
                   </div>
 
-                  {/* Report Category */}
                   <div className="space-y-2">
                     <Label>Report Category</Label>
                     <Select value={reportCategory} onValueChange={setReportCategory}>
@@ -526,7 +524,6 @@ const Reports = (
                     </Select>
                   </div>
 
-                  {/* Date Range */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Start Date</Label>
@@ -546,7 +543,6 @@ const Reports = (
                     </div>
                   </div>
 
-                  {/* Custom Fields */}
                   {reportCategory !== 'overview' && (
                     <div className="space-y-2">
                       <Label>Select Fields to Include</Label>
@@ -567,7 +563,6 @@ const Reports = (
                     </div>
                   )}
 
-                  {/* Filters */}
                   {reportCategory === 'patients' && (
                     <div className="space-y-2">
                       <Label>Filters</Label>
@@ -679,7 +674,6 @@ const Reports = (
               </DialogContent>
             </Dialog>
 
-            {/* Schedule Report Dialog */}
             <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
               <DialogContent className="max-w-3xl">
               <DialogHeader>
@@ -693,7 +687,6 @@ const Reports = (
               </DialogHeader>
               
               <div className="space-y-6">
-                {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Basic Information</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -718,7 +711,6 @@ const Reports = (
                   </div>
                 </div>
 
-                {/* Report Configuration */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Report Configuration</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -754,7 +746,6 @@ const Reports = (
                   </div>
                 </div>
 
-                {/* Schedule Configuration */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Schedule Configuration</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -782,7 +773,6 @@ const Reports = (
                     </div>
                   </div>
 
-                  {/* Conditional fields based on frequency */}
                   {scheduleData.frequency === 'weekly' && (
                     <div className="space-y-2">
                       <Label>Day of Week</Label>
@@ -820,7 +810,6 @@ const Reports = (
                   )}
                 </div>
 
-                {/* Email Configuration */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Email Configuration</h3>
                   <div className="space-y-2">
@@ -835,7 +824,6 @@ const Reports = (
                   </div>
                 </div>
 
-                {/* Status */}
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="isActive"
@@ -874,8 +862,8 @@ const Reports = (
             >
               <FileText className="h-4 w-4" />
               <span>Quick Excel</span>
-            </Button>
-            <Select value={timeframe} onValueChange={handleDateRangeChange}>
+            </Button> */}
+            {/* <Select value={timeframe} onValueChange={handleDateRangeChange}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select period" />
               </SelectTrigger>
@@ -886,7 +874,7 @@ const Reports = (
                 <SelectItem value="lastMonth">Last Month</SelectItem>
                 <SelectItem value="thisYear">This Year</SelectItem>
               </SelectContent>
-            </Select>
+            </Select> */}
           </div>
         </motion.div>
 
