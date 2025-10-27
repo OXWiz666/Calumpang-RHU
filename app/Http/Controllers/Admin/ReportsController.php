@@ -11,6 +11,8 @@ use App\Models\servicetypes;
 use App\Models\subservices;
 use App\Models\doctor_details;
 use App\Models\medical_history;
+use App\Models\MedicalRecord;
+use App\Models\Patient;
 use App\Models\Prescription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -446,29 +448,51 @@ class ReportsController extends Controller
     private function getPatientAnalytics($startDate, $endDate)
     {
         try {
-            $totalPatients = User::where('roleID', 2)->count();
-            $newPatients = User::where('roleID', 2)
-                ->whereBetween('created_at', [$startDate, $endDate])
+            $totalPatients = Patient::count();
+            $newPatients = Patient::whereBetween('created_at', [$startDate, $endDate])
                 ->count();
             
             $lastPeriodStart = $startDate->copy()->subDays($endDate->diffInDays($startDate) + 1);
             $lastPeriodEnd = $startDate->copy()->subDay();
-            $newPatientsLastPeriod = User::where('roleID', 2)
-                ->whereBetween('created_at', [$lastPeriodStart, $lastPeriodEnd])
+            $newPatientsLastPeriod = Patient::whereBetween('created_at', [$lastPeriodStart, $lastPeriodEnd])
                 ->count();
 
-            $demographics = User::where('roleID', 2)
-                ->selectRaw('
-                    COUNT(*) as total,
-                    SUM(CASE WHEN gender = "Male" THEN 1 ELSE 0 END) as male,
-                    SUM(CASE WHEN gender = "Female" THEN 1 ELSE 0 END) as female,
-                    SUM(CASE WHEN gender = "Other" THEN 1 ELSE 0 END) as other
-                ')
-                ->first();
+            // $demographics = Patient::selectRaw('
+            //         COUNT(*) as total,
+            //         SUM(CASE WHEN gender = "Male" THEN 1 ELSE 0 END) as male,
+            //         SUM(CASE WHEN gender = "Female" THEN 1 ELSE 0 END) as female,
+            //         SUM(CASE WHEN gender = "Other" THEN 1 ELSE 0 END) as other
+            //     ')
+
+              $demographics = [
+                    'total' => Patient::count(),
+                    'male' => Patient::where('gender', 'Male')->count(),
+                    'female' => Patient::where('gender', 'Female')->count(),
+                    'other' => Patient::where('gender', 'Other')->count(),
+                ];
+
+                      // ✅ Monthly trend: counts grouped by month name
+        $monthlyTrendRaw = Patient::selectRaw('MONTH(created_at) as month, COUNT(*) as count')
+    ->whereYear('created_at', now()->year)
+    ->groupBy('month')
+    ->orderBy('month')
+    ->get()
+    ->mapWithKeys(function ($item) {
+        return [intval($item->month) => $item->count];
+    });
+
+// ✅ Create an array with all months (Jan–Dec) and fill missing ones with 0
+$monthlyTrend = collect(range(1, 12))->mapWithKeys(function ($month) use ($monthlyTrendRaw) {
+    $monthName = date('M', mktime(0, 0, 0, $month, 1));
+    return [$monthName => $monthlyTrendRaw->get($month, 0)];
+});
+
+            //$demographics = Patient::
 
         return [
                 'total' => $totalPatients,
                 'new' => $newPatients,
+                'monthlyTrend' => $monthlyTrend,
                 'growth' => $newPatientsLastPeriod > 0 ? round((($newPatients - $newPatientsLastPeriod) / $newPatientsLastPeriod) * 100, 2) : 0,
                 'demographics' => $demographics,
             ];
@@ -482,17 +506,28 @@ class ReportsController extends Controller
     {
         try {
             $totalAppointments = Appointment::count();
-            $periodAppointments = Appointment::whereBetween('appointment_date', [$startDate, $endDate])->count();
+            $periodAppointments = Appointment::whereBetween('created_at', [$startDate, $endDate])->count();
             
-            $statusBreakdown = Appointment::whereBetween('appointment_date', [$startDate, $endDate])
+            $statusBreakdown = Appointment::whereBetween('created_at', [$startDate, $endDate])
                 ->selectRaw('status, COUNT(*) as count')
                 ->groupBy('status')
                 ->get()
                 ->pluck('count', 'status');
 
+             // ✅ Add this
+        $completedAppointments = Appointment::whereBetween('created_at', [$startDate, $endDate])
+            ->where('status', 5)
+            ->count();
+
+        $completionRate = $periodAppointments > 0 
+            ? round(($completedAppointments / $periodAppointments) * 100, 2)
+            : 0;
+
             return [
                 'total' => $totalAppointments,
                 'period' => $periodAppointments,
+                'completion_rate' => $completionRate, // ✅ new field
+                'completed' => Appointment::where('status',5)->count(),
                 'status_breakdown' => $statusBreakdown,
             ];
         } catch (\Exception $e) {
@@ -504,11 +539,12 @@ class ReportsController extends Controller
     private function getProgramAnalytics($startDate, $endDate)
     {
         try {
-            $totalPrograms = program_registrations::count();
-            $periodPrograms = program_registrations::whereBetween('created_at', [$startDate, $endDate])->count();
+            $totalPrograms = program_schedules::count();
+            $periodPrograms = program_schedules::whereBetween('created_at', [$startDate, $endDate])->count();
 
         return [
                 'total' => $totalPrograms,
+                'activePrograms' => program_schedules::where('status', 'Available')->count(),
                 'period' => $periodPrograms,
             ];
         } catch (\Exception $e) {
@@ -525,6 +561,7 @@ class ReportsController extends Controller
 
             return [
                 'total' => $totalServices,
+                'activeServices' => servicetypes::where('status', '1')->count(),
                 'subservices' => $totalSubservices,
             ];
         } catch (\Exception $e) {
@@ -541,8 +578,18 @@ class ReportsController extends Controller
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->count();
 
+
+            $staffCounts = [
+                'doctors' => User::where('roleID', 1)->count(),
+                'admins' => User::where('roleID', 7)->count(),
+                'pharmacists' =>  User::where('roleID', 6)->count(),
+                'activeStaff' => User::whereIn('roleID', [1, 6,7])->where('status', '5')->count(),
+                'inactiveStaff' => User::whereIn('roleID', [1, 6,7])->where('status', '1')->count(),
+            ];
+
             return [
                 'total' => $totalStaff,
+                'staffCounts' => $staffCounts,
                 'new' => $newStaff,
             ];
         } catch (\Exception $e) {
@@ -554,8 +601,10 @@ class ReportsController extends Controller
     private function getMedicalAnalytics($startDate, $endDate)
     {
         try {
-            $totalRecords = medical_history::count();
-            $periodRecords = medical_history::whereBetween('created_at', [$startDate, $endDate])->count();
+            $totalRecords = MedicalRecord::count();
+            $periodRecords = MedicalRecord::whereBetween('created_at', [$startDate, $endDate])->count();
+
+
 
         return [
                 'total' => $totalRecords,

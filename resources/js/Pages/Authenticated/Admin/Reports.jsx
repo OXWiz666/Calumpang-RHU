@@ -12,10 +12,21 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/tempo/components/ui/tabs";
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
 import {
   BarChart3,
   PieChart,
-  LineChart,
   Filter,
   Calendar,
   Users,
@@ -40,6 +51,18 @@ import {
   Repeat,
   Bell,
 } from "lucide-react";
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 import { Button } from "@/components/tempo/components/ui/button";
 import {
   Select,
@@ -70,8 +93,8 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import { showToast } from "@/utils/toast.jsx";
 
-const Reports = () => {
-  const { 
+const Reports = (
+  { 
     dateRange, 
     patientData, 
     appointmentData, 
@@ -79,7 +102,14 @@ const Reports = () => {
     programData, 
     staffData, 
     medicalData 
-  } = usePage().props;
+  }
+) => {
+  const propsszxc = usePage().props;
+
+
+  useEffect(() => {
+    console.log('Props updated:', propsszxc);
+  },[propsszxc])
   
   const [timeframe, setTimeframe] = useState("thisMonth");
   const [selectedDateRange, setSelectedDateRange] = useState({
@@ -888,7 +918,7 @@ const Reports = () => {
                       <p className="text-sm font-medium text-blue-600">Total Patients</p>
                       <p className="text-3xl font-bold text-blue-900">{patientData?.total || 0}</p>
                       <p className="text-xs text-blue-600 mt-1">
-                        {patientData?.newInPeriod || 0} new in period
+                        {patientData?.new || 0} new in period
                       </p>
                     </div>
                     <Users className="h-12 w-12 text-blue-500" />
@@ -903,7 +933,7 @@ const Reports = () => {
                       <p className="text-sm font-medium text-green-600">Appointments</p>
                       <p className="text-3xl font-bold text-green-900">{appointmentData?.total || 0}</p>
                       <p className="text-xs text-green-600 mt-1">
-                        {appointmentData?.completionRate || 0}% completion rate
+                        {appointmentData?.completion_rate || 0}% completion rate
                       </p>
                     </div>
                     <Calendar className="h-12 w-12 text-green-500" />
@@ -916,9 +946,9 @@ const Reports = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-purple-600">Health Programs</p>
-                      <p className="text-3xl font-bold text-purple-900">{programData?.activePrograms || 0}</p>
+                      <p className="text-3xl font-bold text-purple-900">{programData?.total || 0}</p>
                       <p className="text-xs text-purple-600 mt-1">
-                        {programData?.totalRegistrations || 0} enrollments
+                        {programData?.total || 0} enrollments
                       </p>
                     </div>
                     <HeartPulse className="h-12 w-12 text-purple-500" />
@@ -933,7 +963,7 @@ const Reports = () => {
                       <p className="text-sm font-medium text-orange-600">Active Services</p>
                       <p className="text-3xl font-bold text-orange-900">{serviceData?.activeServices || 0}</p>
                       <p className="text-xs text-orange-600 mt-1">
-                        {serviceData?.activeSubServices || 0} sub-services
+                        {serviceData?.subservices || 0} sub-services
                       </p>
                     </div>
                     <Stethoscope className="h-12 w-12 text-orange-500" />
@@ -954,34 +984,117 @@ const Reports = () => {
                     <TrendingUp className="h-5 w-5" />
                     Patient Registration Trends
                   </CardTitle>
+                  <CardDescription>
+                    Monthly patient registration growth over time
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-lg">
-                    <div className="text-center">
-                      <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 font-medium">Monthly Registration Trend</p>
-                      <p className="text-sm text-gray-500 mt-2">
-                        {patientData?.monthlyTrend ? 
-                          `${Object.keys(patientData.monthlyTrend).length} months of data` : 
-                          'No trend data available'
+                  <div className="h-[300px]">
+                    <Line
+                      data={{
+                        labels: patientData?.monthlyTrend ? Object.keys(patientData.monthlyTrend) : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        datasets: [
+                          {
+                            label: 'New Patients 2025',
+                            data: patientData?.monthlyTrend ? Object.values(patientData.monthlyTrend) : [12, 19, 15, 25, 22, 30],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: 'rgb(59, 130, 246)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                          }
+                        ]
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                              usePointStyle: true,
+                              padding: 15,
+                              font: {
+                                size: 12,
+                                weight: '500'
+                              }
+                            }
+                          },
+                          tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: {
+                              size: 13,
+                              weight: 'bold'
+                            },
+                            bodyFont: {
+                              size: 12
+                            },
+                            callbacks: {
+                              label: function(context) {
+                                return ` ${context.dataset.label}: ${context.parsed.y} patients`;
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          y: {
+                            beginAtZero: true,
+                            grid: {
+                              color: 'rgba(0, 0, 0, 0.05)',
+                              drawBorder: false
+                            },
+                            ticks: {
+                              font: {
+                                size: 11
+                              },
+                              callback: function(value) {
+                                return value;
+                              }
+                            }
+                          },
+                          x: {
+                            grid: {
+                              display: false,
+                              drawBorder: false
+                            },
+                            ticks: {
+                              font: {
+                                size: 11
+                              }
+                            }
+                          }
+                        },
+                        interaction: {
+                          mode: 'nearest',
+                          axis: 'x',
+                          intersect: false
                         }
-                      </p>
-                      {patientData?.growthRate && (
-                        <div className="mt-4 flex items-center justify-center gap-2">
-                          {patientData.growthRate >= 0 ? (
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                          )}
-                          <span className={`text-sm font-medium ${
-                            patientData.growthRate >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {patientData.growthRate >= 0 ? '+' : ''}{patientData.growthRate}% growth
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                      }}
+                    />
                   </div>
+                  {patientData?.growth && (
+                    <div className="mt-4 flex items-center justify-center gap-2 p-3 bg-gray-50 rounded-lg">
+                      {patientData.growth >= 0 ? (
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <TrendingDown className="h-4 w-4 text-red-500" />
+                      )}
+                      <span className={`text-sm font-medium ${
+                        patientData.growth >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {patientData.growth >= 0 ? '+' : ''}{patientData.growth}% growth this period
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -1058,7 +1171,7 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Active Staff</span>
-                      <Badge className="bg-green-100 text-green-800">{staffData?.activeStaff || 0}</Badge>
+                      <Badge className="bg-green-100 text-green-800">{staffData?.staffCounts?.activeStaff || 0}</Badge>
                     </div>
                   </div>
                 </CardContent>
@@ -1142,7 +1255,7 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                       <span className="font-medium">Completion Rate</span>
-                      <span className="text-2xl font-bold text-purple-600">{appointmentData?.completionRate || 0}%</span>
+                      <span className="text-2xl font-bold text-purple-600">{appointmentData?.completion_rate || 0}%</span>
                     </div>
             </div>
                 </CardContent>
@@ -1185,7 +1298,7 @@ const Reports = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                       <span className="font-medium">Total Programs</span>
-                      <span className="text-2xl font-bold text-purple-600">{programData?.totalPrograms || 0}</span>
+                      <span className="text-2xl font-bold text-purple-600">{programData?.total || 0}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                       <span className="font-medium">Active Programs</span>
@@ -1193,7 +1306,7 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                       <span className="font-medium">Total Enrollments</span>
-                      <span className="text-2xl font-bold text-blue-600">{programData?.totalRegistrations || 0}</span>
+                      <span className="text-2xl font-bold text-blue-600">{programData?.total || 0}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1236,7 +1349,7 @@ const Reports = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                       <span className="font-medium">Total Services</span>
-                      <span className="text-2xl font-bold text-orange-600">{serviceData?.totalServices || 0}</span>
+                      <span className="text-2xl font-bold text-orange-600">{serviceData?.total || 0}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                       <span className="font-medium">Active Services</span>
@@ -1244,7 +1357,7 @@ const Reports = () => {
                     </div>
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                       <span className="font-medium">Sub-services</span>
-                      <span className="text-2xl font-bold text-blue-600">{serviceData?.totalSubServices || 0}</span>
+                      <span className="text-2xl font-bold text-blue-600">{serviceData?.subservices || 0}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1317,11 +1430,11 @@ const Reports = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                       <span className="font-medium">Active Staff</span>
-                      <span className="text-2xl font-bold text-green-600">{staffData?.activeStaff || 0}</span>
+                      <span className="text-2xl font-bold text-green-600">{staffData?.staffCounts?.activeStaff || 0}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
                       <span className="font-medium">Inactive Staff</span>
-                      <span className="text-2xl font-bold text-red-600">{staffData?.inactiveStaff || 0}</span>
+                      <span className="text-2xl font-bold text-red-600">{staffData?.staffCounts?.inactiveStaff || 0}</span>
                     </div>
                 </div>
               </CardContent>
@@ -1344,11 +1457,11 @@ const Reports = () => {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                       <span className="font-medium">Total Records</span>
-                      <span className="text-2xl font-bold text-blue-600">{medicalData?.totalRecords || 0}</span>
+                      <span className="text-2xl font-bold text-blue-600">{medicalData?.total || 0}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
                       <span className="font-medium">Records This Period</span>
-                      <span className="text-2xl font-bold text-green-600">{medicalData?.recordsInPeriod || 0}</span>
+                      <span className="text-2xl font-bold text-green-600">{medicalData?.period || 0}</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
                       <span className="font-medium">Total Prescriptions</span>
