@@ -30,6 +30,8 @@ class MedicalRecord extends Model
         'status'
     ];
 
+    protected $table = 'medical_records';
+
     protected $casts = [
         'vital_signs' => 'array',
         'lab_results' => 'array',
