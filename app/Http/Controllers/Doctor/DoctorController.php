@@ -60,33 +60,82 @@ class DoctorController extends Controller
         ];
 
         // Get all appointments for diagnosis modal (not just unique patients)
-        $allAppointments = \App\Models\appointments::with(['service'])
-            ->whereIn('status', [1, 5]) // Both scheduled (1) and confirmed (5) appointments
-            ->select('id', 'firstname', 'lastname', 'date', 'servicetype_id', 'status')
-            ->orderBy('date', 'desc')
-            ->get()
-            ->map(function($appointment) {
-                return [
-                    'id' => $appointment->id,
-                    'firstname' => $appointment->firstname,
-                    'lastname' => $appointment->lastname,
-                    'appointment_date' => $appointment->date,
-                    'service_name' => $appointment->service ? $appointment->service->servicename : 'General Consultation',
-                    'status' => $appointment->status
-                ];
-            });
+        try {
+            $allAppointments = \App\Models\appointments::with(['service'])
+                ->whereIn('status', [1, 5]) // Both scheduled (1) and confirmed (5) appointments
+                ->select('id', 'firstname', 'lastname', 'date', 'servicetype_id', 'status')
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'firstname' => $appointment->firstname,
+                        'lastname' => $appointment->lastname,
+                        'appointment_date' => $appointment->date,
+                        'service_name' => $appointment->service ? $appointment->service->servicename : 'General Consultation',
+                        'status' => $appointment->status
+                    ];
+                });
+        } catch (\Exception $e) {
+            $allAppointments = collect([]);
+        }
 
         // Get unique patients for the dropdown
-        $appointments = $allAppointments->unique(function($appointment) {
-            return $appointment['firstname'] . ' ' . $appointment['lastname'];
-        })->values();
+        $appointments = collect([]);
+        if ($allAppointments && !$allAppointments->isEmpty()) {
+            $appointments = $allAppointments->unique(function($appointment) {
+                return $appointment['firstname'] . ' ' . $appointment['lastname'];
+            })->values();
+        }
+
+        // Get patients from Patient Records (appointments table)
+        try {
+            $patients = \App\Models\appointments::whereNull('user_id')
+                ->whereNotNull('firstname')
+                ->whereNotNull('lastname')
+                ->select('id', 'firstname', 'lastname', 'middlename', 'email', 'phone', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
+                
+            if ($patients->isEmpty()) {
+                $patients = collect([]);
+            } else {
+                $patients = $patients->groupBy(function($appointment) {
+                    return strtolower($appointment->firstname . '_' . $appointment->lastname);
+                })
+                ->map(function($appointments, $nameKey) {
+                    $firstAppointment = $appointments->first();
+                    
+                    // Generate Patient ID: PAT_[FIRST3CHARS_OF_FIRSTNAME]_[FIRST3CHARS_OF_LASTNAME]_[DATE]
+                    $patientIdPrefix = 'PAT_' . strtoupper(substr($firstAppointment->firstname, 0, 3)) . '_' . strtoupper(substr($firstAppointment->lastname, 0, 3)) . '_' . $firstAppointment->created_at->format('Ymd');
+                    
+                    return [
+                        'id' => $firstAppointment->id,
+                        'patient_id' => $patientIdPrefix,
+                        'name' => $firstAppointment->firstname . ' ' . $firstAppointment->lastname,
+                        'firstname' => $firstAppointment->firstname,
+                        'lastname' => $firstAppointment->lastname,
+                        'middlename' => $firstAppointment->middlename,
+                        'email' => $firstAppointment->email,
+                        'phone' => $firstAppointment->phone
+                    ];
+                })
+                ->values()
+                ->sortBy('name')
+                ->values();
+            }
+        } catch (\Exception $e) {
+            // If there's any error, return empty collection
+            $patients = collect([]);
+        }
 
         return Inertia::render('Authenticated/Doctor/Dashboard', [
             'prescriptions' => $prescriptions,
             'recentPrescriptions' => $recentPrescriptions,
             'stats' => $stats,
             'appointments' => $appointments,
-            'allAppointments' => $allAppointments
+            'allAppointments' => $allAppointments,
+            'patients' => $patients
         ]);
     }
 
@@ -197,6 +246,9 @@ class DoctorController extends Controller
                         $record->appointment->firstname . ' ' . $record->appointment->lastname : 
                         'Unknown Patient',
                     'diagnosis' => $record->diagnosis,
+                    'symptoms' => $record->symptoms,
+                    'treatment' => $record->treatment_plan,
+                    'notes' => $record->notes,
                     'record_date' => $record->created_at->format('Y-m-d'),
                     'appointment_id' => $record->appointment_id,
                     'patient_id' => $record->appointment ? 

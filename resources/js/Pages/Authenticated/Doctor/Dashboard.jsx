@@ -30,7 +30,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import "@/echo";
 
-export default function DoctorDashboard({ prescriptions, recentPrescriptions, stats, appointments, allAppointments }) {
+export default function DoctorDashboard({ prescriptions, recentPrescriptions, stats, appointments, allAppointments, patients }) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [dashboardData, setDashboardData] = useState({
@@ -107,15 +107,16 @@ export default function DoctorDashboard({ prescriptions, recentPrescriptions, st
     // Handle patient selection (first dropdown)
     const handlePatientSelection = (patientId) => {
         setSelectedPatientId(patientId);
-        const patient = appointments?.find(apt => apt.id === parseInt(patientId));
+        const patient = patients?.find(p => p.id === parseInt(patientId));
         setSelectedPatient(patient);
         
-        // Get all appointments for this patient from the allAppointments data
+        // Get all CONFIRMED appointments for this patient from the allAppointments data
         if (patient && allAppointments) {
             console.log('Filtering appointments for:', patient.firstname, patient.lastname);
             const patientApps = allAppointments.filter(apt => 
                 apt.firstname === patient.firstname && 
-                apt.lastname === patient.lastname
+                apt.lastname === patient.lastname &&
+                apt.status === 5 // Only confirmed appointments
             );
             console.log('Found appointments:', patientApps);
             setPatientAppointments(patientApps);
@@ -740,13 +741,24 @@ export default function DoctorDashboard({ prescriptions, recentPrescriptions, st
                                 <SelectValue placeholder="Choose a patient" />
                             </SelectTrigger>
                             <SelectContent>
-                                {appointments?.filter(apt => apt.status === 5).map((appointment) => (
-                                    <SelectItem key={appointment.id} value={appointment.id.toString()}>
-                                        <div className="font-medium text-sm">
-                                            {appointment.firstname} {appointment.lastname}
-                                        </div>
-                                    </SelectItem>
-                                ))}
+                                {(patients || []).length > 0 ? (
+                                    patients.map((patient) => (
+                                        <SelectItem key={patient.id} value={patient.id.toString()}>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-sm">
+                                                    {patient.name}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                    {patient.patient_id || `ID: ${patient.id}`}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <div className="px-2 py-3 text-center text-sm text-gray-500">
+                                        No patients found in Patient Records.
+                                    </div>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>

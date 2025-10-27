@@ -1625,9 +1625,9 @@ export default function PharmacistReports({
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Unit Type</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Staff Name</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Manufacturer</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Patient Name</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Patient Name/Reason</th>
                                                                 <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Batch Number</th>
-                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Reason</th>
+                                                                <th className="text-left py-4 px-6 font-semibold text-sm uppercase tracking-wider">Mode</th>
                                                             </>
                                                         ) : selectedReport === 'expiry_report' ? (
                                                             <>

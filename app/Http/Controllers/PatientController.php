@@ -226,14 +226,31 @@ class PatientController extends Controller
                 
                 if (is_array($timeSlotsData)) {
                     foreach ($timeSlotsData as $timeSlot) {
+                        // Convert time format for database query
+                        // Database stores as "13:00:00" but day_slot_schedules stores as "13:00"
+                        $timeFormattedForQuery = $timeSlot['time'];
+                        if (strlen($timeFormattedForQuery) <= 5) {
+                            // Convert "13:00" to "13:00:00" format
+                            $timeFormattedForQuery = $timeFormattedForQuery . ':00';
+                        }
+                        
                         // Calculate available slots for this time slot on the specific date
                         $bookedAppointments = appointments::where('subservice_id', $subservice->id)
-                            ->where('time', $timeSlot['time'])
+                            ->where('time', $timeFormattedForQuery)
                             ->where('date', $selectedDate)
                             ->whereIn('status', [1, 5, 6]) // Only count active appointments
                             ->count();
                         
                         $availableSlots = max(0, $timeSlot['capacity'] - $bookedAppointments);
+                        
+                        \Log::info('Time Slot Availability:', [
+                            'date' => $selectedDate,
+                            'time' => $timeSlot['time'],
+                            'time_formatted' => $timeFormattedForQuery,
+                            'capacity' => $timeSlot['capacity'],
+                            'booked' => $bookedAppointments,
+                            'available' => $availableSlots
+                        ]);
                         
                         // Create time object similar to the old structure
                         $times[] = [
@@ -690,20 +707,10 @@ class PatientController extends Controller
         $endDate = $request->input('end_date');
         $serviceId = $request->input('service_id');
         
-        // Get service days with slot capacity
-        $serviceDays = \App\Models\service_days::where('service_id', $serviceId)
-            ->pluck('slot_capacity', 'day')
-            ->toArray();
-        
-        // Debug logging
-        \Log::info("getDateAvailability Debug:", [
-            'service_id' => $serviceId,
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-            'service_days' => $serviceDays,
-            'service_days_count' => count($serviceDays)
-        ]);
-            
+        // Get all subservices for this service
+        $subservices = \App\Models\subservices::where('service_id', $serviceId)
+            ->where('status', 1)
+            ->get();
         
         // Get appointments for the date range
         $appointments = appointments::whereBetween('date', [$startDate, $endDate])
@@ -717,30 +724,76 @@ class PatientController extends Controller
         // Generate date availability
         $availability = [];
         $currentDate = \Carbon\Carbon::parse($startDate);
-        $endDate = \Carbon\Carbon::parse($endDate);
+        $endDateParsed = \Carbon\Carbon::parse($endDate);
         
-        while ($currentDate->lte($endDate)) {
+        while ($currentDate->lte($endDateParsed)) {
             $dateStr = $currentDate->format('Y-m-d');
             $dayName = $currentDate->format('l'); // Get day name (Monday, Tuesday, etc.)
             $appointmentCount = $appointments->get($dateStr, (object)['appointment_count' => 0])->appointment_count;
             
-            // Get day-specific slot capacity
-            // If the service has no configured days, don't make any dates available
-            if (empty($serviceDays)) {
-                // Service has no configured days - mark as unavailable
+            // Calculate total slot capacity from day_slot_schedules for this day
+            $totalDayCapacity = 0;
+            $dayConfigured = false;
+            
+            // Check for month-specific configuration FIRST
+            $currentMonth = $currentDate->format('n'); // 1-12
+            $currentYear = $currentDate->format('Y');
+            
+            $monthConfig = DB::table('month_day_configurations')
+                ->where('service_id', $serviceId)
+                ->where('year', $currentYear)
+                ->where('month', $currentMonth)
+                ->first();
+            
+            if ($monthConfig) {
+                // Month-specific configuration exists for this month
+                $dayConfigs = json_decode($monthConfig->day_configurations, true);
+                if (isset($dayConfigs[$dayName])) {
+                    // This specific day is configured for this month
+                    $totalDayCapacity = $dayConfigs[$dayName]['slot_capacity'] ?? 0;
+                    $dayConfigured = true;
+                } else {
+                    // This day is NOT configured for this specific month
+                    $dayConfigured = false;
+                    $totalDayCapacity = 0;
+                }
+            } else {
+                // NO month-specific config exists for this month at all
+                // Check if ANY month configs exist for this service
+                $hasAnyMonthConfig = DB::table('month_day_configurations')
+                    ->where('service_id', $serviceId)
+                    ->exists();
+                
+                if ($hasAnyMonthConfig) {
+                    // Some months are configured, but not this one - show as unavailable
+                    $dayConfigured = false;
+                    $totalDayCapacity = 0;
+                } else {
+                    // No month-specific configs at all - fall back to global service_days
+                    $serviceDay = DB::table('service_days')
+                        ->where('service_id', $serviceId)
+                        ->where('day', $dayName)
+                        ->first();
+                    
+                    if ($serviceDay && isset($serviceDay->slot_capacity) && $serviceDay->slot_capacity > 0) {
+                        $totalDayCapacity = $serviceDay->slot_capacity;
+                        $dayConfigured = true;
+                    } else {
+                        $dayConfigured = false;
+                        $totalDayCapacity = 0;
+                    }
+                }
+            }
+            
+            // Calculate available slots
+            if (!$dayConfigured || $totalDayCapacity == 0) {
                 $maxSlots = 0;
                 $availableSlots = 0;
                 $isAvailable = false;
-            } else if (isset($serviceDays[$dayName])) {
-                // This day is configured for the service
-                $maxSlots = $serviceDays[$dayName];
+            } else {
+                $maxSlots = $totalDayCapacity;
                 $availableSlots = max(0, $maxSlots - $appointmentCount);
                 $isAvailable = $availableSlots > 0;
-            } else {
-                // This day is not configured for the service - mark as unavailable
-                $maxSlots = 0;
-                $availableSlots = 0;
-                $isAvailable = false;
             }
         
         // Add debugging here
@@ -760,7 +813,7 @@ class PatientController extends Controller
         
         return response()->json([
             'start_date' => $startDate,
-            'end_date' => $endDate->format('Y-m-d'),
+            'end_date' => $endDate,
             'service_id' => $serviceId,
             'availability' => $availability
         ]);

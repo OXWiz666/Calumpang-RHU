@@ -142,7 +142,7 @@ export default function PatientList({ patients, onSelectPatient, isGuestPatients
             <div className="hidden md:grid grid-cols-[minmax(0,1fr)_160px_220px_140px_100px_90px] items-center px-4 py-2 text-xs font-medium uppercase tracking-wide border rounded-md bg-accent/20 text-muted-foreground">
                 <div>Patient</div>
                 <div>Phone</div>
-                <div>Address</div>
+                <div>Email Address</div>
                 <div>Last Visit</div>
                 <div className="text-center">Status</div>
                 <div className="text-right pr-2">Action</div>

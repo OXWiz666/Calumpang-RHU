@@ -379,7 +379,7 @@ export default function PatientDetails({ patient, onBack, onUpdate, doctors }) {
                                                 <div>
                                                     <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Appointment</label>
                                                     <p className="text-sm font-semibold text-gray-900 mt-1">
-                                                        {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString() : "No appointments recorded"}
+                                                        {patient.last_visit_date ? new Date(patient.last_visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "No appointments recorded"}
                                                     </p>
                                                 </div>
                                             </div>

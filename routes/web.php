@@ -293,6 +293,9 @@ Route::middleware(['auth','Admin'])->group(function(){
             Route::post('/sub-services/save-days',[ServicesController::class,'saveDays'])->name('admin.services.days.update');
             Route::post('/date-slots/update',[ServicesController::class,'updateDateSlots'])->name('admin.services.date-slots.update');
             Route::post('/day-slots/update',[ServicesController::class,'updateDaySlots'])->name('admin.services.day-slots.update');
+            Route::post('/month-days/update',[ServicesController::class,'updateMonthDays'])->name('admin.services.month-days.update');
+            Route::put('/month-days/{id}',[ServicesController::class,'updateMonthDayConfiguration'])->name('admin.services.month-days.update-one');
+            Route::delete('/month-days/{id}',[ServicesController::class,'deleteMonthConfiguration'])->name('admin.services.month-days.delete');
             Route::post('/archive',[ServicesController::class,'archiveService'])->name('admin.services.archive');
             Route::post('/unarchive',[ServicesController::class,'unarchiveService'])->name('admin.services.unarchive');
             
