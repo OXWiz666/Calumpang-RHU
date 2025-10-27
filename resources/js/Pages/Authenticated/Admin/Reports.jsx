@@ -458,21 +458,9 @@ const Reports = (
           </div>
           <div className="flex items-center gap-3">
             <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  Schedule Report
-                </Button>
-              </DialogTrigger>
             </Dialog>
             
             <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Generate Report
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Generate Report</DialogTitle>
@@ -619,12 +607,6 @@ const Reports = (
             </Dialog>
 
             <Dialog open={isCustomReportDialogOpen} onOpenChange={setIsCustomReportDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Templates
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-4xl">
                 <DialogHeader>
                   <DialogTitle>Report Templates</DialogTitle>
@@ -683,10 +665,6 @@ const Reports = (
             <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
               <DialogContent className="max-w-3xl">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  Schedule Report
-                </DialogTitle>
                 <DialogDescription>
                   Set up automatic report generation with custom frequency and email delivery.
                 </DialogDescription>
@@ -845,48 +823,8 @@ const Reports = (
                   <Label htmlFor="isActive">Active Schedule</Label>
                 </div>
               </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsScheduleDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleScheduleReport} disabled={isGenerating}>
-                  {isGenerating ? 'Scheduling...' : 'Schedule Report'}
-                </Button>
-              </DialogFooter>
             </DialogContent>
             </Dialog>
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => handleExport('pdf')}
-            >
-              <Download className="h-4 w-4" />
-              <span>Quick PDF</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-              onClick={() => handleExport('excel')}
-            >
-              <FileText className="h-4 w-4" />
-              <span>Quick Excel</span>
-            </Button>
-            <Select value={timeframe} onValueChange={handleDateRangeChange}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="thisWeek">This Week</SelectItem>
-                <SelectItem value="thisMonth">This Month</SelectItem>
-                <SelectItem value="lastMonth">Last Month</SelectItem>
-                <SelectItem value="thisYear">This Year</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </motion.div>
 
@@ -899,7 +837,6 @@ const Reports = (
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="staff">Staff</TabsTrigger>
             <TabsTrigger value="medical">Medical Records</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled Reports</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
