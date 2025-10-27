@@ -14,11 +14,7 @@ import { motion } from "framer-motion";
 import { 
     Calendar, 
     Hash, 
-    Building2,
     Plus,
-    Package,
-    TrendingUp,
-    TrendingDown,
     Scale,
     Factory
 } from "lucide-react";
@@ -29,11 +25,8 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
         storage_location: "",
         batch_number: "",
         expiry_date: "",
-        minimum_stock: "",
-        maximum_stock: "",
         unit_of_measure: "",
         manufacturer: "",
-        current_quantity: "",
     });
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
@@ -46,11 +39,8 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                 storage_location: item.storageLocation || "",
                 batch_number: "",
                 expiry_date: "",
-                minimum_stock: item.minimum_stock || item.minimumStock || "",
-                maximum_stock: item.maximum_stock || item.maximumStock || "",
                 unit_of_measure: item.unit || item.unit_type || "",
                 manufacturer: item.manufacturer || "",
-                current_quantity: item.currentQuantity || item.quantity || item.stock?.stocks || "",
             });
         }
     }, [item]);
@@ -96,50 +86,22 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
             storage_location: data.storage_location || "",
             batch_number: data.batch_number.trim(),
             expiry_date: data.expiry_date,
-            minimum_stock: data.minimum_stock || "",
-            maximum_stock: data.maximum_stock || "",
-            current_quantity: data.current_quantity || "",
             original_item_id: item.id
         };
         
         console.log('Item object:', item);
         console.log('Creating new batch:', submitData);
-        console.log('About to call post with route:', route("pharmacist.inventory.item.add-batch"));
         
-        // Add a timeout fallback to prevent stuck loading state
-        const timeoutId = setTimeout(() => {
-            console.log('Request timeout - resetting loading state');
-            setToastMessage("Request timed out. Please try again.");
-            setToastType("error");
-            setShowToast(true);
-            setTimeout(() => {
-                setShowToast(false);
-            }, 3000);
-        }, 10000); // 10 second timeout
-        
-        // Try using fetch instead of Inertia post
-        fetch(route("pharmacist.inventory.item.add-batch"), {
-            method: 'POST',
+        // Use axios with proper CSRF token for JSON response
+        window.axios.post(route("pharmacist.inventory.item.add-batch"), submitData, {
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: JSON.stringify(submitData)
-        })
-        .then(response => {
-            clearTimeout(timeoutId);
-            console.log('Response received:', response.status);
-            
-            if (response.ok) {
-                return response.json();
-            } else {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                'Accept': 'application/json',
             }
         })
-        .then(data => {
-            console.log('Batch creation successful:', data);
-            setToastMessage("Batch added successfully!");
+        .then(response => {
+            console.log('Batch creation successful:', response.data);
+            setToastMessage(response.data.message || "Batch added successfully!");
             setToastType("success");
             setShowToast(true);
             setTimeout(() => {
@@ -154,9 +116,14 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
             }, 2000);
         })
         .catch(error => {
-            clearTimeout(timeoutId);
             console.error("Error creating batch:", error);
-            setToastMessage("Error creating batch: " + error.message);
+            let errorMessage = "Error creating batch. Please try again.";
+            if (error.response && error.response.data && error.response.data.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = "Error: " + error.message;
+            }
+            setToastMessage(errorMessage);
             setToastType("error");
             setShowToast(true);
             setTimeout(() => {
@@ -170,6 +137,7 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
     if (!item) return null;
 
     return (
+        <>
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -260,27 +228,6 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Current Quantity */}
-                            <div className="space-y-2">
-                                <Label htmlFor="current_quantity" className="text-sm font-medium">
-                                    Current Quantity
-                                </Label>
-                                <div className="relative">
-                                    <Package className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="current_quantity"
-                                        name="current_quantity"
-                                        type="number"
-                                        value={data.current_quantity}
-                                        onChange={handleChange}
-                                        placeholder="Enter current quantity"
-                                        className="pl-10"
-                                        readOnly
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500">Current stock level (read-only)</p>
-                            </div>
-
                             {/* Unit of Measure */}
                             <div className="space-y-2">
                                 <Label htmlFor="unit_of_measure" className="text-sm font-medium">
@@ -328,79 +275,6 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                                     <p className="text-sm text-red-600">{errors.manufacturer}</p>
                                 )}
                             </div>
-
-                            {/* Minimum Stock Level */}
-                            <div className="space-y-2">
-                                <Label htmlFor="minimum_stock" className="text-sm font-medium">
-                                    Minimum Stock Level
-                                </Label>
-                                <div className="relative">
-                                    <TrendingDown className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="minimum_stock"
-                                        name="minimum_stock"
-                                        type="number"
-                                        min="0"
-                                        value={data.minimum_stock}
-                                        onChange={handleChange}
-                                        placeholder="Enter minimum stock level"
-                                        className="pl-10"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500">Alert threshold for low stock</p>
-                                {errors.minimum_stock && (
-                                    <p className="text-sm text-red-600">{errors.minimum_stock}</p>
-                                )}
-                            </div>
-
-                            {/* Maximum Stock Level */}
-                            <div className="space-y-2">
-                                <Label htmlFor="maximum_stock" className="text-sm font-medium">
-                                    Maximum Stock Level
-                                </Label>
-                                <div className="relative">
-                                    <TrendingUp className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="maximum_stock"
-                                        name="maximum_stock"
-                                        type="number"
-                                        min="0"
-                                        value={data.maximum_stock}
-                                        onChange={handleChange}
-                                        placeholder="Enter maximum stock level"
-                                        className="pl-10"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500">Maximum capacity limit</p>
-                                {errors.maximum_stock && (
-                                    <p className="text-sm text-red-600">{errors.maximum_stock}</p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Stock Level Summary */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                            <h4 className="text-sm font-medium text-gray-900 mb-2">Stock Level Summary</h4>
-                            <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div className="text-center">
-                                    <div className="text-lg font-semibold text-gray-900">
-                                        {data.current_quantity || 0}
-                                    </div>
-                                    <div className="text-gray-600">Current</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-lg font-semibold text-yellow-600">
-                                        {data.minimum_stock || 0}
-                                    </div>
-                                    <div className="text-gray-600">Minimum</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-lg font-semibold text-green-600">
-                                        {data.maximum_stock || 0}
-                                    </div>
-                                    <div className="text-gray-600">Maximum</div>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -424,55 +298,55 @@ const AddBatchModal = ({ open, onClose, item, categories = [], onBatchAdded, onC
                     </DialogFooter>
                 </form>
             </DialogContent>
-            
-            {/* Toast Notification */}
-            {showToast && (
-                <motion.div
-                    initial={{ opacity: 0, y: 50, scale: 0.3 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 20, scale: 0.5 }}
-                    className={`fixed top-4 right-4 z-50 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
-                        toastType === 'success' ? 'border-l-4 border-green-400' : 'border-l-4 border-red-400'
-                    }`}
-                >
-                    <div className="p-4">
-                        <div className="flex items-start">
-                            <div className={`flex-shrink-0 ${
-                                toastType === 'success' ? 'text-green-400' : 'text-red-400'
+        </Dialog>
+        {/* Toast Notification - Outside Dialog so it appears above the modal */}
+        {showToast && (
+            <motion.div
+                initial={{ opacity: 0, y: 50, scale: 0.3 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.5 }}
+                className={`fixed top-4 right-4 z-[100] max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden ${
+                    toastType === 'success' ? 'border-l-4 border-green-400' : 'border-l-4 border-red-400'
+                }`}
+            >
+                <div className="p-4">
+                    <div className="flex items-start">
+                        <div className={`flex-shrink-0 ${
+                            toastType === 'success' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                            {toastType === 'success' ? (
+                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                            ) : (
+                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            )}
+                        </div>
+                        <div className="ml-3 w-0 flex-1 pt-0.5">
+                            <p className={`text-sm font-medium ${
+                                toastType === 'success' ? 'text-green-800' : 'text-red-800'
                             }`}>
-                                {toastType === 'success' ? (
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                ) : (
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                )}
-                            </div>
-                            <div className="ml-3 w-0 flex-1 pt-0.5">
-                                <p className={`text-sm font-medium ${
-                                    toastType === 'success' ? 'text-green-800' : 'text-red-800'
-                                }`}>
-                                    {toastMessage}
-                                </p>
-                            </div>
-                            <div className="ml-4 flex-shrink-0 flex">
-                                <button
-                                    className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    onClick={() => setShowToast(false)}
-                                >
-                                    <span className="sr-only">Close</span>
-                                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                                    </svg>
-                                </button>
-                            </div>
+                                {toastMessage}
+                            </p>
+                        </div>
+                        <div className="ml-4 flex-shrink-0 flex">
+                            <button
+                                className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                onClick={() => setShowToast(false)}
+                            >
+                                <span className="sr-only">Close</span>
+                                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </button>
                         </div>
                     </div>
-                </motion.div>
-            )}
-        </Dialog>
+                </div>
+            </motion.div>
+        )}
+    </>
     );
 };
 

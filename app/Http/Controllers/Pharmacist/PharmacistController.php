@@ -847,10 +847,21 @@ public function update_item(Request $request, inventory $inventory)
             DB::commit();
             event(new InventoryUpdated('item.add', ['id' => $newInventory->id]));
 
-            return response()->json([
-                'success' => true,
-                'message' => "New batch '{$request->batch_number}' added successfully!",
-                'data' => $newInventory
+            // Check if it's an Inertia request (AJAX with Inertia header)
+            if ($request->header('X-Inertia') || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "New batch '{$request->batch_number}' added successfully!",
+                    'data' => $newInventory
+                ]);
+            }
+
+            return back()->with([
+                'flash' => [
+                    'title' => 'Success!',
+                    'message' => "New batch '{$request->batch_number}' added successfully!",
+                    'icon' => "success"
+                ]
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -859,10 +870,21 @@ public function update_item(Request $request, inventory $inventory)
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
             ]);
-            return response()->json([
-                'success' => false,
-                'message' => "Error: " . $e->getMessage()
-            ], 500);
+            
+            if ($request->header('X-Inertia') || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Error: " . $e->getMessage()
+                ], 500);
+            }
+            
+            return back()->with([
+                'flash' => [
+                    'title' => 'Error!',
+                    'message' => "Error: " . $e->getMessage(),
+                    'icon' => "error"
+                ]
+            ]);
         }
     }
 

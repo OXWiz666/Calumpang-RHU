@@ -15,8 +15,6 @@ const StockAlertNotifier = ({
 }) => {
     const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
     const [isPlaying, setIsPlaying] = useState(false);
-    const audioRef = useRef(null);
-    const soundIntervalRef = useRef(null);
 
     // Filter out dismissed alerts
     const activeAlerts = alerts.filter(alert => !dismissedAlerts.has(alert.id));
@@ -72,7 +70,7 @@ const StockAlertNotifier = ({
         
         // Stop playing after pattern completes
         setTimeout(() => {
-            setIsPlaying(false);
+                setIsPlaying(false);
         }, 1000);
     };
 
@@ -257,13 +255,3 @@ const StockAlertNotifier = ({
 };
 
 export default StockAlertNotifier;
-
-
-
-
-
-
-
-
-
-
