@@ -242,6 +242,7 @@ Route::middleware(['auth','Admin'])->group(function(){
 
         Route::get('/reports',[ReportsController::class,'index'])->name('admin.reports');
         Route::post('/reports/generate',[ReportsController::class,'generateReport'])->name('admin.reports.generate');
+        Route::get('/reports/custom',[ReportsController::class,'custom'])->name('admin.reports.custom');
         Route::get('/reports/test-data',[ReportsController::class,'testData'])->name('admin.reports.test-data');
         Route::get('/reports/test-pdf',[ReportsController::class,'testPDF'])->name('admin.reports.test-pdf');
         Route::get('/reports/templates',[ReportsController::class,'getReportTemplates'])->name('admin.reports.templates');
