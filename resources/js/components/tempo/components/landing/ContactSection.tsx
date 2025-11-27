@@ -1,5 +1,7 @@
 import React from "react";
 import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
+import { motion } from "framer-motion";
+import { MapPin, Phone, Mail, Clock, Calendar } from "lucide-react";
 
 interface ContactSectionProps {
     formErrors?: string[];
@@ -13,25 +15,64 @@ const ContactSection: React.FC<ContactSectionProps> = ({
     formError = "",
 }) => {
     const { handleAppointmentClick } = useAppointmentSession();
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.2
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.6 }
+        }
+    };
+
     return (
-        <section className="w-full py-16 px-4 md:px-8 bg-white" id="contact">
+        <section className="w-full py-24 px-4 md:px-8 bg-white overflow-hidden" id="contact">
             <div className="max-w-7xl mx-auto">
                 {/* Section Header */}
-                <div className="text-center mb-12">
-                    <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6 }}
+                    className="text-center mb-16"
+                >
+                    <div className="inline-flex items-center px-4 py-2 bg-teal-50 text-teal-800 rounded-full text-sm font-medium mb-6 border border-teal-100">
+                        <MapPin className="w-4 h-4 mr-2 text-teal-600" />
+                        Visit Us
+                    </div>
+                    <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
                         Contact Us
                     </h2>
-                    <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                    <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
                         Get in touch with Calumpang Rural Health Unit General
                         Santos City
                     </p>
-                </div>
+                </motion.div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
                     {/* Contact Information */}
-                    <div className="space-y-8">
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true }}
+                        className="space-y-8"
+                    >
                         {/* Map */}
-                        <div className="rounded-lg overflow-hidden shadow-lg h-64 md:h-[400px] border border-gray-100 transition-all duration-300 hover:shadow-xl relative group">
+                        <motion.div
+                            variants={itemVariants}
+                            className="rounded-2xl overflow-hidden shadow-2xl h-80 md:h-[400px] border border-gray-100 transition-all duration-500 hover:shadow-3xl relative group"
+                        >
                             <div className="absolute inset-0 bg-gradient-to-r from-gray-900/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none"></div>
                             <iframe
                                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3959.6284443055966!2d125.16923!3d6.0967!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x32f79ef7e2b25c07%3A0x745350b9a55d91ce!2sCalumpang%2C%20General%20Santos%20City%2C%20South%20Cotabato!5e0!3m2!1sen!2sph!4v1656123456789!5m2!1sen!2sph"
@@ -44,200 +85,171 @@ const ContactSection: React.FC<ContactSectionProps> = ({
                                 title="Barangay Calumpang General Santos City"
                                 className="w-full h-full filter contrast-[1.02] group-hover:contrast-[1.05] transition-all duration-300"
                             ></iframe>
-                        </div>
+                        </motion.div>
 
                         {/* Contact Details */}
-                        <div className="space-y-6">
-                            <div className="flex items-start space-x-4">
-                                <div className="bg-primary/10 p-3 rounded-full">
-                                    <svg
-                                        className="h-6 w-6 text-primary"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
-                                    </svg>
+                        <div className="space-y-6 pl-4">
+                            <motion.div variants={itemVariants} className="flex items-start space-x-6 group">
+                                <div className="bg-teal-50 p-4 rounded-2xl group-hover:bg-teal-100 transition-colors duration-300">
+                                    <MapPin className="h-6 w-6 text-teal-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">
                                         Our Location
                                     </h3>
-                                    <p className="text-gray-600 mt-1">
+                                    <p className="text-gray-600 leading-relaxed">
                                         Calumpang, General Santos, Soccsksargen,
                                         Philippines
                                     </p>
                                 </div>
-                            </div>
+                            </motion.div>
 
-                            <div className="flex items-start space-x-4">
-                                <div className="bg-primary/10 p-3 rounded-full">
-                                    <svg
-                                        className="h-6 w-6 text-primary"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                        <path d="M22 6l-10 7L2 6"></path>
-                                    </svg>
+                            <motion.div variants={itemVariants} className="flex items-start space-x-6 group">
+                                <div className="bg-emerald-50 p-4 rounded-2xl group-hover:bg-emerald-100 transition-colors duration-300">
+                                    <Phone className="h-6 w-6 text-emerald-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">
                                         Phone Number
                                     </h3>
-                                    <p className="text-gray-600 mt-1">
+                                    <p className="text-gray-600 leading-relaxed">
                                         (083) 554-0146
                                     </p>
                                 </div>
-                            </div>
+                            </motion.div>
 
-                            <div className="flex items-start space-x-4">
-                                <div className="bg-primary/10 p-3 rounded-full">
-                                    <svg
-                                        className="h-6 w-6 text-primary"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9l1.3 1.5a8.76 8.76 0 0 1 1.5 1.3V5.4z"></path>
-                                        <path d="M12 21v-8m0 4-4-4 4-4 4 4-4 4z"></path>
-                                    </svg>
+                            <motion.div variants={itemVariants} className="flex items-start space-x-6 group">
+                                <div className="bg-indigo-50 p-4 rounded-2xl group-hover:bg-indigo-100 transition-colors duration-300">
+                                    <Mail className="h-6 w-6 text-indigo-600" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-medium text-gray-900">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">
                                         Email Address
                                     </h3>
-                                    <p className="text-gray-600 mt-1">
+                                    <p className="text-gray-600 leading-relaxed">
                                         calumpangrhu@gmail.com
                                     </p>
                                 </div>
-                            </div>
+                            </motion.div>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Quick Contact Options */}
-                    <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-sm border border-gray-100 relative overflow-hidden group">
+                    <motion.div
+                        initial={{ opacity: 0, x: 50 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.8 }}
+                        className="bg-gradient-to-br from-white to-gray-50 rounded-3xl p-8 md:p-10 shadow-2xl border border-gray-100 relative overflow-hidden group"
+                    >
                         {/* Decorative Elements */}
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-green-500 to-blue-500"></div>
-                        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700"></div>
-                        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-green-500 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-700"></div>
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500"></div>
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-teal-500 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-1000 ease-in-out"></div>
+                        <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-500 rounded-full opacity-5 group-hover:scale-150 transition-transform duration-1000 ease-in-out"></div>
 
-                        <h3 className="text-2xl font-semibold text-gray-900 mb-6 relative">
-                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-600">
+                        <h3 className="text-3xl font-bold text-gray-900 mb-6 relative">
+                            <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-emerald-600">
                                 Get in Touch
                             </span>
-                            <div className="absolute -bottom-2 left-0 w-12 h-1 bg-gradient-to-r from-blue-500 to-green-500 rounded-full"></div>
                         </h3>
 
-                        <p className="text-gray-600 mb-8 text-lg">
+                        <p className="text-gray-600 mb-10 text-lg leading-relaxed">
                             Choose the most convenient way to reach us. We're here to help with your healthcare needs.
                         </p>
 
                         {/* Quick Contact Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                             {/* Call Us */}
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                className="bg-white rounded-2xl p-6 border border-teal-100 shadow-lg hover:shadow-xl transition-all duration-300 group cursor-pointer"
+                            >
                                 <div className="flex items-center mb-4">
-                                    <div className="bg-blue-500 p-3 rounded-full mr-4 group-hover:scale-110 transition-transform">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                                        </svg>
+                                    <div className="bg-teal-100 p-3 rounded-xl mr-4 group-hover:bg-teal-600 transition-colors duration-300">
+                                        <Phone className="w-6 h-6 text-teal-600 group-hover:text-white transition-colors duration-300" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold text-gray-900">Call Us</h4>
-                                        <p className="text-sm text-gray-600">Speak directly with our staff</p>
+                                        <h4 className="font-bold text-gray-900">Call Us</h4>
+                                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Direct Line</p>
                                     </div>
                                 </div>
-                                <a href="tel:+63835540146" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                                <a href="tel:+63835540146" className="text-teal-600 font-bold hover:text-teal-700 transition-colors text-lg">
                                     (083) 554-0146
                                 </a>
-                            </div>
+                            </motion.div>
 
                             {/* Email Us */}
-                            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200 hover:shadow-lg transition-all duration-300 group cursor-pointer">
+                            <motion.div
+                                whileHover={{ y: -5 }}
+                                className="bg-white rounded-2xl p-6 border border-emerald-100 shadow-lg hover:shadow-xl transition-all duration-300 group cursor-pointer"
+                            >
                                 <div className="flex items-center mb-4">
-                                    <div className="bg-green-500 p-3 rounded-full mr-4 group-hover:scale-110 transition-transform">
-                                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                                        </svg>
+                                    <div className="bg-emerald-100 p-3 rounded-xl mr-4 group-hover:bg-emerald-600 transition-colors duration-300">
+                                        <Mail className="w-6 h-6 text-emerald-600 group-hover:text-white transition-colors duration-300" />
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold text-gray-900">Email Us</h4>
-                                        <p className="text-sm text-gray-600">Send us a detailed message</p>
+                                        <h4 className="font-bold text-gray-900">Email Us</h4>
+                                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Support</p>
                                     </div>
                                 </div>
-                                <a href="mailto:calumpangrhu@gmail.com" className="text-green-600 font-medium hover:text-green-700 transition-colors">
+                                <a href="mailto:calumpangrhu@gmail.com" className="text-emerald-600 font-bold hover:text-emerald-700 transition-colors text-sm break-all">
                                     calumpangrhu@gmail.com
                                 </a>
-                            </div>
+                            </motion.div>
                         </div>
 
                         {/* Service Hours */}
-                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 mb-8 border border-gray-200">
-                            <div className="flex items-center mb-4">
-                                <div className="bg-gray-600 p-3 rounded-full mr-4">
-                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
+                        <div className="bg-gray-50 rounded-2xl p-8 mb-8 border border-gray-200">
+                            <div className="flex items-center mb-6">
+                                <div className="bg-gray-200 p-3 rounded-xl mr-4">
+                                    <Clock className="w-6 h-6 text-gray-700" />
                                 </div>
                                 <div>
-                                    <h4 className="font-semibold text-gray-900">Service Hours</h4>
+                                    <h4 className="font-bold text-gray-900">Service Hours</h4>
                                     <p className="text-sm text-gray-600">When we're available to help</p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                                 <div>
-                                    <p className="font-medium text-gray-700">Monday - Friday</p>
+                                    <p className="font-bold text-gray-800 mb-1">Monday - Friday</p>
                                     <p className="text-gray-600">8:00 AM - 5:00 PM</p>
                                 </div>
                                 <div>
-                                    <p className="font-medium text-gray-700">Saturday</p>
+                                    <p className="font-bold text-gray-800 mb-1">Saturday</p>
                                     <p className="text-gray-600">8:00 AM - 12:00 PM</p>
                                 </div>
                             </div>
-                            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <p className="text-sm text-yellow-800">
-                                    <span className="font-medium">Note:</span> Sunday is closed. For emergencies, please call our hotline.
+                            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-start">
+                                <div className="bg-yellow-100 p-1 rounded-full mr-3 mt-0.5">
+                                    <div className="w-2 h-2 bg-yellow-600 rounded-full"></div>
+                                </div>
+                                <p className="text-sm text-yellow-800 font-medium">
+                                    Sunday is closed. For emergencies, please call our hotline.
                                 </p>
                             </div>
                         </div>
 
                         {/* Action Buttons */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <button 
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={handleAppointmentClick}
-                                className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2 group"
+                                className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-6 py-4 rounded-xl hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2 font-bold"
                             >
-                                <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                </svg>
-                                <span className="font-medium">Book Appointment</span>
-                            </button>
-                            <button 
+                                <Calendar className="w-5 h-5" />
+                                <span>Book Appointment</span>
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                                 onClick={() => window.location.href = '/#services'}
-                                className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center space-x-2 group"
+                                className="bg-white text-gray-800 border-2 border-gray-200 px-6 py-4 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2 font-bold"
                             >
-                                <svg className="w-5 h-5 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                <span className="font-medium">View Services</span>
-                            </button>
+                                <span>View Services</span>
+                            </motion.button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             </div>
         </section>

@@ -35,6 +35,7 @@ import {
 import LandingLayout from "@/Layouts/LandingLayout";
 import CustomCalendar from "@/components/CustomCalendar";
 import CustomModal from "@/components/CustomModal";
+import { motion } from "framer-motion";
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -114,7 +115,7 @@ const SeasonalProgramDashboard = ({
             onSuccess: (page) => {
                 // Get the registration ID from the response
                 const registrationId = page.registration_id || page.props?.flash?.registration_id || 'N/A';
-                
+
                 // Show success message with Registration ID
                 alert(`Successfully registered for the program!\n\nYour Registration ID: ${registrationId}\n\nPlease check your email and SMS for confirmation details.`);
 
@@ -326,13 +327,13 @@ const SeasonalProgramDashboard = ({
     // Filter programs based on selected date
     const selectedDatePrograms = selectedDate
         ? programSchedules.filter((program) => {
-              const programDate = new Date(program.date);
-              return (
-                  programDate.getFullYear() === selectedDate.getFullYear() &&
-                  programDate.getMonth() === selectedDate.getMonth() &&
-                  programDate.getDate() === selectedDate.getDate()
-              );
-          })
+            const programDate = new Date(program.date);
+            return (
+                programDate.getFullYear() === selectedDate.getFullYear() &&
+                programDate.getMonth() === selectedDate.getMonth() &&
+                programDate.getDate() === selectedDate.getDate()
+            );
+        })
         : [];
     // Get program type icon
     const getProgramTypeIcon = (type, className = "h-4 w-4 mr-1") => {
@@ -462,11 +463,11 @@ const SeasonalProgramDashboard = ({
                                     <span>
                                         {registrationModal.program?.date
                                             ? format(
-                                                  new Date(
-                                                      registrationModal.program.date
-                                                  ),
-                                                  "MMMM d, yyyy"
-                                              )
+                                                new Date(
+                                                    registrationModal.program.date
+                                                ),
+                                                "MMMM d, yyyy"
+                                            )
                                             : "Date TBD"}
                                     </span>
                                     <input
@@ -475,33 +476,29 @@ const SeasonalProgramDashboard = ({
                                         value={
                                             registrationModal.program?.date
                                                 ? format(
-                                                      new Date(
-                                                          registrationModal.program.date
-                                                      ),
-                                                      "MMMM d, yyyy"
-                                                  )
+                                                    new Date(
+                                                        registrationModal.program.date
+                                                    ),
+                                                    "MMMM d, yyyy"
+                                                )
                                                 : "Date TBD"
                                         }
                                     />
                                 </div>
                                 <div className="flex items-center">
                                     <Clock className="h-4 w-4 mr-2 text-gray-700" />
-                                    <span>{`${
-                                        registrationModal.program?.startTime ||
+                                    <span>{`${registrationModal.program?.startTime ||
                                         ""
-                                    } - ${
-                                        registrationModal.program?.endTime || ""
-                                    }`}</span>
+                                        } - ${registrationModal.program?.endTime || ""
+                                        }`}</span>
                                     <input
                                         type="hidden"
                                         name="time"
-                                        value={`${
-                                            registrationModal.program
-                                                ?.startTime || ""
-                                        } - ${
-                                            registrationModal.program
+                                        value={`${registrationModal.program
+                                            ?.startTime || ""
+                                            } - ${registrationModal.program
                                                 ?.endTime || ""
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                                 <div className="flex items-center">
@@ -858,16 +855,30 @@ const SeasonalProgramDashboard = ({
 
     return (
         <LandingLayout>
-            <div className="container mx-auto max-w-7xl">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900">
+            <div className="container mx-auto max-w-7xl pt-24">
+                {/* Section Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="text-center mb-12"
+                >
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="inline-flex items-center px-4 py-2 bg-teal-50 text-teal-800 rounded-full text-sm font-medium mb-6 border border-teal-100"
+                    >
+                        <CalendarIcon className="w-4 h-4 mr-2 text-teal-600" />
+                        Program Schedules
+                    </motion.div>
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4 text-teal-600">
                         Schedule Calendar for Seasonal Programs
                     </h1>
-                    <p className="text-gray-600 mt-2">
-                        Manage schedules and records for Mental Health Programs
-                        and other seasonal services
+                    <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                        Manage schedules and records for Mental Health Programs and other seasonal services
                     </p>
-                </div>
+                </motion.div>
 
                 <Tabs
                     defaultValue="schedules"
@@ -876,9 +887,8 @@ const SeasonalProgramDashboard = ({
                     onValueChange={setActiveTab}
                 >
                     <TabsList
-                        className={`grid w-full md:w-auto ${
-                            isAuthenticated ? "grid-cols-2" : "grid-cols-1"
-                        } mb-8`}
+                        className={`grid w-full md:w-auto ${isAuthenticated ? "grid-cols-2" : "grid-cols-1"
+                            } mb-8`}
                     >
                         <TabsTrigger value="schedules">
                             Program Schedules
@@ -950,7 +960,7 @@ const SeasonalProgramDashboard = ({
                                                     key={i}
                                                     variant={
                                                         programFilter ===
-                                                        type.servicename
+                                                            type.servicename
                                                             ? "default"
                                                             : "outline"
                                                     }
@@ -976,9 +986,9 @@ const SeasonalProgramDashboard = ({
                                         <CardTitle className="text-xl">
                                             {selectedDate
                                                 ? `Programs for ${format(
-                                                      selectedDate,
-                                                      "MMMM d, yyyy"
-                                                  )}`
+                                                    selectedDate,
+                                                    "MMMM d, yyyy"
+                                                )}`
                                                 : "All Upcoming Program Schedules"}
                                             {/* {programFilter &&
                                                 ` - ${getProgramTypeLabel(
@@ -1014,15 +1024,14 @@ const SeasonalProgramDashboard = ({
                                                 data-program-id={schedule.id}
                                             >
                                                 <div
-                                                    className={`h-1 ${
-                                                        schedule.status ===
+                                                    className={`h-1 ${schedule.status ===
                                                         "completed"
-                                                            ? "bg-gray-300"
-                                                            : schedule.availableSlots ===
-                                                              0
+                                                        ? "bg-gray-300"
+                                                        : schedule.availableSlots ===
+                                                            0
                                                             ? "bg-red-500"
                                                             : "bg-green-500"
-                                                    }`}
+                                                        }`}
                                                 ></div>
                                                 <CardContent className="p-4">
                                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1039,22 +1048,22 @@ const SeasonalProgramDashboard = ({
                                                                 <Badge
                                                                     variant={
                                                                         schedule.status ===
-                                                                        "completed"
+                                                                            "completed"
                                                                             ? "outline"
                                                                             : schedule.availableSlots ===
-                                                                              0
-                                                                            ? "destructive"
-                                                                            : "default"
+                                                                                0
+                                                                                ? "destructive"
+                                                                                : "default"
                                                                     }
                                                                     className="ml-2"
                                                                 >
-                                                                {schedule.status === "completed" ? (
-                                                                    "Completed"
-                                                                ) : schedule.availableSlots === 0 ? (
-                                                                    "Fully Booked"
-                                                                ) : (
-                                                                    "Available"
-                                                                )}
+                                                                    {schedule.status === "completed" ? (
+                                                                        "Completed"
+                                                                    ) : schedule.availableSlots === 0 ? (
+                                                                        "Fully Booked"
+                                                                    ) : (
+                                                                        "Available"
+                                                                    )}
                                                                 </Badge>
                                                             </div>
                                                             <div className="flex items-center text-gray-600 text-sm gap-4">
@@ -1119,7 +1128,7 @@ const SeasonalProgramDashboard = ({
                                                                 className="mt-2"
                                                                 variant={
                                                                     schedule.status === "completed" ||
-                                                                    schedule.availableSlots === 0
+                                                                        schedule.availableSlots === 0
                                                                         ? "outline"
                                                                         : "default"
                                                                 }
@@ -1220,19 +1229,18 @@ const SeasonalProgramDashboard = ({
                                                     className="border rounded-lg overflow-hidden"
                                                 >
                                                     <div
-                                                        className={`h-1 ${
-                                                            record
+                                                        className={`h-1 ${record
+                                                            .program_schedule
+                                                            .status ==
+                                                            "completed"
+                                                            ? "bg-green-500"
+                                                            : record
                                                                 .program_schedule
                                                                 .status ==
-                                                            "completed"
-                                                                ? "bg-green-500"
-                                                                : record
-                                                                      .program_schedule
-                                                                      .status ==
-                                                                  "scheduled"
+                                                                "scheduled"
                                                                 ? "bg-blue-500"
                                                                 : "bg-red-500"
-                                                        }`}
+                                                            }`}
                                                     ></div>
                                                     <div className="p-4">
                                                         <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -1256,27 +1264,27 @@ const SeasonalProgramDashboard = ({
                                                                             record
                                                                                 .program_schedule
                                                                                 .status ===
-                                                                            "completed"
+                                                                                "completed"
                                                                                 ? "success"
                                                                                 : record
-                                                                                      .program_schedule
-                                                                                      .status ===
-                                                                                  "scheduled"
-                                                                                ? "default"
-                                                                                : "destructive"
+                                                                                    .program_schedule
+                                                                                    .status ===
+                                                                                    "scheduled"
+                                                                                    ? "default"
+                                                                                    : "destructive"
                                                                         }
                                                                     >
                                                                         {record
                                                                             .program_schedule
                                                                             .status ===
-                                                                        "completed"
+                                                                            "completed"
                                                                             ? "Completed"
                                                                             : record
-                                                                                  .program_schedule
-                                                                                  .status ===
-                                                                              "scheduled"
-                                                                            ? "Scheduled"
-                                                                            : "Missed"}
+                                                                                .program_schedule
+                                                                                .status ===
+                                                                                "scheduled"
+                                                                                ? "Scheduled"
+                                                                                : "Missed"}
                                                                     </Badge>
                                                                 </div>
                                                                 <div className="mt-2 text-gray-600 text-sm">
@@ -1346,11 +1354,11 @@ const SeasonalProgramDashboard = ({
                                                                 )} */}
                                                                 {record.status ===
                                                                     "completed" && (
-                                                                    <div className="flex items-center text-green-600 text-sm">
-                                                                        <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                                        Verified
-                                                                    </div>
-                                                                )}
+                                                                        <div className="flex items-center text-green-600 text-sm">
+                                                                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                                            Verified
+                                                                        </div>
+                                                                    )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1488,8 +1496,8 @@ const SeasonalProgramDashboard = ({
                                                         {program.availableSlots <= 0
                                                             ? "Fully Booked"
                                                             : program.status === "completed"
-                                                            ? "Completed"
-                                                            : "Join the Program"}
+                                                                ? "Completed"
+                                                                : "Join the Program"}
                                                     </Button>
                                                 </div>
                                             ))
@@ -1516,13 +1524,13 @@ const SeasonalProgramDashboard = ({
                                 <p className="font-semibold text-gray-900">
                                     By registering for this health program, you agree to the following terms:
                                 </p>
-                                
+
                                 <div className="space-y-3">
                                     <div>
                                         <h4 className="font-semibold text-gray-900">1. Data Collection</h4>
                                         <p>We collect personal information including your name, contact details, birthdate, and health information for program registration and health monitoring purposes.</p>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="font-semibold text-gray-900">2. Data Usage</h4>
                                         <p>Your information will be used to:</p>
@@ -1534,22 +1542,22 @@ const SeasonalProgramDashboard = ({
                                             <li>Generate health reports and statistics</li>
                                         </ul>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="font-semibold text-gray-900">3. Data Protection</h4>
                                         <p>We implement appropriate security measures to protect your personal information from unauthorized access, alteration, disclosure, or destruction.</p>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="font-semibold text-gray-900">4. Data Sharing</h4>
                                         <p>Your information may be shared with authorized healthcare providers and program coordinators only as necessary for program delivery and health monitoring.</p>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="font-semibold text-gray-900">5. Your Rights</h4>
                                         <p>You have the right to access, update, or request deletion of your personal information. Contact us for any data-related concerns.</p>
                                     </div>
-                                    
+
                                     <div>
                                         <h4 className="font-semibold text-gray-900">6. Consent</h4>
                                         <p>By clicking "I Agree & Register", you consent to the collection, use, and processing of your personal information as described above.</p>
@@ -1591,7 +1599,7 @@ const SeasonalProgramDashboard = ({
                         <div className="px-6 py-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* New Participant Card */}
-                                <div 
+                                <div
                                     className="border-2 border-gray-200 rounded-lg p-6 cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
                                     onClick={() => handleParticipantTypeSelect('new')}
                                 >
@@ -1609,7 +1617,7 @@ const SeasonalProgramDashboard = ({
                                 </div>
 
                                 {/* Existing Participant Card */}
-                                <div 
+                                <div
                                     className="border-2 border-gray-200 rounded-lg p-6 cursor-pointer hover:border-green-500 hover:bg-green-50 transition-all duration-200"
                                     onClick={() => handleParticipantTypeSelect('existing')}
                                 >
@@ -1693,11 +1701,10 @@ const SeasonalProgramDashboard = ({
                                                                 <p className="text-sm text-gray-600">Date: {program.date}</p>
                                                                 <p className="text-sm text-gray-600">Status: {program.status}</p>
                                                             </div>
-                                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                                program.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                            <span className={`px-2 py-1 text-xs rounded-full ${program.status === 'completed' ? 'bg-green-100 text-green-800' :
                                                                 program.status === 'registered' ? 'bg-blue-100 text-blue-800' :
-                                                                'bg-gray-100 text-gray-800'
-                                                            }`}>
+                                                                    'bg-gray-100 text-gray-800'
+                                                                }`}>
                                                                 {program.status}
                                                             </span>
                                                         </div>

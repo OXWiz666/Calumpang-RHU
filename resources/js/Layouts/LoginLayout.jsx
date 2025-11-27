@@ -9,12 +9,12 @@ import { showToast } from "@/utils/toast.jsx";
 import { Toaster } from "@/components/Toaster";
 export default function LoginLayout({ children }) {
   const { flash } = usePage().props;
-  
+
   useEffect(() => {
     if (flash) {
-        showToast(flash.title, flash.message, flash.icon);
+      showToast(flash.title, flash.message, flash.icon);
     }
-}, [flash]);
+  }, [flash]);
 
   return (
     <div>
@@ -129,7 +129,7 @@ export default function LoginLayout({ children }) {
               className="absolute inset-0 opacity-40 transition-all duration-500 hover:opacity-50"
               style={{
                 backgroundImage:
-                  "url('https://i.ibb.co/wFSCZYdV/471634916-609791331562667-4920390300131702624-n.jpg')",
+                  "url('https://iili.io/fqDCxse.md.jpg')",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 filter: "blur(8px)",
@@ -141,7 +141,7 @@ export default function LoginLayout({ children }) {
             <div className="text-center animate-slide-in">
               <div className="relative group">
                 <img
-                  src="https://i.ibb.co/bjPTPJDW/344753576-269776018821308-8152932488548493632-n-removebg-preview.png"
+                  src="https://iili.io/fqDOtbj.png"
                   alt="Barangay Calumpang Logo"
                   className="w-32 h-32 mx-auto mb-8 logo-glow animate-float"
                   style={{

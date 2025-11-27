@@ -1,16 +1,7 @@
 import { Head, Link, useForm } from "@inertiajs/react";
 import { useState } from "react";
 import LoginLayout from "@/Layouts/LoginLayout";
-import NavLink from "@/Components/NavLink";
-import { Button } from "@/components/tempo/components/ui/button";
-import { Calendar } from "@/components/tempo/components/ui/calendar";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/tempo/components/ui/popover";
-import { cn } from "@/components/tempo/lib/utils"; //
-import { CalendarIcon, Clock } from "lucide-react";
+
 export default function Register({ roles, questions, errors }) {
     const { data, setData, post, processing } = useForm({
         first_name: "",
@@ -83,7 +74,7 @@ export default function Register({ roles, questions, errors }) {
                                     <ul className="text-sm text-red-600">
                                         {Object.entries(errors).map(
                                             ([key, error]) => (
-                                                <li key={key}>{error}</li>
+                                                <li key={key}>{String(error)}</li>
                                             )
                                         )}
                                     </ul>
@@ -91,7 +82,6 @@ export default function Register({ roles, questions, errors }) {
                             </div>
                         </div>
                     )}
-
                     {/* Registration Form */}
                     <form onSubmit={handleSubmit} className="mt-8 space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

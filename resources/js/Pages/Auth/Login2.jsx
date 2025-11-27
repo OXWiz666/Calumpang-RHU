@@ -55,7 +55,7 @@ export default function Login2({ flash }) {
           <div className="text-center">
             <img
               className="mx-auto h-16 w-auto"
-              src="https://i.ibb.co/bjPTPJDW/344753576-269776018821308-8152932488548493632-n-removebg-preview.png"
+              src="https://iili.io/fqDOtbj.png"
               alt="Logo"
             />
             <h2 className="mt-4 text-3xl font-extrabold text-gray-900 tracking-tight">
@@ -217,9 +217,8 @@ export default function Login2({ flash }) {
               <button
                 type="submit"
                 disabled={processing}
-                className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-300 ease-in-out transform hover:scale-[1.02] ${
-                  processing ? "opacity-75 cursor-not-allowed" : ""
-                }`}
+                className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black transition-all duration-300 ease-in-out transform hover:scale-[1.02] ${processing ? "opacity-75 cursor-not-allowed" : ""
+                  }`}
               >
                 <span className="absolute left-0 inset-y-0 flex items-center pl-3">
                   <svg

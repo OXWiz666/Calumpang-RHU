@@ -26,22 +26,39 @@ const Header = ({
     const [showPatientTypeModal, setShowPatientTypeModal] = useState(false);
     const [cameFromPatientTypeSelection, setCameFromPatientTypeSelection] = useState(false);
     const { isInAppointmentSession, handleAppointmentClick } = useAppointmentSession();
-    
+
     // Check if we're in reschedule mode (from URL or localStorage)
     const [isRescheduleMode, setIsRescheduleMode] = useState(false);
     const [isExistingPatientMode, setIsExistingPatientMode] = useState(false);
-    
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [isWhiteBackgroundPage, setIsWhiteBackgroundPage] = useState(false);
+
+    useEffect(() => {
+        // Check if current page has white background
+        const path = window.location.pathname;
+        const whitePages = ['/contact', '/about', '/faq', '/services/seasonal-programs'];
+        setIsWhiteBackgroundPage(whitePages.some(page => path.includes(page)));
+    }, []);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 20);
+        };
+        window.addEventListener("scroll", handleScroll);
+        return () => window.removeEventListener("scroll", handleScroll);
+    }, []);
+
     useEffect(() => {
         // Check URL parameters and localStorage for mode detection
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const existingPatientData = localStorage.getItem('existingPatientData');
         const patientType = localStorage.getItem('selectedPatientType');
-        
+
         setIsRescheduleMode(mode === 'reschedule');
         setIsExistingPatientMode(!!existingPatientData && patientType === 'existing');
     }, []);
-    
+
     // Determine if Seasonal Programs should be disabled
     const shouldDisableSeasonalPrograms = () => {
         // Disable in appointment session for ALL modes (Existing, New Patient, and Reschedule)
@@ -61,7 +78,7 @@ const Header = ({
         // Open Patient Type Selection Modal after accepting terms
         setShowPatientTypeModal(true);
     };
-    
+
     // Handler for closing Terms modal
     const handleTermsClose = () => {
         setShowTermsModal(false);
@@ -95,12 +112,12 @@ const Header = ({
         if (isInAppointmentSession) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Show a message that they're already in an appointment session
             alert('You are already in an appointment session. Please complete your current appointment or refresh the page to start a new one.');
             return false;
         }
-        
+
         // Normal flow - show terms modal
         setShowTermsModal(true);
     };
@@ -135,22 +152,22 @@ const Header = ({
         };
 
         window.addEventListener('openTermsOfServiceModal', handleOpenTermsModal);
-        
+
         return () => {
             window.removeEventListener('openTermsOfServiceModal', handleOpenTermsModal);
         };
     }, []);
     return (
-        <header className="w-full h-16 bg-white border-b border-gray-200 header-shadow fixed top-0 left-0 z-50">
+        <header className={`w-full h-16 fixed top-0 left-0 z-50 transition-all duration-200 ease-in-out ${isScrolled || isWhiteBackgroundPage ? "bg-white border-b border-gray-200 header-shadow" : "bg-transparent"}`}>
             <div className="container mx-auto h-full flex items-center justify-between px-4">
                 {/* Logo */}
                 <Link href="/" className="flex items-center group">
                     <img
-                        src="https://i.ibb.co/bjPTPJDW/344753576-269776018821308-8152932488548493632-n-removebg-preview.png"
+                        src="https://iili.io/fqDOtbj.png"
                         alt="Barangay Calumpang Health Center"
                         className="h-8 w-auto transition-transform duration-300 group-hover:scale-110"
                     />
-                    <span className="ml-2 font-semibold text-base text-gray-800 group-hover:text-black transition-colors duration-300">
+                    <span className={`ml-2 font-semibold text-base transition-colors duration-200 ease-in-out ${isScrolled || isWhiteBackgroundPage ? "text-gray-800 group-hover:text-black" : "text-white group-hover:text-teal-200"}`}>
                         Calumpang RHU
                     </span>
                 </Link>
@@ -159,7 +176,7 @@ const Header = ({
                 <div className="md:hidden ml-auto">
                     <button
                         onClick={toggleMobileMenu}
-                        className="text-gray-700 hover:text-gray-900 focus:outline-none focus:text-gray-900 transition-all duration-300 transform hover:scale-110 active:scale-95"
+                        className={`focus:outline-none transition-all duration-200 ease-in-out transform hover:scale-110 active:scale-95 ${isScrolled || isWhiteBackgroundPage ? "text-gray-700 hover:text-gray-900 focus:text-gray-900" : "text-white hover:text-teal-200 focus:text-teal-200"}`}
                         aria-label="toggle menu"
                     >
                         <svg
@@ -176,15 +193,14 @@ const Header = ({
 
                 {/* Mobile Menu */}
                 <div
-                    className={`fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-gray-50 to-white shadow-2xl overflow-y-auto transition-transform duration-300 ease-in-out ${
-                        mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-                    }`}
+                    className={`fixed inset-y-0 left-0 z-50 w-72 bg-gradient-to-b from-gray-50 to-white shadow-2xl overflow-y-auto transition-transform duration-300 ease-in-out ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+                        }`}
                     style={{ display: mobileMenuOpen ? "block" : "none" }}
                 >
                     <div className="flex justify-between items-center p-6 border-b border-gray-200">
                         <Link href="/" className="flex items-center group">
                             <img
-                                src="https://i.ibb.co/bjPTPJDW/344753576-269776018821308-8152932488548493632-n-removebg-preview.png"
+                                src="https://iili.io/fqDOtbj.png"
                                 alt="Barangay Calumpang Health Center"
                                 className="h-8 w-auto transition-transform duration-300 group-hover:scale-110"
                             />
@@ -256,9 +272,8 @@ const Header = ({
                                         Services
                                     </div>
                                     <svg
-                                        className={`w-4 h-4 transition-transform duration-300 ${
-                                            servicesOpen ? "rotate-180" : ""
-                                        }`}
+                                        className={`w-4 h-4 transition-transform duration-300 ${servicesOpen ? "rotate-180" : ""
+                                            }`}
                                         fill="none"
                                         stroke="currentColor"
                                         viewBox="0 0 24 24"
@@ -276,12 +291,11 @@ const Header = ({
                                         <button
                                             onClick={handleAppointmentsClick}
                                             disabled={isInAppointmentSession}
-                                            className={`w-full flex items-start py-2 px-2 text-sm font-medium rounded-md transition-all duration-300 transform ${
-                                                isInAppointmentSession 
-                                                    ? 'text-gray-400 cursor-not-allowed opacity-50' 
-                                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent hover:translate-x-1 hover:shadow-sm'
-                                            }`}
-                                            style={{ 
+                                            className={`w-full flex items-start py-2 px-2 text-sm font-medium rounded-md transition-all duration-300 transform ${isInAppointmentSession
+                                                ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                : 'text-gray-600 hover:text-gray-900 hover:bg-gradient-to-r hover:from-gray-100 hover:to-transparent hover:translate-x-1 hover:shadow-sm'
+                                                }`}
+                                            style={{
                                                 textAlign: 'left',
                                                 border: 'none',
                                                 background: 'none',
@@ -291,9 +305,8 @@ const Header = ({
                                             title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
                                         >
                                             <svg
-                                                className={`w-4 h-4 mr-2 mt-0.5 flex-shrink-0 ${
-                                                    isInAppointmentSession ? 'text-gray-400' : 'text-blue-500'
-                                                }`}
+                                                className={`w-4 h-4 mr-2 mt-0.5 flex-shrink-0 ${isInAppointmentSession ? 'text-gray-400' : 'text-blue-500'
+                                                    }`}
                                                 fill="none"
                                                 stroke="currentColor"
                                                 viewBox="0 0 24 24"
@@ -463,11 +476,11 @@ const Header = ({
 
                 {/* Desktop Navigation */}
                 <nav className="hidden md:block">
-                    <ul className="flex space-x-6">
+                    <ul className="flex space-x-10">
                         <li>
                             <Link
                                 href="/"
-                                className="nav-link group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative"
+                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage ? "text-gray-700 hover:bg-gray-100 hover:text-gray-900" : "bg-transparent text-white hover:text-teal-200 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-teal-500 after:transition-all after:duration-300 hover:after:w-full"}`}
                             >
                                 Home
                             </Link>
@@ -477,17 +490,15 @@ const Header = ({
                                 onClick={() =>
                                     setServicesDropdownOpen((prev) => !prev)
                                 }
-                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative ${
-                                    servicesDropdownOpen
-                                        ? "bg-gray-100 text-gray-900"
-                                        : ""
-                                }`}
+                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage
+                                    ? `text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${servicesDropdownOpen ? "bg-gray-100 text-gray-900" : ""}`
+                                    : `text-white hover:text-teal-200 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-teal-500 after:transition-all after:duration-300 hover:after:w-full ${servicesDropdownOpen ? "text-teal-200 after:w-full" : "bg-transparent"}`
+                                    }`}
                             >
                                 <span>Services</span>
                                 <svg
-                                    className={`ml-1 h-4 w-4 transition-transform duration-300 ${
-                                        servicesDropdownOpen ? "rotate-180" : ""
-                                    }`}
+                                    className={`ml-1 h-4 w-4 transition-transform duration-300 ${servicesDropdownOpen ? "rotate-180" : ""
+                                        }`}
                                     viewBox="0 0 20 20"
                                     fill="currentColor"
                                 >
@@ -516,19 +527,17 @@ const Header = ({
                                         <button
                                             onClick={handleAppointmentsClick}
                                             disabled={isInAppointmentSession}
-                                            className={`w-full group flex items-center rounded-lg p-3 transition-all duration-300 transform min-h-[60px] ${
-                                                isInAppointmentSession 
-                                                    ? 'opacity-50 cursor-not-allowed' 
-                                                    : 'hover:bg-gray-50 hover:translate-x-1'
-                                            }`}
+                                            className={`w-full group flex items-center rounded-lg p-3 transition-all duration-300 transform min-h-[60px] ${isInAppointmentSession
+                                                ? 'opacity-50 cursor-not-allowed'
+                                                : 'hover:bg-gray-50 hover:translate-x-1'
+                                                }`}
                                             title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
                                         >
                                             <svg
-                                                className={`mr-3 h-5 w-5 transition-colors duration-300 ${
-                                                    isInAppointmentSession 
-                                                        ? 'text-gray-400' 
-                                                        : 'text-gray-400 group-hover:text-black'
-                                                }`}
+                                                className={`mr-3 h-5 w-5 transition-colors duration-300 ${isInAppointmentSession
+                                                    ? 'text-gray-400'
+                                                    : 'text-gray-400 group-hover:text-black'
+                                                    }`}
                                                 viewBox="0 0 20 20"
                                                 fill="currentColor"
                                             >
@@ -539,20 +548,18 @@ const Header = ({
                                                 />
                                             </svg>
                                             <div className="text-center">
-                                                <p className={`text-sm font-medium transition-colors duration-300 ${
-                                                    isInAppointmentSession 
-                                                        ? 'text-gray-400' 
-                                                        : 'text-gray-900 group-hover:text-black'
-                                                }`}>
+                                                <p className={`text-sm font-medium transition-colors duration-300 ${isInAppointmentSession
+                                                    ? 'text-gray-400'
+                                                    : 'text-gray-900 group-hover:text-black'
+                                                    }`}>
                                                     {isInAppointmentSession ? 'Appointments (Active)' : 'Appointments'}
                                                 </p>
-                                                <p className={`text-xs transition-colors duration-300 ${
-                                                    isInAppointmentSession 
-                                                        ? 'text-gray-400' 
-                                                        : 'text-gray-500 group-hover:text-gray-600'
-                                                }`}>
-                                                    {isInAppointmentSession 
-                                                        ? 'Complete your current appointment first' 
+                                                <p className={`text-xs transition-colors duration-300 ${isInAppointmentSession
+                                                    ? 'text-gray-400'
+                                                    : 'text-gray-500 group-hover:text-gray-600'
+                                                    }`}>
+                                                    {isInAppointmentSession
+                                                        ? 'Complete your current appointment first'
                                                         : 'Schedule your visit to the health center'
                                                     }
                                                 </p>
@@ -574,7 +581,7 @@ const Header = ({
                                                         d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
                                                         clipRule="evenodd"
 
-/>
+                                                    />
                                                 </svg>
                                                 <div className="text-center">
                                                     <p className="text-sm font-medium text-gray-400">
@@ -600,7 +607,7 @@ const Header = ({
                                                         d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"
                                                         clipRule="evenodd"
 
-/>
+                                                    />
                                                 </svg>
                                                 <div className="text-center">
                                                     <p className="text-sm font-medium text-gray-900 group-hover:text-black transition-colors duration-300">
@@ -619,7 +626,7 @@ const Header = ({
                         <li>
                             <Link
                                 href="/about"
-                                className="nav-link group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative"
+                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage ? "text-gray-700 hover:bg-gray-100 hover:text-gray-900" : "bg-transparent text-white hover:text-teal-200 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-teal-500 after:transition-all after:duration-300 hover:after:w-full"}`}
                             >
                                 About
                             </Link>
@@ -627,7 +634,7 @@ const Header = ({
                         <li>
                             <Link
                                 href="/contact"
-                                className="nav-link group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative"
+                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage ? "text-gray-700 hover:bg-gray-100 hover:text-gray-900" : "bg-transparent text-white hover:text-teal-200 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-teal-500 after:transition-all after:duration-300 hover:after:w-full"}`}
                             >
                                 Contact
                             </Link>
@@ -635,7 +642,7 @@ const Header = ({
                         <li>
                             <Link
                                 href="/faq"
-                                className="nav-link group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative"
+                                className={`nav-link group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage ? "text-gray-700 hover:bg-gray-100 hover:text-gray-900" : "bg-transparent text-white hover:text-teal-200 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-teal-500 after:transition-all after:duration-300 hover:after:w-full"}`}
                             >
                                 FAQ
                             </Link>
@@ -651,19 +658,17 @@ const Header = ({
                             <div className="relative">
                                 <button
                                     onClick={toggleUserMenu}
-                                    className={`group inline-flex h-8 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-all duration-300 hover:bg-gray-100 hover:text-gray-900 relative ${
-                                        userMenuOpen
-                                            ? "bg-gray-100 text-gray-900"
-                                            : ""
-                                    }`}
+                                    className={`group inline-flex h-8 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 ease-in-out relative ${isScrolled || isWhiteBackgroundPage
+                                        ? `text-gray-700 hover:bg-gray-100 hover:text-gray-900 ${userMenuOpen ? "bg-gray-100 text-gray-900" : ""}`
+                                        : `text-white hover:bg-white/10 hover:text-teal-200 ${userMenuOpen ? "bg-white/10 text-teal-200" : "bg-transparent"}`
+                                        }`}
                                 >
                                     <span>
                                         {user__.firstname} {user__.lastname}
                                     </span>
                                     <svg
-                                        className={`ml-1 h-4 w-4 transition-transform duration-300 ${
-                                            userMenuOpen ? "rotate-180" : ""
-                                        }`}
+                                        className={`ml-1 h-4 w-4 transition-transform duration-300 ${userMenuOpen ? "rotate-180" : ""
+                                            }`}
                                         viewBox="0 0 20 20"
                                         fill="currentColor"
                                     >
@@ -699,34 +704,34 @@ const Header = ({
                     )}
                 </div>
             </div>
-            
-                {/* Patient Verification Modal */}
-                <PatientVerificationModal 
-                    isOpen={showPatientModal} 
-                    onClose={() => {
-                        setShowPatientModal(false);
-                        setCameFromPatientTypeSelection(false);
-                    }}
-                    onBackToSelection={handleBackToSelection}
-                    showBackButton={cameFromPatientTypeSelection}
-                />
 
-                {/* Terms of Service Modal */}
-                <TermsOfServiceModal
-                    isOpen={showTermsModal}
-                    onClose={handleTermsClose}
-                    onAccept={handleTermsAccept}
-                />
+            {/* Patient Verification Modal */}
+            <PatientVerificationModal
+                isOpen={showPatientModal}
+                onClose={() => {
+                    setShowPatientModal(false);
+                    setCameFromPatientTypeSelection(false);
+                }}
+                onBackToSelection={handleBackToSelection}
+                showBackButton={cameFromPatientTypeSelection}
+            />
 
-                {/* Patient Type Selection Modal */}
-                <PatientTypeSelectionModal
-                    isOpen={showPatientTypeModal}
-                    onClose={handlePatientTypeClose}
-                    onProceed={handlePatientTypeProceed}
-                />
+            {/* Terms of Service Modal */}
+            <TermsOfServiceModal
+                isOpen={showTermsModal}
+                onClose={handleTermsClose}
+                onAccept={handleTermsAccept}
+            />
 
-            </header>
-        );
-    };
+            {/* Patient Type Selection Modal */}
+            <PatientTypeSelectionModal
+                isOpen={showPatientTypeModal}
+                onClose={handlePatientTypeClose}
+                onProceed={handlePatientTypeProceed}
+            />
+
+        </header>
+    );
+};
 
 export default Header;

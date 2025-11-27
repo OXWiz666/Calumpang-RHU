@@ -8,9 +8,11 @@ import {
     MapPin,
     Phone,
     Twitter,
+    ArrowRight,
 } from "lucide-react";
 import { Separator } from "../ui/separator";
 import { useAppointmentSession } from "../../../../hooks/useAppointmentSession";
+import { motion } from "framer-motion";
 
 interface FooterProps {
     logoSrc?: string;
@@ -35,7 +37,7 @@ interface FooterProps {
 }
 
 const Footer = ({
-    logoSrc = "https://i.ibb.co/bjPTPJDW/344753576-269776018821308-8152932488548493632-n-removebg-preview.png",
+    logoSrc = "https://iili.io/fqDOtbj.png",
     logoStyle = {
         width: "150px",
         height: "150px",
@@ -69,135 +71,199 @@ const Footer = ({
         });
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.5 }
+        }
+    };
+
     return (
-        <footer className="bg-slate-900 text-white py-12 px-4 md:px-8 lg:px-16">
-            <div className="container mx-auto">
-                <div className="flex flex-col md:flex-row justify-between mb-8 gap-8">
+        <footer className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white py-16 px-4 md:px-8 lg:px-16 overflow-hidden">
+            {/* Animated Background Pattern */}
+            <div className="absolute inset-0 opacity-5">
+                <div className="absolute top-0 left-0 w-96 h-96 bg-teal-500 rounded-full filter blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-500 rounded-full filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            </div>
+
+            <div className="container mx-auto relative z-10">
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true }}
+                    className="flex flex-col md:flex-row justify-between mb-12 gap-12"
+                >
                     {/* Logo and description */}
-                    <div className="md:w-1/3">
-                        <div className="flex items-center mb-4">
-                            <img
+                    <motion.div variants={itemVariants} className="md:w-1/3">
+                        <motion.div
+                            className="flex items-center mb-6 group cursor-pointer"
+                            whileHover={{ scale: 1.02 }}
+                            transition={{ type: "spring", stiffness: 300 }}
+                        >
+                            <motion.img
                                 src={logoSrc}
                                 alt="Barangay Calumpang Health Center"
                                 style={{
                                     ...logoStyle,
-                                    width: "40px",
-                                    height: "40px",
+                                    width: "50px",
+                                    height: "50px",
                                 }}
-                                className="mr-3 filter drop-shadow-md rounded-full"
+                                className="mr-3 filter drop-shadow-lg rounded-full"
+                                whileHover={{ rotate: 360 }}
+                                transition={{ duration: 0.6 }}
                             />
-                            <h3 className="text-xl font-bold">
-                                Calumpang Rural Health Unit
+                            <h3 className="text-2xl font-bold bg-gradient-to-r from-white to-teal-200 bg-clip-text text-transparent">
+                                Calumpang RHU
                             </h3>
-                        </div>
-                        <p className="text-slate-300 mb-4">
+                        </motion.div>
+                        <p className="text-slate-300 mb-6 leading-relaxed">
                             Providing quality healthcare services to the
                             residents of Barangay Calumpang through our
                             innovative digital health management system.
                         </p>
                         <div className="flex space-x-4">
                             {socialLinks.map((link, index) => (
-                                <a
+                                <motion.a
                                     key={index}
                                     href={link.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-slate-300 hover:text-white transition-colors"
+                                    className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:bg-teal-600 hover:text-white transition-all duration-300 shadow-lg"
                                     aria-label={link.platform}
+                                    whileHover={{ scale: 1.1, y: -2 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
                                     {link.platform === "Facebook" && (
-                                        <Facebook size={20} />
+                                        <Facebook size={18} />
                                     )}
                                     {link.platform === "Twitter" && (
-                                        <Twitter size={20} />
+                                        <Twitter size={18} />
                                     )}
                                     {link.platform === "Instagram" && (
-                                        <Instagram size={20} />
+                                        <Instagram size={18} />
                                     )}
-                                </a>
+                                </motion.a>
                             ))}
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Quick Links */}
-                    <div className="md:w-1/3">
-                        <h4 className="text-lg font-semibold mb-4">
+                    <motion.div variants={itemVariants} className="md:w-1/3">
+                        <h4 className="text-xl font-bold mb-6 text-teal-300">
                             Quick Links
                         </h4>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-3">
                             {quickLinks.map((link, index) => (
                                 link.title === "Appointments" ? (
-                                    <button
+                                    <motion.button
                                         key={index}
                                         onClick={handleAppointmentClick}
                                         disabled={isInAppointmentSession}
-                                        className={`text-left py-1 transition-colors ${
-                                            isInAppointmentSession 
-                                                ? 'text-gray-500 cursor-not-allowed opacity-50' 
-                                                : 'text-slate-300 hover:text-white'
-                                        }`}
+                                        className={`text-left py-2 px-3 rounded-lg transition-all duration-300 flex items-center group ${isInAppointmentSession
+                                            ? 'text-gray-500 cursor-not-allowed opacity-50'
+                                            : 'text-slate-300 hover:text-white hover:bg-slate-800 hover:pl-5'
+                                            }`}
                                         title={isInAppointmentSession ? 'You are already in an appointment session' : 'Schedule an appointment'}
+                                        whileHover={!isInAppointmentSession ? { x: 5 } : {}}
                                     >
+                                        <ArrowRight className="w-4 h-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {isInAppointmentSession ? 'Appointments (Active)' : link.title}
-                                    </button>
+                                    </motion.button>
                                 ) : (
-                                    <a
+                                    <motion.a
                                         key={index}
                                         href={link.url}
-                                        className="text-slate-300 hover:text-white transition-colors py-1"
+                                        className="text-slate-300 hover:text-white transition-all duration-300 py-2 px-3 rounded-lg hover:bg-slate-800 hover:pl-5 flex items-center group"
+                                        whileHover={{ x: 5 }}
                                     >
+                                        <ArrowRight className="w-4 h-4 mr-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {link.title}
-                                    </a>
+                                    </motion.a>
                                 )
                             ))}
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Contact Information */}
-                    <div className="md:w-1/3">
-                        <h4 className="text-lg font-semibold mb-4">
+                    <motion.div variants={itemVariants} className="md:w-1/3">
+                        <h4 className="text-xl font-bold mb-6 text-teal-300">
                             Contact Us
                         </h4>
-                        <div className="space-y-3">
-                            <div className="flex items-start">
-                                <MapPin className="mr-2 h-5 w-5 text-slate-300 mt-0.5" />
-                                <span className="text-slate-300">
+                        <div className="space-y-4">
+                            <motion.div
+                                className="flex items-start group cursor-pointer p-3 rounded-lg hover:bg-slate-800 transition-all duration-300"
+                                whileHover={{ x: 5 }}
+                            >
+                                <MapPin className="mr-3 h-5 w-5 text-teal-400 mt-0.5 flex-shrink-0" />
+                                <span className="text-slate-300 group-hover:text-white transition-colors">
                                     {contactInfo.address}
                                 </span>
-                            </div>
-                            <div className="flex items-center">
-                                <Phone className="mr-2 h-5 w-5 text-slate-300" />
-                                <span className="text-slate-300">
+                            </motion.div>
+                            <motion.a
+                                href={`tel:${contactInfo.phone}`}
+                                className="flex items-center group p-3 rounded-lg hover:bg-slate-800 transition-all duration-300"
+                                whileHover={{ x: 5 }}
+                            >
+                                <Phone className="mr-3 h-5 w-5 text-teal-400 flex-shrink-0" />
+                                <span className="text-slate-300 group-hover:text-white transition-colors">
                                     {contactInfo.phone}
                                 </span>
-                            </div>
-                            <div className="flex items-center">
-                                <Mail className="mr-2 h-5 w-5 text-slate-300" />
-                                <span className="text-slate-300">
+                            </motion.a>
+                            <motion.a
+                                href={`mailto:${contactInfo.email}`}
+                                className="flex items-center group p-3 rounded-lg hover:bg-slate-800 transition-all duration-300"
+                                whileHover={{ x: 5 }}
+                            >
+                                <Mail className="mr-3 h-5 w-5 text-teal-400 flex-shrink-0" />
+                                <span className="text-slate-300 group-hover:text-white transition-colors">
                                     {contactInfo.email}
                                 </span>
-                            </div>
+                            </motion.a>
                         </div>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
 
-                <Separator className="bg-slate-700 my-6" />
+                <Separator className="bg-slate-700/50 my-8" />
 
-                <div className="flex flex-col md:flex-row justify-between items-center">
-                    <p className="text-slate-400 text-sm mb-4 md:mb-0">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-col md:flex-row justify-between items-center gap-4"
+                >
+                    <p className="text-slate-400 text-sm flex items-center">
                         {new Date().getFullYear()} Barangay Calumpang Rural
                         Health Unit. All rights reserved.
                     </p>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-full bg-slate-800 border-slate-700 hover:bg-slate-700"
-                        onClick={scrollToTop}
-                        aria-label="Back to top"
+                    <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                     >
-                        <ChevronUp className="h-5 w-5" />
-                    </Button>
-                </div>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="rounded-full bg-teal-600 border-teal-500 hover:bg-teal-500 text-white shadow-lg shadow-teal-900/50 hover:shadow-xl hover:shadow-teal-900/70 transition-all duration-300"
+                            onClick={scrollToTop}
+                            aria-label="Back to top"
+                        >
+                            <ChevronUp className="h-5 w-5" />
+                        </Button>
+                    </motion.div>
+                </motion.div>
             </div>
         </footer>
     );

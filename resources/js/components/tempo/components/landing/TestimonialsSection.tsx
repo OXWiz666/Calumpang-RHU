@@ -104,9 +104,8 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
         return Array.from({ length: 5 }, (_, i) => (
             <Star
                 key={i}
-                className={`w-4 h-4 ${
-                    i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                }`}
+                className={`w-4 h-4 ${i < rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                    }`}
             />
         ));
     };
@@ -130,13 +129,13 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                     transition: all 0.3s ease;
                 }
                   .swiper-pagination-bullet-active {
-                      background: linear-gradient(135deg, #6b7280, #374151);
+                      background: linear-gradient(135deg, #14b8a6, #10b981);
                       transform: scale(1.3);
                   }
                   .custom-button {
                       width: 50px !important;
                       height: 50px !important;
-                      background: linear-gradient(135deg, #6b7280, #374151) !important;
+                      background: linear-gradient(135deg, #14b8a6, #10b981) !important;
                       border-radius: 50% !important;
                       color: white !important;
                       display: flex !important;
@@ -158,7 +157,7 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                 }
                 .custom-button:hover {
                     transform: translateY(-50%) scale(1.1) !important;
-                    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4) !important;
+                    box-shadow: 0 6px 20px rgba(20, 184, 166, 0.4) !important;
                 }
                 .custom-button::after {
                     font-size: 18px !important;
@@ -169,10 +168,9 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
 
             <div className="container mx-auto px-4">
                 {/* Header */}
-                <div className={`text-center mb-16 transition-all duration-1000 ${
-                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                }`}>
-                    <div className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-full text-sm font-medium mb-6">
+                <div className={`text-center mb-16 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                    }`}>
+                    <div className="inline-flex items-center px-4 py-2 bg-teal-100 text-teal-800 rounded-full text-sm font-medium mb-6">
                         <Heart className="w-4 h-4 mr-2" />
                         Community Voices
                     </div>
@@ -185,37 +183,36 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                 </div>
 
                 {/* Statistics */}
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 transition-all duration-1000 delay-300 ${
-                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-                }`}>
+                <div className={`grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+                    }`}>
                     <div className="text-center bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                        <div className="flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-4">
-                            <Users className="w-8 h-8 text-gray-600" />
+                        <div className="flex items-center justify-center w-16 h-16 bg-teal-100 rounded-2xl mx-auto mb-4">
+                            <Users className="w-8 h-8 text-teal-600" />
                         </div>
                         <div className="text-3xl font-bold text-gray-900 mb-2">2,847</div>
                         <div className="text-gray-600 mb-4">Residents Served</div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="h-2 rounded-full bg-gradient-to-r from-gray-500 to-gray-600" style={{ width: '100%' }}></div>
+                            <div className="h-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600" style={{ width: '100%' }}></div>
                         </div>
                     </div>
                     <div className="text-center bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                        <div className="flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-4">
-                            <Award className="w-8 h-8 text-gray-600" />
+                        <div className="flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-2xl mx-auto mb-4">
+                            <Award className="w-8 h-8 text-emerald-600" />
                         </div>
                         <div className="text-3xl font-bold text-gray-900 mb-2">100%</div>
                         <div className="text-gray-600 mb-4">Prenatal Coverage</div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="h-2 rounded-full bg-gradient-to-r from-gray-500 to-gray-600" style={{ width: '100%' }}></div>
+                            <div className="h-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600" style={{ width: '100%' }}></div>
                         </div>
                     </div>
                     <div className="text-center bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                        <div className="flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mx-auto mb-4">
-                            <ThumbsUp className="w-8 h-8 text-gray-600" />
+                        <div className="flex items-center justify-center w-16 h-16 bg-teal-100 rounded-2xl mx-auto mb-4">
+                            <ThumbsUp className="w-8 h-8 text-teal-600" />
                         </div>
                         <div className="text-3xl font-bold text-gray-900 mb-2">4.8/5</div>
                         <div className="text-gray-600 mb-4">Community Rating</div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div className="h-2 rounded-full bg-gradient-to-r from-gray-500 to-gray-600" style={{ width: '96%' }}></div>
+                            <div className="h-2 rounded-full bg-gradient-to-r from-teal-500 to-emerald-600" style={{ width: '96%' }}></div>
                         </div>
                     </div>
                 </div>
@@ -259,7 +256,7 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                                         </div>
 
                                         {/* Category Badge */}
-                                        <div className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium mb-4">
+                                        <div className="inline-flex items-center px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-medium mb-4">
                                             {testimonial.category}
                                         </div>
 
@@ -269,7 +266,7 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                                         </p>
 
                                         {/* Highlight */}
-                                        <div className="bg-gray-50 rounded-lg p-3 mb-6">
+                                        <div className="bg-teal-50 rounded-lg p-3 mb-6">
                                             <div className="text-sm font-medium text-gray-900 mb-1">Key Benefit:</div>
                                             <div className="text-sm text-gray-600">{testimonial.highlight}</div>
                                         </div>
@@ -293,7 +290,7 @@ const TestimonialSlider: React.FC<TestimonialSliderProps> = ({
                                     </div>
 
                                     {/* Hover Effect Overlay */}
-                                    <div className="absolute inset-0 bg-gray-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                                    <div className="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                                 </div>
                             </SwiperSlide>
                         ))}
